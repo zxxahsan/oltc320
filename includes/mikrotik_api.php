@@ -1484,7 +1484,9 @@ function generateHotspotExpiryScript($mode, $price = 0, $validity = '', $selling
 
     // Mikhmon v3 indices for parseMikhmonOnLogin:
     // [0]=script, [1]=mode, [2]=price, [3]=validity, [4]=sellingPrice, [5]=datalimit, [6]=timelimit, [7]=lockUser
-    return $script . "\r\n" . '#metadata:,' . $mode . ',' . $price . ',' . $validity . ',' . $sellingPrice . ',0,' . $limitUptime . ',' . $lockUser;
+    $metadata = '#metadata:,' . $mode . ',' . $price . ',' . $validity . ',' . $sellingPrice . ',0,' . $limitUptime . ',' . $lockUser;
+    
+    return $script . '; ' . $metadata;
 }
 
 // Parse Mikhmon v3 on-login script to extract price, validity, selling price, lock user
