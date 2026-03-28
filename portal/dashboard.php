@@ -163,7 +163,7 @@ ob_start();
                 <h2 style="font-size: 2.5rem; font-weight: 900; margin-bottom: 10px; color: var(--text-primary); letter-spacing: -1px; line-height: 1.1;">
                     <?php echo htmlspecialchars($package['name'] ?? 'Tanpa Paket'); ?>
                 </h2>
-                <div style="color: var(--neon-green); font-size: 1.6rem; font-weight: 800; display: flex; align-items: baseline; gap: 8px;">
+                <div class="price-stack" style="color: var(--neon-green); font-size: 1.6rem; font-weight: 800; display: flex; align-items: baseline; gap: 8px;">
                     <?php echo formatCurrency($package['price'] ?? 0); ?> 
                     <span style="font-size: 0.9rem; color: var(--text-secondary); font-weight: 400; text-transform: lowercase;">per bulan</span>
                 </div>
@@ -463,6 +463,19 @@ document.addEventListener('DOMContentLoaded', function() {
     fetchLiveTraffic();
 });
 </script>
+
+<style>
+@media (max-width: 600px) {
+    .price-stack {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 2px !important;
+    }
+    .price-stack span {
+        font-size: 0.8rem !important;
+    }
+}
+</style>
 
 <?php
 $content = ob_get_clean();
