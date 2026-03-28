@@ -250,9 +250,10 @@ ob_start();
         document.getElementById('pRate').value = p['rate-limit'] || '';
 
         // Parse on-login script for price and validity (Mikhmon v3 format)
-        let price = 0, validity = '', selling = 0, limitUptime = '';
+        let price = 0, validity = '', selling = 0, limitUptime = '', mode = 'none';
         if (p['on-login']) {
             const parts = p['on-login'].split(',');
+            if (parts[1]) mode = parts[1];
             if (parts[2]) price = parts[2];
             if (parts[3]) validity = parts[3];
             if (parts[4]) selling = parts[4];
@@ -262,6 +263,7 @@ ob_start();
         document.getElementById('pValidity').value = validity;
         document.getElementById('pSelling').value = selling;
         document.getElementById('pLimitUptime').value = limitUptime;
+        document.getElementById('pExpiry').value = mode;
         document.getElementById('pPool').value = p['address-pool'] || 'none';
         document.getElementById('pParent').value = p['parent-queue'] || 'none';
         document.getElementById('pIdle').value = p['idle-timeout'] || '';
