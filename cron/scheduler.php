@@ -30,6 +30,18 @@ function runScheduler() {
     try {
         $pdo = getDB();
 
+        // Self-heal: Ensure critical tables exist (In case user restored an old legacy database backup)
+        $pdo->exec("CREATE TABLE IF NOT EXISTS cron_schedules (
+            id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100), task_type VARCHAR(50), schedule_time TIME, schedule_days VARCHAR(20),
+            is_active BOOLEAN DEFAULT 1, last_run DATETIME, next_run DATETIME, last_status VARCHAR(20),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+        
+        $pdo->exec("CREATE TABLE IF NOT EXISTS cron_logs (
+            id INT AUTO_INCREMENT PRIMARY KEY, schedule_id INT, status ENUM('success', 'failed', 'started'), output TEXT, error_message TEXT,
+            execution_time FLOAT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (schedule_id) REFERENCES cron_schedules(id) ON DELETE SET NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
         // Self-heal: Ensure System Heartbeat exists
         $hasHeartbeat = fetchOne("SELECT id FROM cron_schedules WHERE task_type = 'system_ping'");
         if (!$hasHeartbeat) {
