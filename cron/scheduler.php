@@ -48,13 +48,20 @@ function runScheduler() {
             $pdo->prepare("INSERT IGNORE INTO cron_schedules (name, task_type, schedule_days, schedule_time, is_active) VALUES (?, ?, ?, ?, ?)")
                 ->execute(['System Heartbeat', 'system_ping', 'every_minute', '00:00', 1]);
         }
-        // Self-heal: Force critical jobs to check continuously instead of daily
-        $pdo->exec("UPDATE cron_schedules SET schedule_days = 'every_minute' WHERE task_type IN ('auto_isolir', 'auto_invoice')");
-        // Self-heal: If any every_minute job is stuck more than 5 minutes in the future (due to old daily caching), pull it back to NOW
-        $pdo->exec("UPDATE cron_schedules SET next_run = NULL WHERE schedule_days = 'every_minute' AND next_run > DATE_ADD(NOW(), INTERVAL 5 MINUTE)");
-        
-        // Anti-stall: Forcibly clear any dead locks from previously crashed executions
-        $pdo->exec("UPDATE cron_schedules SET last_status = 'failed' WHERE last_status = 'running' AND last_run < DATE_SUB(NOW(), INTERVAL 5 MINUTE)");
+        // Self-heal: Ensure critical missing columns exist in case table was restored from a highly legacy schema
+        try {
+            $pdo->exec("ALTER TABLE cron_schedules ADD COLUMN last_status VARCHAR(20) DEFAULT NULL, ADD COLUMN last_run DATETIME DEFAULT NULL, ADD COLUMN next_run DATETIME DEFAULT NULL");
+        } catch (Throwable $e) {}
+
+        try {
+            // Self-heal: Force critical jobs to check continuously instead of daily
+            $pdo->exec("UPDATE cron_schedules SET schedule_days = 'every_minute' WHERE task_type IN ('auto_isolir', 'auto_invoice')");
+            // Self-heal: If any every_minute job is stuck more than 5 minutes in the future (due to old daily caching), pull it back to NOW
+            $pdo->exec("UPDATE cron_schedules SET next_run = NULL WHERE schedule_days = 'every_minute' AND next_run > DATE_ADD(NOW(), INTERVAL 5 MINUTE)");
+            
+            // Anti-stall: Forcibly clear any dead locks from previously crashed executions
+            $pdo->exec("UPDATE cron_schedules SET last_status = 'failed' WHERE last_status = 'running' AND last_run < DATE_SUB(NOW(), INTERVAL 5 MINUTE)");
+        } catch (Throwable $e) {}
 
         // Get all active schedules
         $schedules = fetchAll("
@@ -460,15 +467,18 @@ function runSystemPing($pdo)
 
     try {
         $pdo->exec("ALTER TABLE customers ADD COLUMN usage_last_rx BIGINT DEFAULT 0, ADD COLUMN usage_last_tx BIGINT DEFAULT 0");
-    } catch (Exception $e) {}
+    } catch (Throwable $e) {}
     
     // Prevent 32-bit Integer overflow causing phantom traffic "resets" upon crossing 2.14GB demarcations
     try {
         $pdo->exec("ALTER TABLE customers MODIFY COLUMN usage_bytes_in BIGINT UNSIGNED DEFAULT 0, MODIFY COLUMN usage_bytes_out BIGINT UNSIGNED DEFAULT 0");
-    } catch (Exception $e) {}
+    } catch (Throwable $e) {}
 
     // Auto-Reset cascades executing at Midnight on the 1st of every month automatically purging old vectors
-    $pdo->exec("UPDATE customers SET usage_bytes_in=0, usage_bytes_out=0, usage_last_rx=0, usage_last_tx=0, usage_last_reset=CURDATE() WHERE DATE_FORMAT(usage_last_reset, '%Y-%m') != DATE_FORMAT(CURDATE(), '%Y-%m')");
+    try {
+        $pdo->exec("ALTER TABLE customers ADD COLUMN usage_last_reset DATE DEFAULT NULL");
+        $pdo->exec("UPDATE customers SET usage_bytes_in=0, usage_bytes_out=0, usage_last_rx=0, usage_last_tx=0, usage_last_reset=CURDATE() WHERE DATE_FORMAT(usage_last_reset, '%Y-%m') != DATE_FORMAT(CURDATE(), '%Y-%m') OR usage_last_reset IS NULL");
+    } catch (Throwable $e) {}
 
     $routers = getAllRouters();
     foreach ($routers as $r) {
