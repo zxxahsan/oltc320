@@ -1239,11 +1239,20 @@ function syncHotspotSalesStatus()
         $pdo->exec("ALTER TABLE hotspot_sales MODIFY COLUMN status ENUM('inactive', 'active', 'expired') DEFAULT 'inactive'");
     }
 
-    // Additional columns for detailed history (Phase 4)
-    $pdo->exec("ALTER TABLE hotspot_sales ADD COLUMN IF NOT EXISTS mac_address VARCHAR(20) DEFAULT NULL");
-    $pdo->exec("ALTER TABLE hotspot_sales ADD COLUMN IF NOT EXISTS hostname VARCHAR(100) DEFAULT NULL");
-    $pdo->exec("ALTER TABLE hotspot_sales ADD COLUMN IF NOT EXISTS uptime VARCHAR(20) DEFAULT '0s'");
-    $pdo->exec("ALTER TABLE hotspot_sales ADD COLUMN IF NOT EXISTS expired_at DATETIME DEFAULT NULL");
+    // Additional columns for detailed history (Phase 4) - Robust Check
+    $existingCols = $pdo->query("SHOW COLUMNS FROM hotspot_sales")->fetchAll(PDO::FETCH_COLUMN);
+    $neededCols = [
+        'mac_address' => "VARCHAR(20) DEFAULT NULL",
+        'hostname'    => "VARCHAR(100) DEFAULT NULL",
+        'uptime'      => "VARCHAR(20) DEFAULT '0s'",
+        'expired_at'  => "DATETIME DEFAULT NULL"
+    ];
+
+    foreach ($neededCols as $col => $definition) {
+        if (!in_array($col, $existingCols)) {
+            $pdo->exec("ALTER TABLE hotspot_sales ADD COLUMN $col $definition");
+        }
+    }
 
     // 2. Identify Vouchers needing status check
     $inactives = fetchAll("SELECT id, username FROM hotspot_sales WHERE status = 'inactive'");
