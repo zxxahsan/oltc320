@@ -353,23 +353,24 @@ ob_start();
         
         <hr style="margin: 30px 0; border-color: var(--border-color);">
         
-        <h4 style="margin-bottom: 15px; color: var(--neon-cyan);">Cronjob & Task Scheduler</h4>
+        <h4 style="margin-bottom: 15px; color: var(--neon-cyan);">MikroTik Scheduler & Automation</h4>
         
         <!-- Cronjob Info Box -->
         <div style="background: rgba(0,255,136,0.08); border: 1px solid #00ff88; border-radius: 10px; padding: 16px 20px; margin-bottom: 20px;">
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
                 <i class="fas fa-clock" style="color: #00ff88;"></i>
-                <strong style="color: #00ff88;">Konfigurasi Cronjob</strong>
+                <strong style="color: #00ff88;">Konfigurasi MikroTik Scheduler</strong>
             </div>
             <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 10px;">
-                Gunakan salah satu metode di bawah ini untuk menjalankan tugas otomatis (isolir otomatis, kirim invoice, dll). Sangat disarankan untuk menjalankan setiap <strong>1 menit</strong>.
+                Pastikan Anda menyalin URL di bawah ini ke dalam System Scheduler di RouterOS MikroTik Anda.<br>
+                Jadwalkan untuk dieksekusi <strong>Setiap 1 Menit</strong> agar sistem Isolir & Tagihan otomatis bisa berjalan tepat waktu.
             </p>
             
             <div style="margin-bottom: 15px;">
                 <label style="display: block; font-size: 12px; color: #00ff88; margin-bottom: 5px;">Metode 1: Script CLI (Direkomendasikan untuk VPS)</label>
                 <div style="display: flex; gap: 10px; align-items: center;">
                     <input type="text" id="cron_cli_path" readonly
-                        value="* * * * * /usr/bin/php <?php echo str_replace('\\', '/', realpath(__DIR__ . '/../cron/scheduler.php')); ?>"
+                        value='/tool fetch url="<?php echo APP_URL . "/cron/scheduler.php"; ?>" keep-result=no;'
                         style="flex: 1; background: rgba(0,0,0,0.3); border: 1px solid rgba(0,255,136,0.3); color: #fff; border-radius: 6px; padding: 8px 12px; font-size: 12px; font-family: monospace; cursor: pointer;"
                         onclick="this.select()">
                     <button type="button" onclick="copyWebhookUrl('cron_cli_path', this)" style="background: #00ff88; color: #000; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; white-space: nowrap;">
@@ -381,24 +382,14 @@ ob_start();
             <div>
                 <label style="display: block; font-size: 12px; color: #00ff88; margin-bottom: 5px;">Metode 2: URL Task (Untuk aaPanel / Cloud Hosting)</label>
                 <div style="display: flex; gap: 10px; align-items: center;">
-                    <?php 
-                    $cronToken = getSettingValue('CRON_TOKEN');
-                    if (!$cronToken) {
-                        $cronToken = bin2hex(random_bytes(16));
-                        // Save immediately so run.php can validate it
-                        insert('settings', ['setting_key' => 'CRON_TOKEN', 'setting_value' => $cronToken]);
-                    }
-                    $cronUrl = APP_URL . "/cron/run.php?token=" . $cronToken;
-                    ?>
                     <input type="text" id="cron_web_url" readonly
-                        value="<?php echo $cronUrl; ?>"
+                        value="<?php echo APP_URL; ?>/cron/scheduler.php"
                         style="flex: 1; background: rgba(0,0,0,0.3); border: 1px solid rgba(0,255,136,0.3); color: #fff; border-radius: 6px; padding: 8px 12px; font-size: 12px; font-family: monospace; cursor: pointer;"
                         onclick="this.select()">
                     <button type="button" onclick="copyWebhookUrl('cron_web_url', this)" style="background: #00ff88; color: #000; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; white-space: nowrap;">
-                        <i class="fas fa-copy"></i> Salin
+                        <i class="fas fa-copy"></i> Copy Web URL
                     </button>
                 </div>
-                <input type="hidden" name="cron_token" value="<?php echo $cronToken; ?>">
             </div>
         </div>
 

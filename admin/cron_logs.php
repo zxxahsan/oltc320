@@ -1,12 +1,12 @@
 <?php
 /**
- * Cronjob Execution Logs Viewer
+ * MikroTik Scheduler Execution Logs Viewer
  */
 require_once '../includes/auth.php';
 requireAdminLogin();
 
-$pageTitle = 'Riwayat Cronjob';
-$pageDescription = 'Pantau eksekusi jadwal Cronjob secara detail';
+$pageTitle = 'Riwayat MikroTik Scheduler';
+$pageDescription = 'Pantau eksekusi jadwal MikroTik secata detail';
 
 // Get pagination
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
@@ -37,9 +37,9 @@ ob_start();
 ?>
 <div class="card">
     <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-        <h3 class="card-title" style="margin: 0;"><i class="fas fa-microchip"></i> Riwayat Eksekusi Cronjob</h3>
-        <div>
-            <a href="settings.php" class="btn btn-secondary btn-sm"><i class="fas fa-cog"></i> Pengaturan Cron</a>
+        <h3 class="card-title" style="margin: 0;"><i class="fas fa-microchip"></i> Riwayat Eksekusi MikroTik Scheduler</h3>
+        <div class="card-tools">
+            <a href="settings.php" class="btn btn-secondary btn-sm"><i class="fas fa-cog"></i> Pengaturan Scheduler</a>
             <button onclick="location.reload()" class="btn btn-primary btn-sm"><i class="fas fa-sync"></i> Refresh Data</button>
         </div>
     </div>
@@ -60,7 +60,7 @@ ob_start();
                     <tr>
                         <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 30px;">
                             <i class="fas fa-inbox" style="font-size: 2rem; margin-bottom: 10px; opacity: 0.5;"></i><br>
-                            Belum ada rekam jejak eksekusi Cronjob. Pastikan Cronjob server sudah berjalan dengan mengetik `crontab -e` di terminal.
+                            Belum ada rekam jejak eksekusi MikroTik Scheduler. Pastikan System Scheduler di MikroTik berjalan mengarah ke URL Gembok Anda.
                         </td>
                     </tr>
                 <?php else: ?>
