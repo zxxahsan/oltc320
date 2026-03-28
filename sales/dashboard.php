@@ -135,12 +135,12 @@ ob_start();
         <!-- Left: Active Vouchers (65%) -->
         <div style="flex: 2; min-width: 350px;">
             <div class="card" style="border-top: 4px solid var(--neon-green); height: 100%;">
-                <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 15px;">
+                <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding: 15px 20px;">
                     <h3 class="card-title" style="color: var(--neon-green); font-size: 1.1rem; margin-bottom: 0;">
                         <i class="fas fa-bolt"></i> Voucher Sedang Aktif
                     </h3>
                 </div>
-                <div class="card-body" style="padding: 20px 0;">
+                <div class="card-body" style="padding: 20px;">
                     <div class="table-responsive">
                         <table class="table table-hover" id="activeTable">
                             <thead>
@@ -193,12 +193,12 @@ ob_start();
         <!-- Right: Inactive/Stock (35%) -->
         <div style="flex: 1; min-width: 300px;">
             <div class="card" style="border-top: 4px solid var(--text-muted); height: 100%;">
-                <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 15px;">
+                <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding: 15px 20px;">
                     <h3 class="card-title" style="color: var(--text-secondary); font-size: 1.1rem; margin-bottom: 0;">
                         <i class="fas fa-clock"></i> Stok Ready
                     </h3>
                 </div>
-                <div class="card-body" style="padding: 20px 0;">
+                <div class="card-body" style="padding: 20px;">
                     <div class="table-responsive">
                         <table class="table table-hover" id="inactiveTable">
                             <thead>
