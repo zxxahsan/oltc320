@@ -88,141 +88,149 @@ ob_start();
         </div>
     </div>
 
-    <!-- Quick Actions -->
-    <div class="card" style="margin-bottom: 30px; border-top: 4px solid var(--neon-cyan);">
-        <div style="padding: 10px 0 20px 0;">
-            <h3 style="color: var(--neon-cyan); margin: 0; font-size: 1.2rem;">
-                <i class="fas fa-rocket"></i> Aksi Cepat
-            </h3>
-        </div>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px;">
-            <a href="vouchers.php" class="btn btn-primary" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 25px; border-radius: 16px; background: var(--gradient-primary); box-shadow: 0 8px 15px rgba(0, 245, 255, 0.2);">
-                <i class="fas fa-ticket-alt" style="font-size: 2rem;"></i>
-                <span style="font-size: 1rem; font-weight: 700;">Buat Voucher Baru</span>
-            </a>
-            
-                <span style="font-size: 1rem; font-weight: 700;">Riwayat Penjualan</span>
-            </a>
-        </div>
-    </div>
-
-    <div style="display: flex; flex-direction: column; gap: 30px; margin-bottom: 30px;">
-        <!-- Active Vouchers (Current Session) -->
-        <div class="card" style="border-top: 4px solid var(--neon-green);">
-            <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 15px;">
-                <h3 class="card-title" style="color: var(--neon-green); font-size: 1.1rem; margin-bottom: 0;">
-                    <i class="fas fa-bolt"></i> Voucher Sedang Aktif
+    <!-- Quick Actions & Monthly Stats -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 25px; margin-bottom: 30px;">
+        <!-- Quick Actions -->
+        <div class="card" style="border-top: 4px solid var(--neon-cyan); height: 100%;">
+            <div style="padding: 10px 0 15px 0;">
+                <h3 style="color: var(--neon-cyan); margin: 0; font-size: 1.1rem;">
+                    <i class="fas fa-rocket"></i> Aksi Cepat
                 </h3>
             </div>
-            <div class="card-body" style="padding: 20px 0;">
-                <div class="table-responsive">
-                    <table class="table table-hover" id="activeTable">
-                        <thead>
-                            <tr>
-                                <th>Status</th>
-                                <th>Waktu Login</th>
-                                <th>Username</th>
-                                <th>Paket</th>
-                                <th>Perangkat</th>
-                                <th>Uptime</th>
-                                <th>Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($activeVouchers as $v): 
-                                $isOnline = in_array($v['username'], $onlineUsers);
-                            ?>
-                                <tr>
-                                    <td>
-                                        <?php if ($isOnline): ?>
-                                            <span class="status-dot status-online"></span> <span style="color: var(--neon-green); font-size: 0.75rem; font-weight: bold;">Online</span>
-                                        <?php else: ?>
-                                            <span class="status-dot"></span> <span style="color: var(--text-muted); font-size: 0.75rem;">Offline</span>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td>
-                                        <div style="font-weight: 600; color: var(--text-primary);"><?php echo date('d M, H:i', strtotime($v['used_at'])); ?></div>
-                                        <div style="font-size: 0.75rem; color: var(--neon-orange);">Exp: <?php echo $v['expired_at'] ? date('d M, H:i', strtotime($v['expired_at'])) : '-'; ?></div>
-                                    </td>
-                                    <td>
-                                        <strong style="color: var(--neon-cyan); letter-spacing: 1px;"><?php echo htmlspecialchars($v['username']); ?></strong>
-                                    </td>
-                                    <td><span class="badge badge-info"><?php echo htmlspecialchars($v['profile']); ?></span></td>
-                                    <td>
-                                        <div style="font-size: 0.85rem; font-family: monospace;"><?php echo htmlspecialchars($v['mac_address'] ?? 'Pending...'); ?></div>
-                                        <div style="font-size: 0.75rem; color: var(--text-muted);"><?php echo htmlspecialchars($v['hostname'] ?? ''); ?></div>
-                                    </td>
-                                    <td style="font-weight: 700; color: var(--neon-green);"><?php echo htmlspecialchars($v['uptime'] ?? '0s'); ?></td>
-                                    <td>
-                                        <a href="print_voucher.php?users=<?php echo urlencode($v['username']); ?>" target="_blank" class="btn btn-sm btn-secondary">
-                                            <i class="fas fa-print"></i>
-                                        </a>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                            <?php if (empty($activeVouchers)): ?>
-                                <tr><td colspan="6" class="text-center text-muted" style="padding: 40px;">Belum ada voucher yang aktif.</td></tr>
-                            <?php endif; ?>
-                        </tbody>
-                    </table>
-                </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <a href="vouchers.php" class="btn btn-primary" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 15px; border-radius: 12px; background: var(--gradient-primary); box-shadow: 0 4px 10px rgba(0, 245, 255, 0.15);">
+                    <i class="fas fa-plus-circle" style="font-size: 1.5rem;"></i>
+                    <span style="font-size: 0.9rem; font-weight: 700;">Buat Voucher</span>
+                </a>
+                <a href="history.php" class="btn btn-secondary" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 15px; border-radius: 12px; background: var(--bg-secondary); border: 1px solid var(--border-color);">
+                    <i class="fas fa-history" style="font-size: 1.5rem; color: var(--neon-purple);"></i>
+                    <span style="font-size: 0.9rem; font-weight: 700;">Riwayat</span>
+                </a>
             </div>
         </div>
 
-        <!-- Inactive Vouchers (Ready to sell) -->
-        <div class="card" style="border-top: 4px solid var(--text-muted);">
-            <div class="card-header">
-                <h3 class="card-title" style="color: var(--text-secondary); font-size: 1.1rem;"><i class="fas fa-clock"></i> Stok Voucher Ready</h3>
-            </div>
-            <div class="card-body" style="padding: 20px 0;">
-                <div class="table-responsive">
-                    <table class="table table-hover" id="inactiveTable">
-                        <thead>
-                            <tr>
-                                <th>Generate</th>
-                                <th>Username</th>
-                                <th>Password</th>
-                                <th>Paket</th>
-                                <th>Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($inactiveVouchers as $v): ?>
-                                <tr>
-                                    <td style="font-size: 0.85rem;"><?php echo date('d/m, H:i', strtotime($v['created_at'])); ?></td>
-                                    <td><strong style="color: var(--text-primary);"><?php echo htmlspecialchars($v['username']); ?></strong></td>
-                                    <td><code style="background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px;"><?php echo htmlspecialchars($v['password']); ?></code></td>
-                                    <td><span class="badge badge-secondary"><?php echo htmlspecialchars($v['profile']); ?></span></td>
-                                    <td>
-                                        <a href="print_voucher.php?users=<?php echo urlencode($v['username']); ?>" target="_blank" class="btn btn-sm btn-info">
-                                            <i class="fas fa-print"></i>
-                                        </a>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                            <?php if (empty($inactiveVouchers)): ?>
-                                <tr><td colspan="5" class="text-center text-muted" style="padding: 30px;">Stok voucher kosong.</td></tr>
-                            <?php endif; ?>
-                        </tbody>
-                    </table>
+        <!-- Monthly Stats Summary -->
+        <div class="card" style="border-left: 5px solid var(--neon-green); height: 100%; display: flex; flex-direction: column; justify-content: center; padding: 25px;">
+            <p style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; font-weight: 700; margin-bottom: 10px;">Penjualan Bulan <?php echo date('F'); ?></p>
+            <div style="display: flex; justify-content: space-between; align-items: flex-end;">
+                <div>
+                    <h2 style="font-size: 2.2rem; font-weight: 800; color: var(--text-primary); margin: 0; line-height: 1;">
+                        <?php echo (int)$monthSales['count']; ?> 
+                        <span style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 400;">Unit</span>
+                    </h2>
                 </div>
+                <div style="text-align: right;">
+                    <div style="color: var(--neon-green); font-size: 1.5rem; font-weight: 800; line-height: 1; margin-bottom: 4px;"><?php echo formatCurrency($monthSales['total']); ?></div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">Total Omset</div>
+                </div>
+            </div>
+            <div style="margin-top: 15px; height: 6px; background: rgba(0,255,136,0.1); border-radius: 3px; overflow: hidden;">
+                <div style="width: 75%; height: 100%; background: var(--neon-green); box-shadow: 0 0 10px var(--neon-green);"></div>
             </div>
         </div>
     </div>
 
-    <!-- Monthly Stats Summary -->
-    <div class="card" style="border-left: 5px solid var(--neon-green); padding: 30px;">
-        <div style="display: flex; flex-wrap: wrap; gap: 20px; justify-content: space-between; align-items: center;">
-            <div>
-                <p style="color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase; font-weight: 700; margin-bottom: 5px;">Penjualan Bulan <?php echo date('F'); ?></p>
-                <h2 style="font-size: 2rem; font-weight: 800; color: var(--text-primary); margin: 0;"><?php echo (int)$monthSales['count']; ?> <span style="font-size: 0.9rem; color: var(--text-secondary); font-weight: 400;">Voucher Terjual</span></h2>
+    <!-- Tables Row: Side-by-Side on Desktop -->
+    <div style="display: flex; flex-wrap: wrap; gap: 25px;">
+        <!-- Left: Active Vouchers (65%) -->
+        <div style="flex: 2; min-width: 350px;">
+            <div class="card" style="border-top: 4px solid var(--neon-green); height: 100%;">
+                <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 15px;">
+                    <h3 class="card-title" style="color: var(--neon-green); font-size: 1.1rem; margin-bottom: 0;">
+                        <i class="fas fa-bolt"></i> Voucher Sedang Aktif
+                    </h3>
+                </div>
+                <div class="card-body" style="padding: 20px 0;">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="activeTable">
+                            <thead>
+                                <tr>
+                                    <th>Status</th>
+                                    <th>Login</th>
+                                    <th>Username</th>
+                                    <th>Paket</th>
+                                    <th>Uptime</th>
+                                    <th>Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($activeVouchers as $v): 
+                                    $isOnline = in_array($v['username'], $onlineUsers);
+                                ?>
+                                    <tr>
+                                        <td>
+                                            <?php if ($isOnline): ?>
+                                                <span class="status-dot status-online"></span> <span style="color: var(--neon-green); font-size: 0.75rem; font-weight: bold;">Online</span>
+                                            <?php else: ?>
+                                                <span class="status-dot"></span> <span style="color: var(--text-muted); font-size: 0.75rem;">Offline</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td>
+                                            <div style="font-weight: 600; font-size: 0.85rem; color: var(--text-primary);"><?php echo date('d M, H:i', strtotime($v['used_at'])); ?></div>
+                                        </td>
+                                        <td>
+                                            <strong style="color: var(--neon-cyan); letter-spacing: 0.5px;"><?php echo htmlspecialchars($v['username']); ?></strong>
+                                        </td>
+                                        <td><span class="badge badge-info" style="font-size: 0.7rem;"><?php echo htmlspecialchars($v['profile']); ?></span></td>
+                                        <td style="font-weight: 700; color: var(--neon-green);"><?php echo htmlspecialchars($v['uptime'] ?? '0s'); ?></td>
+                                        <td>
+                                            <a href="print_voucher.php?users=<?php echo urlencode($v['username']); ?>" target="_blank" class="btn btn-sm btn-secondary" style="padding: 4px 8px;">
+                                                <i class="fas fa-print"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                                <?php if (empty($activeVouchers)): ?>
+                                    <tr><td colspan="6" class="text-center text-muted" style="padding: 40px;">Belum ada voucher aktif.</td></tr>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
-            <div style="text-align: right;">
-                <div style="color: var(--neon-green); font-size: 1.8rem; font-weight: 800;"><?php echo formatCurrency($monthSales['total']); ?></div>
-                <div style="font-size: 0.8rem; color: var(--text-muted);">Total Omset Bulanan</div>
+        </div>
+
+        <!-- Right: Inactive/Stock (35%) -->
+        <div style="flex: 1; min-width: 300px;">
+            <div class="card" style="border-top: 4px solid var(--text-muted); height: 100%;">
+                <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 15px;">
+                    <h3 class="card-title" style="color: var(--text-secondary); font-size: 1.1rem; margin-bottom: 0;">
+                        <i class="fas fa-clock"></i> Stok Ready
+                    </h3>
+                </div>
+                <div class="card-body" style="padding: 20px 0;">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="inactiveTable">
+                            <thead>
+                                <tr>
+                                    <th>Username</th>
+                                    <th>Paket</th>
+                                    <th>Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($inactiveVouchers as $v): ?>
+                                    <tr>
+                                        <td><strong style="color: var(--text-primary);"><?php echo htmlspecialchars($v['username']); ?></strong></td>
+                                        <td><span class="badge badge-secondary" style="font-size: 0.7rem;"><?php echo htmlspecialchars($v['profile']); ?></span></td>
+                                        <td>
+                                            <a href="print_voucher.php?users=<?php echo urlencode($v['username']); ?>" target="_blank" class="btn btn-sm btn-info" style="padding: 4px 8px;">
+                                                <i class="fas fa-print"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                                <?php if (empty($inactiveVouchers)): ?>
+                                    <tr><td colspan="3" class="text-center text-muted" style="padding: 30px;">Stok kosong.</td></tr>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
+</div>
 </div>
 
 <script>

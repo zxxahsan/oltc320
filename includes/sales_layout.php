@@ -74,30 +74,6 @@ if (isset($_GET['switch_router'])) {
                 100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 255, 136, 0); }
             }
 
-            /* Floating Theme Toggle */
-            .floating-theme-toggle {
-                position: fixed;
-                bottom: 85px; /* Above bottom nav on mobile */
-                right: 20px;
-                z-index: 1050;
-                background: var(--gradient-primary);
-                width: 50px;
-                height: 50px;
-                border-radius: 50%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                box-shadow: 0 4px 15px rgba(0, 245, 255, 0.4);
-                cursor: pointer;
-                border: none;
-                transition: transform 0.3s;
-                color: #fff;
-            }
-            .floating-theme-toggle:hover {
-                transform: scale(1.1);
-                box-shadow: 0 6px 20px rgba(0, 245, 255, 0.6);
-            }
-
             /* Dark Neon Theme (Default) */
             --bg-primary: #0a0a0f;
             --bg-secondary: #12121a;
@@ -940,6 +916,12 @@ if (isset($_GET['switch_router'])) {
                     <h1><?php echo htmlspecialchars($pageTitle); ?></h1>
                 </div>
                 <div class="header-actions">
+                    <!-- Theme Toggle -->
+                    <button id="themeToggleBtn" onclick="toggleTheme()" 
+                            style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color: var(--text-primary); width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.3s; margin-right: 15px;">
+                        <i class="fas fa-moon" id="themeIcon"></i>
+                    </button>
+
                     <button class="menu-toggle" onclick="toggleSidebar()"
                         style="display: none; background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1.5rem;">
                         <i class="fas fa-bars"></i>
@@ -977,11 +959,6 @@ if (isset($_GET['switch_router'])) {
         <!-- Page Content -->
         <?php echo $content; ?>
     </div>
-
-    <!-- Floating Theme Toggle -->
-    <button class="floating-theme-toggle" onclick="toggleTheme()" title="Ganti Tema">
-        <i class="fas fa-moon" id="themeIcon"></i>
-    </button>
 
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/simple-datatables@latest/dist/umd/simple-datatables.min.js"></script>
