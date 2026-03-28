@@ -1351,12 +1351,24 @@ function syncHotspotSalesStatus()
             }
         }
 
-        // Process Active -> Expired migration
-        foreach ($activeNames as $id => $uname) {
-            if (!in_array($uname, $routerUserNames)) {
-                update('hotspot_sales', [
-                    'status' => 'expired'
-                ], 'id = ?', [$id]);
+        // Process Inactive -> Expired migration (Missing from Router)
+        // Safety: Only perform cleanup if we successfully got a list (even if empty) from Mikrotik
+        if (is_array($routerUsers)) {
+            foreach ($inactiveNames as $id => $uname) {
+                if (!in_array($uname, $routerUserNames)) {
+                    update('hotspot_sales', [
+                        'status' => 'expired'
+                    ], 'id = ?', [$id]);
+                }
+            }
+
+            // Process Active -> Expired migration
+            foreach ($activeNames as $id => $uname) {
+                if (!in_array($uname, $routerUserNames)) {
+                    update('hotspot_sales', [
+                        'status' => 'expired'
+                    ], 'id = ?', [$id]);
+                }
             }
         }
 
