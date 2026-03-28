@@ -102,6 +102,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 redirect('invoices.php');
                 break;
+
+            case 'approve_manual':
+                $invoiceId = (int)$_POST['invoice_id'];
+                $invoice = fetchOne("SELECT * FROM invoices WHERE id = ?", [$invoiceId]);
+                
+                if ($invoice && $invoice['status'] === 'pending') {
+                    update('invoices', [
+                        'status' => 'paid',
+                        'paid_at' => date('Y-m-d H:i:s'),
+                        'updated_at' => date('Y-m-d H:i:s')
+                    ], 'id = ?', [$invoiceId]);
+                    
+                    $customer = fetchOne("SELECT * FROM customers WHERE id = ?", [$invoice['customer_id']]);
+                    $wasIsolated = ($customer && $customer['status'] === 'isolated');
+                    
+                    if ($wasIsolated) unisolateCustomer($invoice['customer_id']);
+                    
+                    if ($customer && !empty($customer['phone'])) {
+                        require_once __DIR__ . '/../includes/whatsapp.php';
+                        $templateKey = $wasIsolated ? 'payment_success_isolated' : 'payment_success_normal';
+                        $message = buildWhatsAppMessage($templateKey, getUniversalWaVariables($customer, $invoice));
+                        if (!empty($message)) sendWhatsAppMessage($customer['phone'], $message);
+                    }
+                    
+                    setFlash('success', 'Bukti transfer disetujui, invoice lunas, dan layanan diaktifkan.');
+                    logActivity('APPROVE_MANUAL', "Approved manual payment for Invoice: {$invoice['invoice_number']}");
+                } else {
+                    setFlash('error', 'Invoice tidak valid atau bukan status pending.');
+                }
+                redirect('invoices.php');
+                break;
+
+            case 'reject_manual':
+                $invoiceId = (int)$_POST['invoice_id'];
+                $invoice = fetchOne("SELECT * FROM invoices WHERE id = ?", [$invoiceId]);
+                
+                if ($invoice && $invoice['status'] === 'pending') {
+                    update('invoices', [
+                        'status' => 'unpaid',
+                        'payment_proof' => NULL,
+                        'updated_at' => date('Y-m-d H:i:s')
+                    ], 'id = ?', [$invoiceId]);
+                    
+                    setFlash('success', 'Bukti transfer ditolak. Pelanggan diminta upload ulang.');
+                    logActivity('REJECT_MANUAL', "Rejected manual payment for Invoice: {$invoice['invoice_number']}");
+                } else {
+                    setFlash('error', 'Invoice tidak valid.');
+                }
+                redirect('invoices.php');
+                break;
                 
             case 'unisolate_only':
                 $invoiceId = (int)$_POST['invoice_id'];
@@ -461,6 +511,8 @@ ob_start();
                             <?php endif; ?>
                         <?php elseif ($inv['status'] === 'cancelled'): ?>
                             <span class="badge badge-secondary">Batal</span>
+                        <?php elseif ($inv['status'] === 'pending'): ?>
+                            <span class="badge badge-warning" style="background: rgba(255,165,0,0.1); border: 1px solid orange; color: orange;">Verifikasi</span>
                         <?php else: ?>
                             <span class="badge badge-warning">Belum Bayar</span>
                             <?php if (strtotime($inv['due_date']) < time()): ?>
@@ -499,13 +551,36 @@ ob_start();
                                         <i class="fas fa-calendar-plus"></i>
                                     </button>
                                 </form>
+                            <?php elseif ($inv['status'] === 'pending'): ?>
+                                <button class="btn btn-secondary btn-sm" title="Lihat Bukti Transfer" style="background: var(--neon-cyan); border-color: var(--neon-cyan); color: #000;"
+                                    onclick="window.open('../uploads/<?php echo htmlspecialchars($inv['payment_proof']); ?>', '_blank')">
+                                    <i class="fas fa-image"></i>
+                                </button>
+                                
+                                <form method="POST" style="display: inline;" onsubmit="return confirm('Setujui pembayaran ini dan buka isolir pelanggan?');">
+                                    <input type="hidden" name="action" value="approve_manual">
+                                    <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+                                    <input type="hidden" name="invoice_id" value="<?php echo $inv['id']; ?>">
+                                    <button type="submit" class="btn btn-primary btn-sm" title="Approve Pembayaran" style="background: #10b981; border-color: #10b981;">
+                                        <i class="fas fa-check-circle"></i>
+                                    </button>
+                                </form>
+                                
+                                <form method="POST" style="display: inline;" onsubmit="return confirm('Tolak bukti transfer ini? Pelanggan akan diminta upload ulang.');">
+                                    <input type="hidden" name="action" value="reject_manual">
+                                    <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+                                    <input type="hidden" name="invoice_id" value="<?php echo $inv['id']; ?>">
+                                    <button type="submit" class="btn btn-danger btn-sm" title="Tolak Pembayaran" style="background: #ef4444; border-color: #ef4444;">
+                                        <i class="fas fa-times-circle"></i>
+                                    </button>
+                                </form>
                             <?php endif; ?>
                             
                             <button class="btn btn-secondary btn-sm" onclick="editInvoice(<?php echo htmlspecialchars(json_encode($inv)); ?>)" title="Edit">
                                 <i class="fas fa-edit"></i>
                             </button>
                             
-                            <?php if ($inv['status'] !== 'paid'): ?>
+                            <?php if ($inv['status'] !== 'paid' && $inv['status'] !== 'pending'): ?>
                                 <form method="POST" style="display: inline;" onsubmit="return confirm('Hapus invoice ini?');">
                                     <input type="hidden" name="action" value="delete">
                                     <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
@@ -567,6 +642,7 @@ ob_start();
                 <label class="form-label">Status</label>
                 <select name="status" id="edit_status" class="form-control" required>
                     <option value="unpaid">Belum Bayar</option>
+                    <option value="pending">Menunggu Verifikasi Manual</option>
                     <option value="paid">Lunas</option>
                     <option value="cancelled">Batal</option>
                 </select>

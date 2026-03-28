@@ -1,0 +1,13 @@
+# Prevent execution of PHP and other scripts in uploads directory
+<FilesMatch "\.(php|php[3-7]|phtml|pl|py|jsp|asp|sh|cgi|inc)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Disable query logging or indexing
+Options -Indexes
+
+# Prevent PHP parsing natively
+RemoveHandler .php .phtml .php3
+RemoveType .php .phtml .php3
+php_flag engine off

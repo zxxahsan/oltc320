@@ -283,8 +283,9 @@ ob_start();
             <h3 class="card-title"><i class="fas fa-chart-area"></i> Traffic Monitor</h3>
             <select id="interfaceSelector" onchange="changeInterface(this.value)"
                 class="form-control" style="width: auto; padding: 6px 12px;">
+                <?php $default_iface = getSetting('DEFAULT_MONITOR_INTERFACE', 'ether1'); ?>
                 <?php foreach ($interfaces as $iface): ?>
-                    <option value="<?php echo htmlspecialchars($iface['name'] ?? ''); ?>">
+                    <option value="<?php echo htmlspecialchars($iface['name'] ?? ''); ?>" <?php echo $default_iface === ($iface['name'] ?? '') ? 'selected' : ''; ?>>
                         <?php echo htmlspecialchars($iface['name'] ?? ''); ?>
                     </option>
                 <?php endforeach; ?>

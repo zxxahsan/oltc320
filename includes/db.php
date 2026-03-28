@@ -29,6 +29,12 @@ function getDB() {
                 try {
                     $pdo->exec("ALTER TABLE hotspot_sales ADD COLUMN status ENUM('active','inactive') DEFAULT 'inactive', ADD COLUMN used_at DATETIME NULL");
                 } catch (\Exception $e) {}
+                
+                // Auto-Migration for Manual Transfer Features
+                try {
+                    $pdo->exec("ALTER TABLE invoices MODIFY COLUMN status ENUM('unpaid', 'paid', 'cancelled', 'pending') DEFAULT 'unpaid'");
+                    $pdo->exec("ALTER TABLE invoices ADD COLUMN payment_proof VARCHAR(255) DEFAULT NULL");
+                } catch (\Exception $e) {}
         } catch (PDOException $e) {
             $logFile = __DIR__ . '/../logs/db_error.log';
             $message = "[" . date('Y-m-d H:i:s') . "] Connection Error: " . $e->getMessage() . "\n";

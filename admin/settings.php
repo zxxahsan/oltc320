@@ -129,6 +129,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 break;
                 
 
+            case 'save_payments':
+                $paymentSettings = [
+                    'PAYMENT_GATEWAY_ENABLED' => isset($_POST['payment_gateway_enabled']) ? '1' : '0',
+                    'MANUAL_TRANSFER_ENABLED' => isset($_POST['manual_transfer_enabled']) ? '1' : '0',
+                    'TRANSFER_BANK_INFO' => $_POST['transfer_bank_info'] ?? ''
+                ];
+                
+                foreach ($paymentSettings as $key => $value) {
+                    $existing = fetchOne("SELECT id FROM settings WHERE setting_key = ?", [$key]);
+                    if ($existing) {
+                        update('settings', ['setting_value' => $value], 'setting_key = ?', [$key]);
+                    } else {
+                        insert('settings', ['setting_key' => $key, 'setting_value' => $value]);
+                    }
+                }
+                
+                setFlash('success', 'Pengaturan Metode Pembayaran berhasil disimpan');
+                redirect('settings.php');
+                break;
+
             case 'change_password':
                 $currentPassword = $_POST['current_password'];
                 $newPassword = $_POST['new_password'];
@@ -415,6 +435,46 @@ ob_start();
             </div>
         </div>
 
+        <button type="submit" class="btn btn-primary">
+            <i class="fas fa-save"></i> Simpan
+        </button>
+    </form>
+</div>
+
+<!-- Payment Methods Settings -->
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-wallet"></i> Metode Pembayaran</h3>
+    </div>
+    
+    <form method="POST">
+        <input type="hidden" name="action" value="save_payments">
+        <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+        
+        <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
+            <input type="checkbox" name="payment_gateway_enabled" id="pg_enabled" value="1" 
+                <?php echo getSettingValue('PAYMENT_GATEWAY_ENABLED', '1') === '1' ? 'checked' : ''; ?>
+                style="width: 20px; height: 20px; cursor: pointer;">
+            <label for="pg_enabled" class="form-label" style="margin: 0; cursor: pointer;">
+                Aktifkan Payment Gateway (Otomatis via Tripay)
+            </label>
+        </div>
+
+        <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+            <input type="checkbox" name="manual_transfer_enabled" id="mt_enabled" value="1" 
+                <?php echo getSettingValue('MANUAL_TRANSFER_ENABLED', '0') === '1' ? 'checked' : ''; ?>
+                style="width: 20px; height: 20px; cursor: pointer;">
+            <label for="mt_enabled" class="form-label" style="margin: 0; cursor: pointer;">
+                Aktifkan Transfer Manual (Upload Bukti Pembayaran)
+            </label>
+        </div>
+        
+        <div class="form-group" style="margin-left: 30px; margin-bottom: 20px; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; border-left: 3px solid var(--neon-cyan);">
+            <label class="form-label">Informasi Rekening Bank (Ditampilkan ke Pelanggan)</label>
+            <textarea name="transfer_bank_info" class="form-control" rows="4" placeholder="Misal:&#10;Bank BCA: 123456789 a/n Nama Anda&#10;DANA / OVO: 08123456789"><?php echo htmlspecialchars(getSettingValue('TRANSFER_BANK_INFO', '')); ?></textarea>
+            <small style="color: var(--text-muted); display: block; margin-top: 5px;">Hanya akan muncul jika pelanggan memilih tombol 'Transfer Manual'.</small>
+        </div>
+        
         <button type="submit" class="btn btn-primary">
             <i class="fas fa-save"></i> Simpan
         </button>
