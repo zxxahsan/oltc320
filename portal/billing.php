@@ -106,63 +106,148 @@ ob_start();
     
     <!-- Billing History -->
     <div class="card" style="margin-top: 20px;">
-        <h3 style="margin-bottom: 15px; color: var(--text-primary);">
-            <i class="fas fa-history"></i> Riwayat Tagihan & Pembayaran
-        </h3>
-        <div style="overflow-x: auto;">
-            <table class="data-table" style="width: 100%; min-width: 600px;">
-                <thead>
-                    <tr>
-                        <th>ID Invoice</th>
-                        <th>Periode</th>
-                        <th>Jatuh Tempo</th>
-                        <th>Jumlah</th>
-                        <th>Status</th>
-                        <th>Aksi</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php if (empty($recentInvoices)): ?>
-                        <tr>
-                            <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 30px;" data-label="Data">
-                                <i class="fas fa-folder-open" style="font-size: 2rem; margin-bottom: 10px; display: block;"></i>
-                                Belum ada riwayat tagihan
-                            </td>
-                        </tr>
-                    <?php else: ?>
-                        <?php foreach ($recentInvoices as $inv): ?>
-                        <tr style="border-bottom: 1px solid var(--border-color);">
-                            <td style="padding: 12px;"><?php echo htmlspecialchars($inv['invoice_number']); ?></td>
-                            <td style="padding: 12px;"><?php echo date('F Y', strtotime($inv['created_at'])); ?></td>
-                            <td style="padding: 12px;"><?php echo formatDate($inv['due_date']); ?></td>
-                            <td style="padding: 12px; font-weight: bold;"><?php echo formatCurrency($inv['amount']); ?></td>
-                            <td style="padding: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h3 style="color: var(--text-primary); margin: 0;">
+                <i class="fas fa-history"></i> Riwayat Tagihan
+            </h3>
+            <p style="margin: 0; font-size: 0.8rem; color: var(--text-muted);" class="d-none-mobile">
+                Menampilkan 12 transaksi terakhir
+            </p>
+        </div>
+
+        <div class="billing-list">
+            <?php if (empty($recentInvoices)): ?>
+                <div style="text-align: center; padding: 40px 20px; color: var(--text-muted);">
+                    <i class="fas fa-folder-open" style="font-size: 2.5rem; margin-bottom: 15px; display: block; opacity: 0.5;"></i>
+                    <p>Belum ada riwayat tagihan tercatat.</p>
+                </div>
+            <?php else: ?>
+                <?php foreach ($recentInvoices as $inv): ?>
+                <div class="billing-item <?php echo $inv['status'] === 'unpaid' ? 'unpaid-border' : ''; ?>" id="inv_<?php echo $inv['id']; ?>">
+                    <div class="billing-item-header" onclick="toggleInvoice(<?php echo $inv['id']; ?>)">
+                        <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
+                            <div class="inv-icon <?php echo $inv['status'] === 'paid' ? 'paid' : 'unpaid'; ?>">
+                                <i class="fas <?php echo $inv['status'] === 'paid' ? 'fa-check' : 'fa-file-invoice'; ?>"></i>
+                            </div>
+                            <div>
+                                <div style="font-weight: 700; color: var(--text-primary); font-size: 0.95rem;">
+                                    <?php echo date('F Y', strtotime($inv['created_at'])); ?>
+                                </div>
+                                <div style="font-size: 0.8rem; color: var(--text-muted);">
+                                    #<?php echo htmlspecialchars($inv['invoice_number']); ?>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div style="text-align: right; margin-right: 10px;">
+                            <div style="font-weight: 700; color: var(--text-primary);"><?php echo formatCurrency($inv['amount']); ?></div>
+                            <div style="font-size: 0.75rem;">
                                 <?php if ($inv['status'] === 'paid'): ?>
-                                    <span class="badge badge-success">Lunas</span>
+                                    <span style="color: var(--neon-green);">Lunas</span>
                                 <?php else: ?>
-                                    <span class="badge badge-warning">Belum Bayar</span>
+                                    <span style="color: var(--neon-orange);">Belum Bayar</span>
                                 <?php endif; ?>
-                            </td>
-                            <td style="padding: 12px;">
+                            </div>
+                        </div>
+                        
+                        <div class="chevron">
+                            <i class="fas fa-chevron-down" id="chevron_<?php echo $inv['id']; ?>"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="billing-item-details" id="details_<?php echo $inv['id']; ?>">
+                        <div style="padding: 15px; background: rgba(0,0,0,0.02); border-top: 1px solid var(--border-color); display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px;">
+                            <div>
+                                <small style="color: var(--text-muted); display: block; text-transform: uppercase; font-size: 0.7rem; font-weight: 700;">Tanggal Invoice</small>
+                                <span style="font-size: 0.9rem;"><?php echo formatDate($inv['created_at']); ?></span>
+                            </div>
+                            <div>
+                                <small style="color: var(--text-muted); display: block; text-transform: uppercase; font-size: 0.7rem; font-weight: 700;">Jatuh Tempo</small>
+                                <span style="font-size: 0.9rem;"><?php echo formatDate($inv['due_date']); ?></span>
+                            </div>
+                            <div>
+                                <small style="color: var(--text-muted); display: block; text-transform: uppercase; font-size: 0.7rem; font-weight: 700;">Metode</small>
+                                <span style="font-size: 0.9rem; text-transform: capitalize;"><?php echo htmlspecialchars($inv['payment_method'] ?: '-'); ?></span>
+                            </div>
+                            <div style="display: flex; align-items: flex-end; justify-content: flex-end;">
                                 <?php if ($inv['status'] === 'unpaid'): ?>
-                                    <a href="payment.php?invoice_id=<?php echo $inv['id']; ?>" class="btn btn-primary btn-sm">Bayar</a>
+                                    <a href="payment.php?invoice_id=<?php echo $inv['id']; ?>" class="btn btn-primary btn-sm" style="width: 100%; justify-content: center;">
+                                        Bayar Sekarang
+                                    </a>
                                 <?php else: ?>
-                                    <span style="color: var(--neon-green);"><i class="fas fa-check"></i> Selesai</span>
+                                    <button class="btn btn-secondary btn-sm" disabled style="width: 100%; justify-content: center; opacity: 0.6;">
+                                        Sudah Terbayar
+                                    </button>
                                 <?php endif; ?>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </tbody>
-            </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
         </div>
     </div>
 
 </div>
 
 <style>
-.data-table th { background: rgba(0,0,0,0.2); }
+.billing-list { display: flex; flex-direction: column; gap: 10px; }
+.billing-item { 
+    border: 1px solid var(--border-color); 
+    border-radius: 10px; 
+    overflow: hidden; 
+    transition: all 0.2s; 
+    background: var(--bg-card);
+}
+.billing-item.unpaid-border { border-left: 4px solid var(--neon-orange); }
+.billing-item-header { 
+    padding: 15px; 
+    display: flex; 
+    align-items: center; 
+    cursor: pointer; 
+    user-select: none;
+}
+.billing-item-header:hover { background: rgba(0,0,0,0.02); }
+.inv-icon { 
+    width: 36px; 
+    height: 36px; 
+    border-radius: 8px; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    font-size: 1rem;
+}
+.inv-icon.paid { background: rgba(25, 135, 84, 0.1); color: var(--neon-green); }
+.inv-icon.unpaid { background: rgba(253, 126, 20, 0.1); color: var(--neon-orange); }
+
+.chevron { color: var(--text-muted); transition: transform 0.3s; }
+.billing-item.active .chevron { transform: rotate(180deg); color: var(--neon-cyan); }
+
+.billing-item-details { 
+    display: none; 
+    animation: slideDown 0.3s ease-out;
+}
+.billing-item.active .billing-item-details { display: block; }
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 576px) {
+    .d-none-mobile { display: none; }
+}
 </style>
+
+<script>
+function toggleInvoice(id) {
+    const item = document.getElementById('inv_' + id);
+    const isActive = item.classList.contains('active');
+    
+    // Smooth close others if desired, or just toggle this one
+    item.classList.toggle('active');
+}
+</script>
 
 <?php
 $content = ob_get_clean();

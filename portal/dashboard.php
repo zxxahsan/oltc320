@@ -112,42 +112,42 @@ ob_start();
             <p style="color: var(--text-secondary);">Kelola layanan internet Anda dari portal ini.</p>
         </div>
         
-        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; width: 100%;">
             <!-- Status Pill -->
-            <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); padding: 10px 20px; border-radius: 12px; display: flex; align-items: center; gap: 12px;">
-                <div style="width: 10px; height: 10px; border-radius: 50%; background: <?php echo $onuOnline ? 'var(--neon-green)' : 'var(--neon-red)'; ?>; box-shadow: 0 0 10px <?php echo $onuOnline ? 'var(--neon-green)' : 'var(--neon-red)'; ?>;"></div>
+            <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); padding: 10px 15px; border-radius: 12px; display: flex; align-items: center; gap: 10px; flex: 1; min-width: 140px; box-shadow: var(--shadow-card);">
+                <div style="width: 10px; height: 10px; border-radius: 50%; background: <?php echo $onuOnline ? 'var(--neon-green)' : 'var(--neon-red)'; ?>; box-shadow: 0 0 8px <?php echo $onuOnline ? 'var(--neon-green)' : 'var(--neon-red)'; ?>;"></div>
                 <div>
-                    <div style="font-size: 0.75rem; color: var(--text-muted);">Status ONU</div>
-                    <div style="font-weight: 600; color: <?php echo $onuOnline ? 'var(--neon-green)' : 'var(--neon-red)'; ?>;"><?php echo $onuOnline ? 'Online' : 'Offline'; ?></div>
+                    <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Status ONU</div>
+                    <div style="font-size: 0.9rem; font-weight: 600; color: <?php echo $onuOnline ? 'var(--neon-green)' : 'var(--neon-red)'; ?>;"><?php echo $onuOnline ? 'Online' : 'Offline'; ?></div>
                 </div>
             </div>
             
             <!-- Uptime Pill -->
-            <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); padding: 10px 20px; border-radius: 12px; display: flex; align-items: center; gap: 12px;">
-                <i class="fas fa-clock" style="color: var(--neon-orange); font-size: 1.2rem;"></i>
+            <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); padding: 10px 15px; border-radius: 12px; display: flex; align-items: center; gap: 10px; flex: 1; min-width: 140px; box-shadow: var(--shadow-card);">
+                <i class="fas fa-clock" style="color: var(--neon-orange); font-size: 1.1rem;"></i>
                 <div>
-                    <div style="font-size: 0.75rem; color: var(--text-muted);">Uptime PPPoE</div>
-                    <div style="font-weight: 600; color: var(--text-primary);"><?php echo htmlspecialchars($pppoeUptime); ?></div>
+                    <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Uptime</div>
+                    <div style="font-size: 0.9rem; font-weight: 600; color: var(--text-primary);"><?php echo htmlspecialchars($pppoeUptime); ?></div>
                 </div>
             </div>
             
             <!-- Devices Pill -->
             <?php if (isset($onuDevices)): ?>
-            <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); padding: 10px 20px; border-radius: 12px; display: flex; align-items: center; gap: 12px;">
-                <i class="fas fa-users" style="color: var(--neon-purple); font-size: 1.2rem;"></i>
+            <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); padding: 10px 15px; border-radius: 12px; display: flex; align-items: center; gap: 10px; flex: 1; min-width: 140px; box-shadow: var(--shadow-card);">
+                <i class="fas fa-users" style="color: var(--neon-purple); font-size: 1.1rem;"></i>
                 <div>
-                    <div style="font-size: 0.75rem; color: var(--text-muted);">Perangkat Aktif</div>
-                    <div style="font-weight: 600; color: var(--text-primary);"><?php echo htmlspecialchars($onuDevices); ?> Device</div>
+                    <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Perangkat</div>
+                    <div style="font-size: 0.9rem; font-weight: 600; color: var(--text-primary);"><?php echo htmlspecialchars($onuDevices); ?> Unit</div>
                 </div>
             </div>
             <?php endif; ?>
             
             <!-- Signal Pill -->
-            <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); padding: 10px 20px; border-radius: 12px; display: flex; align-items: center; gap: 12px;">
-                <i class="fas fa-signal" style="color: var(--neon-cyan); font-size: 1.2rem;"></i>
+            <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); padding: 10px 15px; border-radius: 12px; display: flex; align-items: center; gap: 10px; flex: 1; min-width: 140px; box-shadow: var(--shadow-card);">
+                <i class="fas fa-signal" style="color: var(--neon-cyan); font-size: 1.1rem;"></i>
                 <div>
-                    <div style="font-size: 0.75rem; color: var(--text-muted);">Signal Fiber</div>
-                    <div style="font-weight: 600; color: var(--text-primary);"><?php echo htmlspecialchars($onuSignal); ?> dBm</div>
+                    <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Signal</div>
+                    <div style="font-size: 0.9rem; font-weight: 600; color: var(--text-primary);"><?php echo htmlspecialchars($onuSignal); ?> dBm</div>
                 </div>
             </div>
         </div>
@@ -225,7 +225,7 @@ ob_start();
                 $grandTotalBytes = $dbTotalIn + $dbTotalOut + $activeRx + $activeTx;
             ?>
             
-            <div style="background: rgba(0,0,0,0.3); padding: 15px 30px; border-radius: 12px; text-align: center; border-left: 4px solid var(--neon-purple); margin-top: 10px;">
+            <div style="background: var(--bg-secondary); padding: 15px 30px; border-radius: 12px; text-align: center; border-left: 4px solid var(--neon-purple); margin-top: 10px; box-shadow: var(--shadow-card);">
                 <div style="font-size: 2.2rem; font-weight: 800; color: var(--text-primary); letter-spacing: -1px;">
                     <?php echo formatBytes($grandTotalBytes); ?>
                 </div>
@@ -246,7 +246,7 @@ ob_start();
             Pantau kecepatan internet Anda secara <em>Real-time</em> langsung dari Router Utama.
         </p>
         
-        <div style="background: rgba(0,0,0,0.3); border-radius: 12px; padding: 15px; height: 300px; position: relative;">
+        <div style="background: var(--bg-secondary); border-radius: 12px; padding: 15px; height: 300px; position: relative; border: 1px solid var(--border-color);">
             <canvas id="liveTrafficChart"></canvas>
         </div>
     </div>
@@ -328,38 +328,43 @@ document.addEventListener('DOMContentLoaded', function() {
     const ctx = document.getElementById('liveTrafficChart').getContext('2d');
     const badge = document.getElementById('trafficStatusBadge');
     
-    // Gradient configs
-    let gradientDn = ctx.createLinearGradient(0, 0, 0, 300);
-    gradientDn.addColorStop(0, 'rgba(0, 245, 255, 0.5)'); // Neon Cyan
-    gradientDn.addColorStop(1, 'rgba(0, 245, 255, 0.0)');
-    
-    let gradientUp = ctx.createLinearGradient(0, 0, 0, 300);
-    gradientUp.addColorStop(0, 'rgba(255, 0, 170, 0.5)'); // Neon Pink
-    gradientUp.addColorStop(1, 'rgba(255, 0, 170, 0.0)');
+    function getChartColors() {
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        return {
+            dnBorder: isDark ? '#00f5ff' : '#0d6efd',
+            dnBg: isDark ? 'rgba(0, 245, 255, 0.2)' : 'rgba(13, 110, 253, 0.1)',
+            upBorder: isDark ? '#ff00aa' : '#d63384',
+            upBg: isDark ? 'rgba(255, 0, 170, 0.2)' : 'rgba(214, 51, 132, 0.1)',
+            grid: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
+            text: isDark ? '#888' : '#6c757d'
+        };
+    }
+
+    let colors = getChartColors();
 
     const config = {
         type: 'line',
         data: {
-            labels: Array(15).fill(''),
+            labels: Array(20).fill(''),
             datasets: [
                 {
                     label: 'Download (Mbps)',
-                    borderColor: '#00f5ff',
-                    backgroundColor: gradientDn,
+                    borderColor: colors.dnBorder,
+                    backgroundColor: colors.dnBg,
                     borderWidth: 2,
                     pointRadius: 0,
                     fill: true,
-                    data: Array(15).fill(0),
+                    data: Array(20).fill(0),
                     tension: 0.4
                 },
                 {
                     label: 'Upload (Mbps)',
-                    borderColor: '#ff00aa',
-                    backgroundColor: gradientUp,
+                    borderColor: colors.upBorder,
+                    backgroundColor: colors.upBg,
                     borderWidth: 2,
                     pointRadius: 0,
                     fill: true,
-                    data: Array(15).fill(0),
+                    data: Array(20).fill(0),
                     tension: 0.4
                 }
             ]
@@ -374,8 +379,8 @@ document.addEventListener('DOMContentLoaded', function() {
             scales: {
                 y: {
                     beginAtZero: true,
-                    grid: { color: 'rgba(255,255,255,0.05)' },
-                    ticks: { color: '#888' }
+                    grid: { color: colors.grid },
+                    ticks: { color: colors.text }
                 },
                 x: {
                     grid: { display: false },
@@ -383,18 +388,30 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             },
             plugins: {
-                legend: { labels: { color: '#fff' } },
+                legend: { labels: { color: colors.text } },
                 tooltip: { mode: 'index', intersect: false }
             }
         }
     };
     
+    const trafficChart = new Chart(ctx, config);
+
+    // Listen for theme changes to update chart
+    window.addEventListener('themeChanged', function() {
+        colors = getChartColors();
+        trafficChart.data.datasets[0].borderColor = colors.dnBorder;
+        trafficChart.data.datasets[0].backgroundColor = colors.dnBg;
+        trafficChart.data.datasets[1].borderColor = colors.upBorder;
+        trafficChart.data.datasets[1].backgroundColor = colors.upBg;
+        trafficChart.options.scales.y.grid.color = colors.grid;
+        trafficChart.options.scales.y.ticks.color = colors.text;
+        trafficChart.options.plugins.legend.labels.color = colors.text;
+        trafficChart.update();
+    });
     
     let lastRx = 0;
     let lastTx = 0;
     let lastTime = 0;
-
-    const trafficChart = new Chart(ctx, config);
 
     function fetchLiveTraffic() {
         fetch('<?php echo APP_URL; ?>/api/customer_traffic.php')
@@ -409,15 +426,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     let dnMbps = 0;
                     let upMbps = 0;
                     
-                    // First poll establishes the baseline
                     if (lastTime !== 0) {
                         const timeDelta = currentTime - lastTime;
                         if (timeDelta > 0) {
-                            // RouterOS: tx_bytes is Customer's Download stream, rx_bytes is Customer's Upload
                             const byteDeltaDn = Math.max(0, data.tx_bytes - lastTx);
                             const byteDeltaUp = Math.max(0, data.rx_bytes - lastRx);
                             
-                            // Convert pure Bytes to Bits, divide by TimeDelta, scale down to Mbps
                             dnMbps = ((byteDeltaDn * 8) / timeDelta) / 1000000;
                             upMbps = ((byteDeltaUp * 8) / timeDelta) / 1000000;
                         }
@@ -427,20 +441,16 @@ document.addEventListener('DOMContentLoaded', function() {
                     lastTx = data.tx_bytes;
                     lastTime = currentTime;
 
-                    // Push new data and shift old
-                    if (lastTime !== 0 && dnMbps !== 0 && upMbps !== 0) {
+                    if (lastTime !== 0) {
                         trafficChart.data.datasets[0].data.push(dnMbps.toFixed(2));
                         trafficChart.data.datasets[1].data.push(upMbps.toFixed(2));
-                        
                         trafficChart.data.datasets[0].data.shift();
                         trafficChart.data.datasets[1].data.shift();
-                        
-                        trafficChart.update();
+                        trafficChart.update('none'); // Update without animation for smoother real-time
                     }
                 } else {
                     badge.className = 'badge badge-error';
                     badge.innerHTML = '<i class="fas fa-times-circle"></i> ' + (data.message || 'Offline');
-                    
                     trafficChart.data.datasets[0].data.push(0);
                     trafficChart.data.datasets[1].data.push(0);
                     trafficChart.data.datasets[0].data.shift();
@@ -454,7 +464,6 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     }
 
-    // Ping every 3 seconds
     setInterval(fetchLiveTraffic, 3000);
     fetchLiveTraffic();
 });

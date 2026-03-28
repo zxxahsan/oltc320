@@ -47,13 +47,45 @@ ob_start();
     
     <style>
         :root {
+            /* Corporate Light Theme (Default) */
+            --bg-primary: #f4f6f9;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --bg-sidebar: #ffffff;
+            
+            --neon-cyan: #0d6efd; /* Primary blue */
+            --neon-purple: #6f42c1; /* Purple */
+            --neon-pink: #d63384;
+            --neon-green: #198754;
+            --neon-orange: #fd7e14;
+            --neon-red: #dc3545;
+            
+            --gradient-primary: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+            --gradient-success: linear-gradient(135deg, #198754 0%, #146c43 100%);
+            --gradient-warning: linear-gradient(135deg, #fd7e14 0%, #e37112 100%);
+            
+            --text-primary: #212529;
+            --text-secondary: #6c757d;
+            --text-muted: #adb5bd;
+            
+            --border-color: rgba(0,0,0,0.1);
+            --border-glow: rgba(13, 110, 253, 0.25);
+            
+            --shadow-neon: 0 4px 12px rgba(13, 110, 253, 0.15);
+            --shadow-card: 0 4px 12px rgba(0, 0, 0, 0.05);
+            
+            /* Sidebar */
+            --sidebar-width: 260px;
+            --sidebar-collapsed: 70px;
+        }
+
+        html[data-theme="dark"] {
             /* Dark Neon Theme */
             --bg-primary: #0a0a0f;
             --bg-secondary: #12121a;
             --bg-card: rgba(20, 20, 35, 0.8);
             --bg-sidebar: #0d0d15;
             
-            /* Neon Colors */
             --neon-cyan: #00f5ff;
             --neon-purple: #bf00ff;
             --neon-pink: #ff00aa;
@@ -61,50 +93,19 @@ ob_start();
             --neon-orange: #ff6b35;
             --neon-red: #ff4757;
             
-            /* Gradients */
             --gradient-primary: linear-gradient(135deg, #00f5ff 0%, #bf00ff 100%);
             --gradient-success: linear-gradient(135deg, #00ff88 0%, #00d4aa 100%);
             --gradient-warning: linear-gradient(135deg, #ff6b35 0%, #ff8c42 100%);
             
-            /* Text */
             --text-primary: #ffffff;
             --text-secondary: rgba(255, 255, 255, 0.6);
             --text-muted: rgba(255, 255, 255, 0.4);
             
-            /* Border */
             --border-color: rgba(255, 255, 255, 0.08);
             --border-glow: rgba(0, 245, 255, 0.3);
             
-            /* Shadows */
             --shadow-neon: 0 0 20px rgba(0, 245, 255, 0.3);
             --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.4);
-            
-            /* Sidebar */
-            /* Sidebar */
-            --sidebar-width: 260px;
-            --sidebar-collapsed: 70px;
-        }
-
-        @media (prefers-color-scheme: light) {
-            :root {
-                --bg-primary: #f0f2f5;
-                --bg-secondary: #ffffff;
-                --bg-card: rgba(255, 255, 255, 0.9);
-                --bg-sidebar: #ffffff;
-                --neon-cyan: #007bff;
-                --neon-purple: #6f42c1;
-                --neon-pink: #d63384;
-                --neon-green: #198754;
-                --neon-orange: #fd7e14;
-                --neon-red: #dc3545;
-                --text-primary: #1a1a1b;
-                --text-secondary: #4a4a4b;
-                --text-muted: #6a6a6b;
-                --border-color: rgba(0, 0, 0, 0.1);
-                --border-glow: rgba(0, 123, 255, 0.2);
-                --shadow-neon: 0 4px 12px rgba(0, 123, 255, 0.1);
-                --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.05);
-            }
         }
 
         * {
@@ -677,6 +678,30 @@ ob_start();
             text-shadow: var(--shadow-neon);
         }
 
+        .floating-theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 3000;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: var(--shadow-card);
+            transition: all 0.3s;
+        }
+
+        .floating-theme-toggle:hover {
+            box-shadow: var(--shadow-neon);
+            transform: scale(1.05);
+        }
+
         @media (max-width: 768px) {
             .mobile-bottom-nav {
                 display: block;
@@ -691,10 +716,29 @@ ob_start();
             body {
                 padding-bottom: 80px; 
             }
+            
+            .floating-theme-toggle {
+                top: 15px;
+                right: 15px;
+                width: 40px;
+                height: 40px;
+            }
         }
     </style>
+    <script>
+        // Init theme early to prevent FOIT flash
+        const savedTheme = localStorage.getItem('gembokTheme');
+        if (savedTheme === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+        } else {
+            document.documentElement.setAttribute('data-theme', 'light');
+        }
+    </script>
 </head>
 <body>
+    <button class="floating-theme-toggle" onclick="toggleTheme()" title="Ganti Mode Terang/Gelap">
+        <i class="fas fa-moon" id="themeIcon"></i>
+    </button>
     <!-- Customer Sidebar -->
     <div class="sidebar">
         <div class="sidebar-header">
@@ -796,19 +840,51 @@ ob_start();
         // Show menu toggle button on mobile
         window.addEventListener('load', function() {
             const menuToggle = document.querySelector('.menu-toggle');
-            if (window.innerWidth <= 768) {
-                menuToggle.style.display = 'block';
-            }
-            
-            window.addEventListener('resize', function() {
+            if (menuToggle) {
                 if (window.innerWidth <= 768) {
                     menuToggle.style.display = 'block';
-                } else {
-                    menuToggle.style.display = 'none';
-                    document.querySelector('.sidebar').classList.remove('active');
                 }
-            });
+                
+                window.addEventListener('resize', function() {
+                    if (window.innerWidth <= 768) {
+                        menuToggle.style.display = 'block';
+                    } else {
+                        menuToggle.style.display = 'none';
+                        document.querySelector('.sidebar').classList.remove('active');
+                    }
+                });
+            }
+            
+            updateThemeIcon();
         });
+        
+        function updateThemeIcon() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const icon = document.getElementById('themeIcon');
+            if (currentTheme === 'dark') {
+                icon.className = 'fas fa-sun';
+            } else {
+                icon.className = 'fas fa-moon';
+            }
+        }
+
+        function toggleTheme() {
+            const doc = document.documentElement;
+            const currentTheme = doc.getAttribute('data-theme');
+            
+            if (currentTheme === 'dark') {
+                doc.setAttribute('data-theme', 'light');
+                localStorage.setItem('gembokTheme', 'light');
+            } else {
+                doc.setAttribute('data-theme', 'dark');
+                localStorage.setItem('gembokTheme', 'dark');
+            }
+            
+            updateThemeIcon();
+            
+            // Dispatch a custom event for Chart.js and other dynamic components
+            window.dispatchEvent(new Event('themeChanged'));
+        }
     </script>
 </body>
 </html>
