@@ -77,13 +77,13 @@ if (isset($_GET['switch_router'])) {
             /* Floating Theme Toggle */
             .floating-theme-toggle {
                 position: fixed;
-                bottom: 85px; /* Above bottom nav on mobile */
+                top: 25px; 
                 right: 20px;
                 z-index: 1050;
                 background: var(--gradient-primary);
-                width: 50px;
-                height: 50px;
-                border-radius: 50%;
+                width: 45px;
+                height: 45px;
+                border-radius: 12px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
@@ -92,7 +92,7 @@ if (isset($_GET['switch_router'])) {
                 border: none;
                 transition: transform 0.3s;
                 color: #fff;
-                font-size: 1.2rem;
+                font-size: 1.1rem;
             }
             .floating-theme-toggle:hover {
                 transform: scale(1.1);
