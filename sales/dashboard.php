@@ -32,6 +32,12 @@ $monthSales = fetchOne("SELECT COUNT(*) as count, SUM(price) as capital, SUM(sel
     FROM hotspot_sales 
     WHERE sales_user_id = ? AND status = 'active' AND DATE_FORMAT(used_at, '%Y-%m') = ?", [$salesId, $month]);
 
+// Get Active Vouchers (Moved from history)
+$activeVouchers = fetchAll("SELECT * FROM hotspot_sales WHERE sales_user_id = ? AND status = 'active' ORDER BY used_at DESC", [$salesId]);
+
+// Get Inactive Vouchers (Moved from history)
+$inactiveVouchers = fetchAll("SELECT * FROM hotspot_sales WHERE sales_user_id = ? AND status = 'inactive' ORDER BY created_at DESC", [$salesId]);
+
 ob_start();
 ?>
 
@@ -98,20 +104,127 @@ ob_start();
         </div>
     </div>
 
+    <div style="display: flex; flex-direction: column; gap: 30px; margin-bottom: 30px;">
+        <!-- Active Vouchers (Current Session) -->
+        <div class="card" style="border-top: 4px solid var(--neon-green);">
+            <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 15px;">
+                <h3 class="card-title" style="color: var(--neon-green); font-size: 1.1rem; margin-bottom: 0;">
+                    <i class="fas fa-bolt"></i> Voucher Sedang Aktif
+                </h3>
+            </div>
+            <div class="card-body" style="padding: 20px 0;">
+                <div class="table-responsive">
+                    <table class="table table-hover" id="activeTable">
+                        <thead>
+                            <tr>
+                                <th>Waktu Login</th>
+                                <th>Username</th>
+                                <th>Paket</th>
+                                <th>Perangkat</th>
+                                <th>Uptime</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($activeVouchers as $v): ?>
+                                <tr>
+                                    <td>
+                                        <div style="font-weight: 600; color: var(--text-primary);"><?php echo date('d M, H:i', strtotime($v['used_at'])); ?></div>
+                                        <div style="font-size: 0.75rem; color: var(--neon-orange);">Exp: <?php echo $v['expired_at'] ? date('d M, H:i', strtotime($v['expired_at'])) : '-'; ?></div>
+                                    </td>
+                                    <td>
+                                        <strong style="color: var(--neon-cyan); letter-spacing: 1px;"><?php echo htmlspecialchars($v['username']); ?></strong>
+                                    </td>
+                                    <td><span class="badge badge-info"><?php echo htmlspecialchars($v['profile']); ?></span></td>
+                                    <td>
+                                        <div style="font-size: 0.85rem; font-family: monospace;"><?php echo htmlspecialchars($v['mac_address'] ?? 'Pending...'); ?></div>
+                                        <div style="font-size: 0.75rem; color: var(--text-muted);"><?php echo htmlspecialchars($v['hostname'] ?? ''); ?></div>
+                                    </td>
+                                    <td style="font-weight: 700; color: var(--neon-green);"><?php echo htmlspecialchars($v['uptime'] ?? '0s'); ?></td>
+                                    <td>
+                                        <a href="print_voucher.php?users=<?php echo urlencode($v['username']); ?>" target="_blank" class="btn btn-sm btn-secondary">
+                                            <i class="fas fa-print"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                            <?php if (empty($activeVouchers)): ?>
+                                <tr><td colspan="6" class="text-center text-muted" style="padding: 40px;">Belum ada voucher yang aktif.</td></tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Inactive Vouchers (Ready to sell) -->
+        <div class="card" style="border-top: 4px solid var(--text-muted);">
+            <div class="card-header">
+                <h3 class="card-title" style="color: var(--text-secondary); font-size: 1.1rem;"><i class="fas fa-clock"></i> Stok Voucher Ready</h3>
+            </div>
+            <div class="card-body" style="padding: 20px 0;">
+                <div class="table-responsive">
+                    <table class="table table-hover" id="inactiveTable">
+                        <thead>
+                            <tr>
+                                <th>Generate</th>
+                                <th>Username</th>
+                                <th>Password</th>
+                                <th>Paket</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($inactiveVouchers as $v): ?>
+                                <tr>
+                                    <td style="font-size: 0.85rem;"><?php echo date('d/m, H:i', strtotime($v['created_at'])); ?></td>
+                                    <td><strong style="color: var(--text-primary);"><?php echo htmlspecialchars($v['username']); ?></strong></td>
+                                    <td><code style="background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px;"><?php echo htmlspecialchars($v['password']); ?></code></td>
+                                    <td><span class="badge badge-secondary"><?php echo htmlspecialchars($v['profile']); ?></span></td>
+                                    <td>
+                                        <a href="print_voucher.php?users=<?php echo urlencode($v['username']); ?>" target="_blank" class="btn btn-sm btn-info">
+                                            <i class="fas fa-print"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                            <?php if (empty($inactiveVouchers)): ?>
+                                <tr><td colspan="5" class="text-center text-muted" style="padding: 30px;">Stok voucher kosong.</td></tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Monthly Stats Summary -->
-    <div class="card" style="border-left: 5px solid var(--neon-green);">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
+    <div class="card" style="border-left: 5px solid var(--neon-green); padding: 30px;">
+        <div style="display: flex; flex-wrap: wrap; gap: 20px; justify-content: space-between; align-items: center;">
             <div>
                 <p style="color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase; font-weight: 700; margin-bottom: 5px;">Penjualan Bulan <?php echo date('F'); ?></p>
-                <h2 style="font-size: 2rem; font-weight: 800; color: var(--text-primary);"><?php echo (int)$monthSales['count']; ?> <span style="font-size: 0.9rem; color: var(--text-secondary); font-weight: 400;">Voucher Terjual</span></h2>
+                <h2 style="font-size: 2rem; font-weight: 800; color: var(--text-primary); margin: 0;"><?php echo (int)$monthSales['count']; ?> <span style="font-size: 0.9rem; color: var(--text-secondary); font-weight: 400;">Voucher Terjual</span></h2>
             </div>
             <div style="text-align: right;">
-                <div style="color: var(--neon-green); font-size: 1.5rem; font-weight: 800;"><?php echo formatCurrency($monthSales['total']); ?></div>
-                <div style="font-size: 0.8rem; color: var(--text-muted);">Total Omset</div>
+                <div style="color: var(--neon-green); font-size: 1.8rem; font-weight: 800;"><?php echo formatCurrency($monthSales['total']); ?></div>
+                <div style="font-size: 0.8rem; color: var(--text-muted);">Total Omset Bulanan</div>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const activeTable = document.getElementById('activeTable');
+        if (activeTable && typeof simpleDatatables !== 'undefined') {
+            new simpleDatatables.DataTable(activeTable);
+        }
+        const inactiveTable = document.getElementById('inactiveTable');
+        if (inactiveTable && typeof simpleDatatables !== 'undefined') {
+            new simpleDatatables.DataTable(inactiveTable);
+        }
+    });
+</script>
 
 <?php
 $content = ob_get_clean();
