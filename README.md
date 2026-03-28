@@ -1,96 +1,86 @@
-# Gembok Container (MikroTik ROS 7 Edition)
+# Panduan Gembok untuk Ubuntu Server di MikroTik Container
 
-Repositori ini adalah versi **Dockerized / Container** dari aplikasi *Gembok - Simple ISP & Hotspot Management* yang dioptimalkan khusus untuk berjalan di atas fitur **Container MikroTik RouterOS v7**. 
+Karena *Ubuntu Server* yang berjalan di dalam fitur **Container MikroTik ROS 7** tidak memiliki sistem *init* (seperti `systemd` atau `systemctl`), perintah standar server seperti `systemctl restart nginx` atau fungsi otomatis *Cron Job* bawaan OS Linux **tidak akan berjalan secara otomatis/normal**.
 
-Lingkungan ini secara natif mem-bypass kelemahan spesifik fitur *Linux crontab* pada MikroTik Container dengan menggunakan simulasi **PHP Daemon Loop** interaktif, sehingga seluruh pengecekan tagihan, otomatisasi *Isolir/Unisolir* PPPoE, dan Sinkronisasi Notifikasi berjalan mulus 100% tepat setiap menit tanpa intervensi manual.
-
----
-
-## 🌟 Fitur Unggulan Versi Container
-1. **Otomatisasi Penuh di Dalam Router**: Berjalan secara langsung di satu box MikroTik Anda. Hemat daya, hemat listrik, tidak perlu server PC tambahan.
-2. **PHP Daemon Cron**: Pengganti tangguh untuk *OS Schedulers*. Anda tidak akan pernah mengalami gagal reset tagihan karena daemon berjalan stabil (`cron/daemon.php`).
-3. **Pra-Konfigurasi Apache & PHP**: *Dockerfile* yang tersedia memuat spesifikasi paket ekstensi (curl, pdo, gd, zip) versi paling pas.
+Repositori ini telah disesuaikan dengan skrip khusus untuk menembus keterbatasan *Container MikroTik* tersebut.
 
 ---
 
-## 🛠️ Persyaratan Sistem MikroTik
-1. Perangkat menggunakan arsitektur **ARM, ARM64, atau x86**. (Contoh: seri *RB5009*, *RB4011*, *CHR*, *x86 PC*).
-2. Sistem operasi minimal **RouterOS v7.4+** dengan paket **`container`** (`container.npk`) yang sudah diunduh dan dipasang aktif.
-3. Fitur **Device Mode Container** sudah diaktifkan di terminal MikroTik (`/system/device-mode/update container=yes`, lalu *hard-reboot*).
-4. **Media Penyimpanan Tambahan** (Flashdisk USB, SD Card, atau disk sekunder) untuk memuat *Image* dan *Mounts*. Jangan gunakan internal disk bawaan MikroTik!
-5. **Database Server Eksternal**: Container ini murni memuat sistem *Web Server Apache & PHP Daemon*. Sistem *Database (MySQL/MariaDB)* bisa Anda pisahkan di *Container* MikroTik yang berbeda, dipasang pada panel *Cloud*, atau server komputer terpisah.
+## 🛠️ Tahap 1: Instalasi Paket Inti di Ubuntu (Via Shell Container)
 
----
+Pastikan container Ubuntu Anda sudah berstatus `running` di WinBox MikroTik, lalu masuk ke terminal Shell-nya (misal: `/container shell 0`).
 
-## 🚀 Panduan Instalasi (MikroTik ROS v7)
-
-### Langkah 1: Persiapan File & Build Image (Di Komputer Anda)
-Karena MikroTik tidak dapat melakukan `docker build` kode *source*, Anda perlu merakit konfigurasinya menjadi sebuah *file image* tarball (`.tar`) di PC Anda (harus terinstal Docker Desktop/Engine).
-
+Jalankan instalasi Nginx, MariaDB, PHP, dan ekstensi secara manual:
 ```bash
-# Clone Repositori Ini ke PC Anda
-git clone https://github.com/zxxahsan/gembokcontainer.git
-cd gembokcontainer
-
-# Build File DockerImage (Beri nama 'gembok-app')
-docker build -t gembok-app .
-
-# Konversikan Image menjadi File TAR agar bisa dibaca MikroTik
-docker save gembok-app > gembok-app.tar
+apt update && apt upgrade -y
+apt install -y nginx mariadb-server git unzip php-fpm \
+php-mysql php-gd php-curl php-mbstring php-xml php-zip php-cli
 ```
 
-### Langkah 2: Upload File Tar ke MikroTik
-1. Buka WinBox.
-2. Seret dan jatuhkan (*Drag & Drop*) file `gembok-app.tar` yang baru Anda buat ke menu **Files** di dalam disk ekstensi Anda (misal ke `disk1/gembok-app.tar`).
-
-### Langkah 3: Konfigurasi Virtual Network (VETH) di MikroTik
-Container memerlukan "Antarmuka Virtual" dan "IP Address" agar bisa terkoneksi ke jaringan Anda.
-Buka **Terminal** WinBox dan salin perintah berikut:
-
-```routeros
-# 1. Buat VETH Interface (Misal IP Container: 172.17.0.2)
-/interface/veth/add name=veth-gembok address=172.17.0.2/24 gateway=172.17.0.1
-
-# 2. Buat Bridge Khusus Container
-/interface/bridge/add name=bridge-container
-/ip/address/add address=172.17.0.1/24 interface=bridge-container
-
-# 3. Masukkan VETH ke dalam Bridge
-/interface/bridge/port/add bridge=bridge-container interface=veth-gembok
-
-# 4. (Opsional) Beri Akses Internet ke NAT jika MikroTik Anda belum mengizinkannya
-/ip/firewall/nat/add chain=srcnat action=masquerade src-address=172.17.0.0/24
+### Penting: Menyalakan Service Tanpa `systemctl`
+Karena `systemctl` mati di lingkungan MikroTik Container, Anda harus menyalakan layanan web & database menggunakan _SystemV Init_:
+```bash
+/etc/init.d/nginx start
+/etc/init.d/mysql start
+/etc/init.d/php8.1-fpm start  # (Sesuaikan angka 8.1 dengan versi PHP Anda)
 ```
-
-### Langkah 4: Deployment Container
-Kini saatnya memasang OS Container Gembok tersebut.
-Di Terminal MikroTik, jalankan:
-
-```routeros
-/container/add file=disk1/gembok-app.tar interface=veth-gembok root-dir=disk1/gembok-root hostname=GembokServer logging=yes start-on-boot=yes
-```
-
-> **Catatan**: Proses pertama kali (Extracting) akan memakan waktu 2 - 5 menit tergantung kecepatan flashdisk/disk tambahan Anda. Pantau status ekstrak di menu `Container`.
-
-### Langkah 5: Hubungkan Gembok ke Database Eksternal MySQL
-Setelah Container selesai di-ekstrak dan Berjalan (Status: `running`), Anda perlu mengakses antarmuka IP Container Anda (`http://172.17.0.2`) melalui Browser untuk menyelesaikan Instalasi Konfigurasi Database.
-1. Pastikan Anda punya server MySQL/MariaDB yang hidup dan bisa diakses dari IP 172.17.0.2.
-2. Masukkan alamat IP server MySQL, Nama Database, User, dan Password di form instalasi Gembok Web.
-3. Selesai!
 
 ---
 
-## 🔧 Akses Terminal Container (Debugging)
-Jika Anda perlu masuk ke *filesystem* Ubuntu webserver Anda dari MikroTik (untuk memperbaiki file `includes/config.php` dsb):
+## 📂 Tahap 2: Setup Database & Gembok
 
-1. Cek index nomor urut container Anda di WinBox (`/container/print`).
-2. Masuk ke cangkang Linux (Shell):
+Amankan MariaDB dan buat database:
+```bash
+mysql -u root
+
+CREATE DATABASE gembok_db;
+CREATE USER 'gembok_user'@'localhost' IDENTIFIED BY 'passwordKuat123';
+GRANT ALL PRIVILEGES ON gembok_db.* TO 'gembok_user'@'localhost';
+FLUSH PRIVILEGES;
+EXIT;
+```
+
+Unduh *source code* khusus container ini ke folder Root:
+```bash
+mkdir -p /var/www/html/gembok
+cd /var/www/html/gembok
+git clone https://github.com/zxxahsan/gembokcontainer.git .
+
+# Berikan izin tulis krusial
+chown -R www-data:www-data /var/www/html/gembok
+chmod -R 755 /var/www/html/gembok
+```
+
+Jangan lupa untuk mengubah `includes/config.sample.php` menjadi `includes/config.php` dan setting koneksi `gembok_user` Anda!
+
+Konfigurasikan Nginx Virtual Host persis seperti aturan normal Gembok di `/etc/nginx/sites-available/default`. Setelah selesai memodifikasi *Virtual Host*, restart kembali Nginx Anda:
+```bash
+/etc/init.d/nginx restart
+```
+
+*(Kini Anda sudah bisa mengakses Web Installer Gembok via IP Container Anda di Web Browser lokal).*
+
+---
+
+## 🔁 Tahap 3: Solusi Cronjob / Scheduler (SANGAT PENTING!)
+
+Dalam server *bare-metal* Linux, Isolir & Tagihan digerakkan oleh `crontab`. Di dalam Container MikroTik, *Cron service* tidak bisa hidup sendiri secara agresif. Anda punya **2 Opsi Solusi Paling Tepat**:
+
+### Opsi 1: Menggunakan PHP Daemon Loop (Disarankan)
+Saya telah merakit skrip khusus `cron/daemon.php` yang memutar waktu (infinity loop 60 detik) untuk memicu task isolir & notifikasi WhatsApp otomatis tanpa campur tangan `crontab` OS.
+Nyalakan skrip ini langsung di latar belakang terminal Ubuntu Container:
+```bash
+php /var/www/html/gembok/cron/daemon.php &
+```
+*Catatan: Anda perlu menjalankan ulang command di atas setiap kali Anda me-restart container Mikrotik.*
+
+### Opsi 2: Eksekusi Langsung dari Scheduller MikroTik (Trigger Luar)
+Karena Container ini berada langsung *di dalam* router Anda, Anda bisa menyuruh **RouterOS** yang mengeksekusi *Cron* melalui API `fetch`. Ini sangat paten karena ikut menyala bersama router tanpa error!
+1. Buka WinBox -> **System** -> **Scheduler**
+2. Buat jadwal baru dengan Interval `00:01:00` (1 Menit)
+3. Masukkan script RouterOS berikut (ganti IP dengan IP container Ubuntu Anda):
    ```routeros
-   /container/shell 0
+   /tool fetch url="http://172.17.0.2/gembok/cron/scheduler.php" keep-result=no;
+   /tool fetch url="http://172.17.0.2/gembok/cron/wa_daemon.php" keep-result=no;
    ```
-3. Selamat! Anda sekarang berada di root terminal Ubuntu. (Lokasi folder Gembok ada di `/var/www/html/`).
-
----
-
-## 🔁 Catatan Penting Mengenai Cron / Daemon
-Tidak seperti instalasi Ubuntu versi *Bare-metal*, Anda **TIDAK PERLU** menginstal skrip `install_cron.sh` sama sekali. Sistem *Gembok Container* sudah dipersenjatai dengan fitur paralel *Apache* dan **Daemon Script** (`start.sh` -> `daemon.php`) yang mendeteksi setiap jadwal faktur pelanggan secara senyiap sesaat setelah status Container berubah menjadi `Running`.
+*(Opsi 2 ini adalah bentuk simbiosis mutualisme paling kokoh antara Gembok dan sistem asli MikroTik Anda!)*
