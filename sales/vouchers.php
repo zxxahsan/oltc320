@@ -71,11 +71,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]);
         
         // Generate Vouchers
+        $v_length = (int)($_POST['v_length'] ?? 6);
+        $v_mode = $_POST['v_mode'] ?? 'mix';
+        $v_type = $_POST['v_type'] ?? 'up';
+
         for ($i = 0; $i < $qty; $i++) {
-            // Use Sales User Voucher Settings
-            $length = $salesUser['voucher_length'] ?: 6;
-            $mode = $salesUser['voucher_mode'] ?: 'mix'; // mix, num, alp
-            $type = $salesUser['voucher_type'] ?: 'upp'; // upp, up
+            $length = $v_length;
+            $mode = $v_mode; 
+            $type = $v_type;
 
             $charSet = 'alphanumeric'; // default
             if ($mode === 'num') $charSet = 'numeric';
@@ -183,6 +186,34 @@ ob_start();
                     <div class="form-group">
                         <label class="form-label">Jumlah (Qty)</label>
                         <input type="number" name="qty" class="form-control" value="1" min="1" max="50" required>
+                    </div>
+
+                    <div class="row" style="display: flex; gap: 10px;">
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label">Panjang Kode</label>
+                            <select name="v_length" class="form-control">
+                                <option value="4">4 Karakter</option>
+                                <option value="6" selected>6 Karakter</option>
+                                <option value="8">8 Karakter</option>
+                                <option value="12">12 Karakter</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label">Jenis Kode</label>
+                            <select name="v_mode" class="form-control">
+                                <option value="mix" selected>Huruf & Angka</option>
+                                <option value="num">Angka Saja</option>
+                                <option value="alp">Huruf Saja</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Tipe Login</label>
+                        <select name="v_type" class="form-control">
+                            <option value="upp" selected>Username = Password</option>
+                            <option value="up">Username & Password Beda</option>
+                        </select>
                     </div>
 
                     <div class="form-group">

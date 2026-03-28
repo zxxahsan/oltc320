@@ -35,6 +35,15 @@ $monthSales = fetchOne("SELECT COUNT(*) as count, SUM(price) as capital, SUM(sel
 // Get Active Vouchers (Moved from history)
 $activeVouchers = fetchAll("SELECT * FROM hotspot_sales WHERE sales_user_id = ? AND status = 'active' ORDER BY used_at DESC", [$salesId]);
 
+// Get Realtime Active Users from Mikrotik for status dot
+$activeMT = mikrotikGetHotspotActive();
+$onlineUsers = [];
+if (is_array($activeMT)) {
+    foreach ($activeMT as $a) {
+        $onlineUsers[] = $a['user'] ?? '';
+    }
+}
+
 // Get Inactive Vouchers (Moved from history)
 $inactiveVouchers = fetchAll("SELECT * FROM hotspot_sales WHERE sales_user_id = ? AND status = 'inactive' ORDER BY created_at DESC", [$salesId]);
 
@@ -92,14 +101,7 @@ ob_start();
                 <span style="font-size: 1rem; font-weight: 700;">Buat Voucher Baru</span>
             </a>
             
-            <a href="history.php" class="btn btn-secondary" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 25px; border-radius: 16px; background: var(--bg-secondary); border: 1px solid var(--border-color);">
-                <i class="fas fa-history" style="font-size: 2rem; color: var(--neon-purple);"></i>
                 <span style="font-size: 1rem; font-weight: 700;">Riwayat Penjualan</span>
-            </a>
-
-            <a href="profile.php" class="btn btn-secondary" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 25px; border-radius: 16px; background: var(--bg-secondary); border: 1px solid var(--border-color);">
-                <i class="fas fa-user-circle" style="font-size: 2rem; color: var(--neon-orange);"></i>
-                <span style="font-size: 1rem; font-weight: 700;">Profil & Pengaturan</span>
             </a>
         </div>
     </div>
@@ -117,6 +119,7 @@ ob_start();
                     <table class="table table-hover" id="activeTable">
                         <thead>
                             <tr>
+                                <th>Status</th>
                                 <th>Waktu Login</th>
                                 <th>Username</th>
                                 <th>Paket</th>
@@ -126,8 +129,17 @@ ob_start();
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach ($activeVouchers as $v): ?>
+                            <?php foreach ($activeVouchers as $v): 
+                                $isOnline = in_array($v['username'], $onlineUsers);
+                            ?>
                                 <tr>
+                                    <td>
+                                        <?php if ($isOnline): ?>
+                                            <span class="status-dot status-online"></span> <span style="color: var(--neon-green); font-size: 0.75rem; font-weight: bold;">Online</span>
+                                        <?php else: ?>
+                                            <span class="status-dot"></span> <span style="color: var(--text-muted); font-size: 0.75rem;">Offline</span>
+                                        <?php endif; ?>
+                                    </td>
                                     <td>
                                         <div style="font-weight: 600; color: var(--text-primary);"><?php echo date('d M, H:i', strtotime($v['used_at'])); ?></div>
                                         <div style="font-size: 0.75rem; color: var(--neon-orange);">Exp: <?php echo $v['expired_at'] ? date('d M, H:i', strtotime($v['expired_at'])) : '-'; ?></div>
