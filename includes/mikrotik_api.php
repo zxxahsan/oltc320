@@ -1477,7 +1477,7 @@ function generateHotspotExpiryScript($mode, $price = 0, $validity = '', $selling
     // Timestamp script to record first login date and time
     // We APPEND the timestamp to any existing comment (like sales tracker 'vc-salesname-date')
     // using a separator " / " to avoid overwriting or redundant entries.
-    $script = ':local date [/system clock get date];:local time [/system clock get time];:local comment [/ip hotspot user get [find name="$user"] comment];:if ([:find $comment " / "] = -1) do={[/ip hotspot user set [find name="$user"] comment=($comment . " / " . $date . " " . $time)]}';
+    $script = ':local d [/system clock get date];:local t [/system clock get time];:local u "$user";:local c [/ip hotspot user get [find name=$u] comment];:if ([:find "$c" " / "] = -1) do={/ip hotspot user set [find name=$u] comment=("$c" . " / " . "$d" . " " . "$t")}';
 
     $price = (int) $price;
     $sellingPrice = (int) $sellingPrice;
