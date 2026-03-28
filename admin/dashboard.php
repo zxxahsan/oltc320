@@ -371,6 +371,9 @@ ob_start();
         <a href="trouble.php" class="btn btn-secondary" style="justify-content: center;">
             <i class="fas fa-exclamation-triangle"></i> Gangguan
         </a>
+        <a href="traffic_monitor.php" class="btn btn-primary" style="justify-content: center; background: linear-gradient(135deg, #00f5ff, #0088cc); color: white; border: none; box-shadow: 0 4px 15px rgba(0, 245, 255, 0.2);">
+            <i class="fas fa-chart-line"></i> Live Traffic
+        </a>
         <a href="settings.php" class="btn btn-secondary" style="justify-content: center;">
             <i class="fas fa-cog"></i> Settings
         </a>

@@ -14,9 +14,9 @@ requireAdminLogin();
 try {
     $interface = $_GET['interface'] ?? 'ether1';
 
-    // Sanitize interface name — only alphanumeric, dash, dot allowed
-    if (!preg_match('/^[a-zA-Z0-9.\-]+$/', $interface)) {
-        echo json_encode(['success' => false, 'message' => 'Invalid interface name']);
+    // Sanitize interface name — allow alphanumeric, dash, dot, space, underscores, and PPPoE brackets < >
+    if (!preg_match('/^[a-zA-Z0-9.\-\s<>_]+$/', $interface)) {
+        echo json_encode(['success' => false, 'message' => 'Invalid interface name: ' . htmlspecialchars($interface)]);
         exit;
     }
 
