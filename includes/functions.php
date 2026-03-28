@@ -1232,51 +1232,165 @@ function syncHotspotSalesStatus()
     // 1. Self-heal and mutate schema natively
     $colCheck = $pdo->query("SHOW COLUMNS FROM hotspot_sales LIKE 'status'");
     if ($colCheck->rowCount() == 0) {
-        $pdo->exec("ALTER TABLE hotspot_sales ADD COLUMN status ENUM('inactive', 'active') DEFAULT 'inactive'");
+        $pdo->exec("ALTER TABLE hotspot_sales ADD COLUMN status ENUM('inactive', 'active', 'expired') DEFAULT 'inactive'");
         $pdo->exec("ALTER TABLE hotspot_sales ADD COLUMN used_at DATETIME NULL");
+    } else {
+        // Update enum if 'expired' is missing
+        $pdo->exec("ALTER TABLE hotspot_sales MODIFY COLUMN status ENUM('inactive', 'active', 'expired') DEFAULT 'inactive'");
     }
 
-    // 2. Lookup Inactive Vouchers
+    // Additional columns for detailed history (Phase 4)
+    $pdo->exec("ALTER TABLE hotspot_sales ADD COLUMN IF NOT EXISTS mac_address VARCHAR(20) DEFAULT NULL");
+    $pdo->exec("ALTER TABLE hotspot_sales ADD COLUMN IF NOT EXISTS hostname VARCHAR(100) DEFAULT NULL");
+    $pdo->exec("ALTER TABLE hotspot_sales ADD COLUMN IF NOT EXISTS uptime VARCHAR(20) DEFAULT '0s'");
+    $pdo->exec("ALTER TABLE hotspot_sales ADD COLUMN IF NOT EXISTS expired_at DATETIME DEFAULT NULL");
+
+    // 2. Identify Vouchers needing status check
     $inactives = fetchAll("SELECT id, username FROM hotspot_sales WHERE status = 'inactive'");
-    if (empty($inactives)) return;
+    $actives = fetchAll("SELECT id, username FROM hotspot_sales WHERE status = 'active'");
     
+    // Convert to searchable format
     $inactiveNames = array_column($inactives, 'username', 'id');
+    $activeNames = array_column($actives, 'username', 'id');
     
-    // 3. Match and Update Uptime
+    if (empty($inactiveNames) && empty($activeNames)) return;
+    
+    // 3. Match against RouterOS Users
     require_once __DIR__ . '/mikrotik_api.php';
     if (!function_exists('mikrotikGetHotspotUsers')) return;
     
-    $users = mikrotikGetHotspotUsers();
-    if (empty($users)) return;
+    $routerUsers = mikrotikGetHotspotUsers();
+    $routerUserNames = array_filter(array_column($routerUsers, 'name'));
     
     $pdo->beginTransaction();
     try {
-        foreach ($users as $u) {
-            $uname = $u['name'] ?? '';
-            $uptime = $u['uptime'] ?? '';
-            
-            if (!empty($uname) && in_array($uname, $inactiveNames)) {
-                if (!empty($uptime) && $uptime !== '0s') {
-                    $id = array_search($uname, $inactiveNames);
-                    if ($id) {
-                        update('hotspot_sales', [
-                            'status' => 'active',
-                            'used_at' => date('Y-m-d H:i:s')
-                        ], 'id = ?', [$id]);
+        // Fetch Profiles first for validity parsing
+        $profiles = mikrotikGetHotspotProfiles();
+        $profValidity = [];
+        foreach ($profiles as $p) {
+            $pData = parseMikhmonOnLogin($p['on-login'] ?? '');
+            if (!empty($pData['validity'])) {
+                $profValidity[$p['name']] = $pData['validity'];
+            }
+        }
+
+        // Process Inactive -> Active migration
+        if (!empty($routerUsers)) {
+            foreach ($routerUsers as $u) {
+                $uname = $u['name'] ?? '';
+                $uptime = $u['uptime'] ?? '0s';
+                $mac = $u['mac-address'] ?? null;
+                $pName = $u['profile'] ?? 'default';
+                
+                if (!empty($uname) && in_array($uname, $inactiveNames)) {
+                    if (!empty($uptime) && $uptime !== '0s') {
+                        $id = array_search($uname, $inactiveNames);
+                        if ($id) {
+                            $usedAt = date('Y-m-d H:i:s');
+                            $expiryAt = null;
+                            
+                            // Calculate Expiry if validity is known
+                            if (isset($profValidity[$pName])) {
+                                $sec = parseValidityToSeconds($profValidity[$pName]);
+                                if ($sec > 0) {
+                                    $expiryAt = date('Y-m-d H:i:s', time() + $sec);
+                                }
+                            }
+
+                            update('hotspot_sales', [
+                                'status' => 'active',
+                                'used_at' => $usedAt,
+                                'expired_at' => $expiryAt,
+                                'mac_address' => $mac,
+                                'uptime' => $uptime
+                            ], 'id = ?', [$id]);
+                        }
                     }
                 }
             }
         }
+        
+        // Process Active -> Update Uptime/MAC
+        if (!empty($routerUsers)) {
+            foreach ($routerUsers as $u) {
+                $uname = $u['name'] ?? '';
+                $uptime = $u['uptime'] ?? null;
+                $mac = $u['mac-address'] ?? null;
+                
+                if (!empty($uname) && in_array($uname, $activeNames)) {
+                    $id = array_search($uname, $activeNames);
+                    update('hotspot_sales', [
+                        'mac_address' => $mac,
+                        'uptime' => $uptime
+                    ], 'id = ?', [$id]);
+                }
+            }
+        }
+
+        // Process Active -> Expired migration
+        foreach ($activeNames as $id => $uname) {
+            if (!in_array($uname, $routerUserNames)) {
+                update('hotspot_sales', [
+                    'status' => 'expired'
+                ], 'id = ?', [$id]);
+            }
+        }
+
         $pdo->commit();
     } catch (Exception $e) {
         $pdo->rollBack();
     }
 }
 
-// Check if request is AJAX
-function isAjax()
+/**
+ * Parse Mikhmon-style on-login script for price/validity/etc
+ */
+function parseMikhmonOnLogin($script)
 {
-    return !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest';
+    $data = [
+        'mode' => 'none',
+        'price' => 0,
+        'validity' => '',
+        'selling' => 0
+    ];
+
+    if (!$script) return $data;
+
+    // Format usually: ,,,,validity,price,selling
+    $parts = explode(',', $script);
+    if (count($parts) >= 2) {
+        $data['mode'] = trim($parts[1] ?? 'none');
+        $data['price'] = (float)trim($parts[2] ?? 0);
+        $data['validity'] = trim($parts[3] ?? '');
+        $data['selling'] = (float)trim($parts[4] ?? 0);
+    }
+
+    return $data;
+}
+
+/**
+ * Convert RouterOS validity (1d, 1h, 30m) to seconds
+ */
+function parseValidityToSeconds($validity)
+{
+    if (empty($validity)) return 0;
+    
+    $total = 0;
+    preg_match_all('/(\d+)([smhd])/', strtolower($validity), $matches, PREG_SET_ORDER);
+    
+    foreach ($matches as $m) {
+        $val = (int)$m[1];
+        $unit = $m[2];
+        
+        switch ($unit) {
+            case 's': $total += $val; break;
+            case 'm': $total += $val * 60; break;
+            case 'h': $total += $val * 3600; break;
+            case 'd': $total += $val * 86400; break;
+        }
+    }
+    
+    return $total;
 }
 
 // Get current URL

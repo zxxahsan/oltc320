@@ -167,7 +167,7 @@ $typeNames = [
             
             <div class="form-group">
                 <label class="form-label" style="font-weight: bold; color: var(--neon-cyan);">Gateway WhatsApp Aktif</label>
-                <select name="wa_gateway" id="wa_gateway_select" class="form-control" onchange="toggleWaSettings()" style="background: rgba(0,0,0,0.5); border: 1px solid var(--neon-cyan);">
+                <select name="wa_gateway" id="wa_gateway_select" class="form-control" onchange="toggleWaSettings()" style="background: var(--bg-input); border: 1px solid var(--neon-cyan);">
                     <option value="fonnte" <?php echo ($settings['WA_GATEWAY'] ?? '') === 'fonnte' ? 'selected' : ''; ?>>Fonnte API</option>
                     <option value="wablas" <?php echo ($settings['WA_GATEWAY'] ?? '') === 'wablas' ? 'selected' : ''; ?>>Wablas</option>
                     <option value="mpwa" <?php echo ($settings['WA_GATEWAY'] ?? '') === 'mpwa' ? 'selected' : ''; ?>>MPWA Official</option>
@@ -286,9 +286,9 @@ document.addEventListener('DOMContentLoaded', toggleWaSettings);
     <p style="color: var(--text-secondary); margin-bottom: 20px;">Sesuaikan format kalimat otomatis yang akan disalurkan oleh sistem Gembok ke nomor WhatsApp Pelanggan.</p>
     
     <!-- GLOBAL VARIABLES HINT -->
-    <div class="alert alert-info" style="background: rgba(0, 204, 255, 0.1); border-left: 4px solid #00ccff; padding: 15px; margin-bottom: 25px; border-radius: 4px;">
-        <h4 style="margin-top: 0; color: #00ccff;"><i class="fas fa-info-circle"></i> Daftar Variabel Global (Bisa Digunakan di SEMUA Template)</h4>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 10px; font-family: monospace; font-size: 0.9rem; color: #eee;">
+    <div class="alert alert-info" style="margin-bottom: 25px; border-radius: 8px; flex-direction: column; align-items: flex-start;">
+        <h4 style="margin-top: 0; color: var(--neon-cyan); font-weight: 700;"><i class="fas fa-info-circle"></i> Daftar Variabel Global (Bisa Digunakan di SEMUA Template)</h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 10px; font-family: monospace; font-size: 0.9rem; color: var(--text-primary); width: 100%;">
             <div><strong>{customer_name}</strong> - Nama Pelanggan</div>
             <div><strong>{app_name}</strong> - Nama Aplikasi Sistem</div>
             <div><strong>{package_name}</strong> - Nama Paket Internet</div>
@@ -317,7 +317,7 @@ document.addEventListener('DOMContentLoaded', toggleWaSettings);
                     <input type="hidden" name="action" value="save_template">
                     <input type="hidden" name="type" value="<?php echo htmlspecialchars($tmpl['type']); ?>">
                     
-                    <div class="form-group" style="display: flex; align-items: center; justify-content: space-between; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 15px;">
+                    <div class="form-group" style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-input); padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 15px;">
                         <label style="margin: 0; font-weight: bold; color: var(--text-primary); cursor: pointer;">
                             <i class="fas fa-power-off" style="color: <?php echo (!isset($tmpl['is_enabled']) || $tmpl['is_enabled']) ? 'var(--neon-green)' : 'var(--neon-red)'; ?>;"></i> Aktifkan Template Ini
                         </label>
