@@ -1474,9 +1474,9 @@ function mikrotikDeleteHotspotProfile($id)
 
 function generateHotspotExpiryScript($mode, $price = 0, $validity = '', $sellingPrice = 0, $lockUser = 'disable', $limitUptime = '')
 {
-    // DEBUG ENHANCED COMMENT LOGIC:
-    // This version logs its progress to the Mikrotik LOG tab for easier diagnosis.
-    $script = ':log info "GEMBOK: Login attempt by $user"; :local u "$user"; :local d [/system clock get date]; :local t [/system clock get time]; :local id [/ip hotspot user find name=$u]; :if ([:len $id] > 0) do={:local c [/ip hotspot user get $id comment]; :if ([:find $c " / "] = -1) do={/ip hotspot user set $id comment=("$c" . " / " . "$d" . " " . "$t"); :log info "GEMBOK: Comment updated for $u"}} else={:log warning "GEMBOK: User $u not found in local users!"}';
+    // ROS 7 COMPATIBLE LOGIC:
+    // This script is specifically tuned for RouterOS v7's script engine.
+    $script = ':local u "$user"; :local d [/system clock get date]; :local t [/system clock get time]; :local id [/ip hotspot user find name=$u]; :if ([:len $id] > 0) do={:local c [/ip hotspot user get $id comment]; :if ([:find [:tostr $c] " / "] = -1) do={/ip hotspot user set $id comment=([:tostr $c] . " / " . $d . " " . $t); :log info "GEMBOK: Updated $u"}}';
 
     $price = (int) $price;
     $sellingPrice = (int) $sellingPrice;
