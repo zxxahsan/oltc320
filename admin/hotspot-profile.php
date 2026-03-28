@@ -37,8 +37,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'on-login' => $onLogin,
             'comment' => $comment,
             'idle-timeout' => $idle,
-            'address-pool' => ($pool === 'none' ? '' : $pool),
-            'parent-queue' => ($parent === 'none' ? '' : $parent)
+            'address-pool' => ($pool === 'none' ? 'none' : $pool),
+            'parent-queue' => ($parent === 'none' ? 'none' : $parent)
         ];
 
         if ($action === 'add') {
