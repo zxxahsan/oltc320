@@ -137,7 +137,7 @@ ob_start();
                 <i class="fas fa-users" style="color: var(--neon-purple); font-size: 1.1rem;"></i>
                 <div>
                     <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Perangkat</div>
-                    <div style="font-size: 0.9rem; font-weight: 600; color: var(--text-primary);"><?php echo htmlspecialchars($onuDevices); ?> Unit</div>
+                    <div style="font-size: 0.9rem; font-weight: 600; color: var(--text-primary);"><?php echo htmlspecialchars($onuDevices); ?> Device</div>
                 </div>
             </div>
             <?php endif; ?>
@@ -155,32 +155,33 @@ ob_start();
 
     <!-- Package Info -->
     <div class="card" style="margin-bottom: 30px;">
-        <h3 style="margin-bottom: 15px; color: var(--neon-cyan);">
-            <i class="fas fa-box"></i> Paket Layanan Internet
-        </h3>
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
-            <div>
-                <h2 style="font-size: 1.8rem; font-weight: 700; margin-bottom: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px;">
+            <div style="flex: 1; min-width: 250px;">
+                <p style="color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase; font-weight: 700; margin-bottom: 5px;">
+                    <i class="fas fa-box"></i> Paket Layanan Saat Ini
+                </p>
+                <h2 style="font-size: 1.8rem; font-weight: 800; margin-bottom: 5px; color: var(--text-primary);">
                     <?php echo htmlspecialchars($package['name'] ?? 'Tanpa Paket'); ?>
                 </h2>
-                <p style="color: var(--neon-green); font-size: 1.4rem; font-weight: 600;">
+                <div style="color: var(--neon-green); font-size: 1.4rem; font-weight: 700;">
                     <?php echo formatCurrency($package['price'] ?? 0); ?> 
-                    <span style="font-size: 0.9rem; color: var(--text-secondary); font-weight: normal;">/ bulan</span>
-                </p>
+                    <span style="font-size: 0.9rem; color: var(--text-secondary); font-weight: 400;">/ bulan</span>
+                </div>
             </div>
-            <div style="text-align: right;">
-                <div style="margin-bottom: 10px;">
-                    <span style="color: var(--text-secondary); font-size: 0.9rem; display: block; margin-bottom: 5px;">Status Berlangganan:</span>
+            
+            <div style="text-align: right; min-width: 150px;">
+                <div style="margin-bottom: 12px;">
+                    <span style="color: var(--text-secondary); font-size: 0.8rem; display: block; margin-bottom: 5px;">Status Layanan:</span>
                     <?php if (isset($customer['status']) && $customer['status'] === 'active'): ?>
-                        <span class="badge badge-success" style="font-size: 1.1rem; padding: 8px 16px;">Aktif</span>
+                        <span class="badge badge-success" style="font-size: 1rem; padding: 6px 16px;">Aktif</span>
                     <?php else: ?>
-                        <span class="badge badge-warning" style="font-size: 1.1rem; padding: 8px 16px;">Isolir</span>
+                        <span class="badge badge-warning" style="font-size: 1rem; padding: 6px 16px;">Isolir</span>
                     <?php endif; ?>
                 </div>
                 
                 <?php if (!empty($customer['isolation_date'])): ?>
-                    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 10px;">
-                        <i class="fas fa-calendar-alt"></i> Tanggal Isolir: Tanggal <?php echo $customer['isolation_date']; ?>
+                    <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 5px; background: rgba(253, 126, 20, 0.05); padding: 5px 10px; border-radius: 6px; display: inline-block;">
+                        <i class="fas fa-calendar-alt" style="margin-right: 5px;"></i> Isolir: Tanggal <strong><?php echo $customer['isolation_date']; ?></strong>
                     </p>
                 <?php endif; ?>
             </div>
@@ -189,15 +190,11 @@ ob_start();
 
     <!-- Monthly Usage Info -->
     <div class="card" style="margin-bottom: 30px; border-top: 4px solid var(--neon-purple);">
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
-            <div>
-                <h3 style="margin-bottom: 10px; color: var(--neon-purple);">
-                    <i class="fas fa-chart-pie"></i> Total Penggunaan Bulan Ini
-                </h3>
-                <p style="color: var(--text-secondary); margin-bottom: 0; font-size: 0.9rem;">
-                    Periode berjalan dari <strong>1 <?php echo strftime('%B %Y'); ?></strong> hingga Hari Ini. (Termasuk total historis + aktif berjalan).
-                </p>
-            </div>
+        <div style="text-align: center; padding: 10px 0;">
+            <h3 style="margin-bottom: 10px; color: var(--neon-purple);">
+                <i class="fas fa-chart-line"></i> Total Penggunaan Bulan <?php echo date('F Y'); ?>
+            </h3>
+        </div>
             
             <?php 
                 // Kalkulasi Pendekatan WiFi + Historis Database
@@ -225,9 +222,11 @@ ob_start();
                 $grandTotalBytes = $dbTotalIn + $dbTotalOut + $activeRx + $activeTx;
             ?>
             
-            <div style="background: var(--bg-secondary); padding: 15px 30px; border-radius: 12px; text-align: center; border-left: 4px solid var(--neon-purple); margin-top: 10px; box-shadow: var(--shadow-card);">
-                <div style="font-size: 2.2rem; font-weight: 800; color: var(--text-primary); letter-spacing: -1px;">
-                    <?php echo formatBytes($grandTotalBytes); ?>
+            <div style="display: flex; justify-content: center; margin-top: 15px;">
+                <div style="background: var(--bg-secondary); padding: 20px 40px; border-radius: 12px; text-align: center; border-bottom: 4px solid var(--neon-purple); box-shadow: var(--shadow-card); min-width: 250px;">
+                    <div style="font-size: 2.5rem; font-weight: 800; color: var(--text-primary); letter-spacing: -1px;">
+                        <?php echo formatBytes($grandTotalBytes); ?>
+                    </div>
                 </div>
             </div>
         </div>
@@ -235,16 +234,12 @@ ob_start();
 
     <!-- Live Traffic Monitor -->
     <div class="card" style="margin-bottom: 30px; border-top: 4px solid var(--neon-cyan);">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
             <h3 style="color: var(--neon-cyan); margin: 0;">
-                <i class="fas fa-satellite-dish"></i> Live Traffic Monitor
+                <i class="fas fa-satellite-dish"></i> Kecepatan Internet Real-time
             </h3>
-            <span id="trafficStatusBadge" class="badge badge-warning">Menyambungkan...</span>
+            <span id="trafficStatusBadge" class="badge badge-warning">...</span>
         </div>
-        
-        <p style="color: var(--text-secondary); margin-bottom: 15px; font-size: 0.9rem;">
-            Pantau kecepatan internet Anda secara <em>Real-time</em> langsung dari Router Utama.
-        </p>
         
         <div style="background: var(--bg-secondary); border-radius: 12px; padding: 15px; height: 300px; position: relative; border: 1px solid var(--border-color);">
             <canvas id="liveTrafficChart"></canvas>
@@ -419,7 +414,7 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(data => {
                 if (data.success) {
                     badge.className = 'badge badge-success';
-                    badge.innerHTML = '<i class="fas fa-wifi"></i> Online';
+                    badge.innerHTML = 'Online';
                     
                     const currentTime = data.timestamp_ms;
                     
@@ -449,8 +444,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         trafficChart.update('none'); // Update without animation for smoother real-time
                     }
                 } else {
-                    badge.className = 'badge badge-error';
-                    badge.innerHTML = '<i class="fas fa-times-circle"></i> ' + (data.message || 'Offline');
+                    badge.className = 'badge badge-warning';
+                    badge.innerHTML = 'Offline';
                     trafficChart.data.datasets[0].data.push(0);
                     trafficChart.data.datasets[1].data.push(0);
                     trafficChart.data.datasets[0].data.shift();

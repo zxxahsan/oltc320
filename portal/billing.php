@@ -53,11 +53,11 @@ ob_start();
 
     <?php if ($totalUnpaid > 0): ?>
     <!-- Outstanding Alert -->
-    <div class="alert alert-error" style="margin-bottom: 20px;">
-        <i class="fas fa-exclamation-triangle" style="font-size: 1.5rem;"></i>
+    <div class="alert alert-error" style="margin-bottom: 20px; border-left: 5px solid var(--neon-red); background: rgba(220, 53, 69, 0.1);">
+        <i class="fas fa-exclamation-triangle" style="font-size: 1.5rem; color: var(--neon-red);"></i>
         <div>
-            <h4 style="margin: 0; color: var(--neon-red);">Anda memiliki Tagihan Tertunggak!</h4>
-            <p style="margin: 5px 0 0 0; color: #fff;">
+            <h4 style="margin: 0; color: var(--neon-red); font-weight: 800;">Tagihan Tertunggak!</h4>
+            <p style="margin: 5px 0 0 0; color: var(--text-primary);">
                 Segera lakukan pembayaran sebesar <strong><?php echo formatCurrency($totalUnpaid); ?></strong> untuk menghindari isolasi layanan.
             </p>
         </div>
@@ -79,14 +79,16 @@ ob_start();
                     </p>
                 </div>
                 <div style="text-align: right;">
-                    <p style="font-size: 1.5rem; font-weight: 700; color: var(--neon-green);">
+                    <p style="font-size: 1.8rem; font-weight: 800; color: var(--text-primary); margin-bottom: 5px;">
                         <?php echo formatCurrency($currentInvoice['amount']); ?>
                     </p>
-                    <?php if ($currentInvoice['status'] === 'unpaid'): ?>
-                        <span class="badge badge-warning" style="font-size: 1.1rem; padding: 6px 15px;">Belum Bayar</span>
-                    <?php else: ?>
-                        <span class="badge badge-success" style="font-size: 1.1rem; padding: 6px 15px;">Lunas</span>
-                    <?php endif; ?>
+                    <div style="display: flex; justify-content: flex-end;">
+                        <?php if ($currentInvoice['status'] === 'unpaid'): ?>
+                            <span class="badge badge-warning" style="font-size: 0.9rem; padding: 5px 15px; border-radius: 6px;">Belum Bayar</span>
+                        <?php else: ?>
+                            <span class="badge badge-success" style="font-size: 0.9rem; padding: 5px 15px; border-radius: 6px;">Lunas</span>
+                        <?php endif; ?>
+                    </div>
                 </div>
             </div>
             

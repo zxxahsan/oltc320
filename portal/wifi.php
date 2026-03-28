@@ -376,55 +376,72 @@ ob_start();
     
     <!-- Connected Devices List -->
     <div class="card" style="margin-top: 20px;">
-        <h3 style="margin-bottom: 15px; color: var(--neon-cyan);">
-            <i class="fas fa-network-wired"></i> Daftar Perangkat Terhubung (LAN/WiFi)
+        <h3 style="margin-bottom: 20px; color: var(--neon-cyan);">
+            <i class="fas fa-network-wired"></i> Perangkat Terhubung
         </h3>
-        <p style="color: var(--text-secondary); margin-bottom: 15px; font-size: 0.9rem;">
-            Daftar komputer, smartphone, atau Smart TV yang sedang menggunakan jaringan WiFi Anda.
-        </p>
         
-        <div class="table-responsive" style="overflow-x: auto; width: 100%;">
-            <table class="table" style="width: 100%; border-collapse: collapse; min-width: 600px;">
-                <thead>
-                    <tr style="border-bottom: 2px solid var(--border-color); text-align: left; font-size: 0.9rem; color: var(--text-secondary);">
-                        <th style="padding: 12px; background: rgba(0,0,0,0.2);">Nama Perangkat</th>
-                        <th style="background: rgba(0,0,0,0.2);">IP Address</th>
-                        <th style="background: rgba(0,0,0,0.2);">MAC Address</th>
-                        <th style="background: rgba(0,0,0,0.2);">Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php if (empty($lanHosts)): ?>
-                        <tr>
-                            <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 30px;">
-                                <i class="fas fa-ghost" style="font-size: 2rem; margin-bottom: 10px; display: block;"></i>
-                                Sistem tidak dapat mendeteksi daftar perangkat dari Router Anda.
-                            </td>
-                        </tr>
-                    <?php else: ?>
-                        <?php foreach ($lanHosts as $host): ?>
-                        <tr style="border-bottom: 1px solid var(--border-color);">
-                            <td style="padding: 12px; font-weight: 600; color: #fff;">
-                                <i class="fas <?php echo (stripos($host['HostName'], 'android') !== false || stripos($host['HostName'], 'iphone') !== false) ? 'fa-mobile-alt' : 'fa-laptop'; ?>" style="color: var(--text-secondary); margin-right: 8px;"></i>
-                                <?php echo htmlspecialchars($host['HostName'] ?: 'Unknown Device'); ?>
-                            </td>
-                            <td style="padding: 12px; font-family: monospace; color: var(--neon-cyan);"><?php echo htmlspecialchars($host['IPAddress']); ?></td>
-                            <td style="padding: 12px; font-family: monospace; color: var(--text-secondary);"><?php echo htmlspecialchars($host['MACAddress']); ?></td>
-                            <td style="padding: 12px;">
-                                <?php if ($host['Active']): ?>
-                                    <span class="badge badge-success" style="font-size: 0.8rem; padding: 4px 10px;">Aktif</span>
-                                <?php else: ?>
-                                    <span class="badge badge-warning" style="font-size: 0.8rem; padding: 4px 10px;">Tidak Aktif</span>
-                                <?php endif; ?>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </tbody>
-            </table>
+        <div class="device-list">
+            <?php if (empty($lanHosts)): ?>
+                <div style="text-align: center; padding: 40px 20px; color: var(--text-muted);">
+                    <i class="fas fa-ghost" style="font-size: 2.5rem; margin-bottom: 15px; display: block; opacity: 0.5;"></i>
+                    Sistem tidak dapat mendeteksi daftar perangkat dari Router Anda.
+                </div>
+            <?php else: ?>
+                <?php foreach ($lanHosts as $host): ?>
+                <div class="device-item">
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <div class="device-icon <?php echo $host['Active'] ? 'active' : ''; ?>">
+                            <i class="fas <?php 
+                                $name = strtolower($host['HostName']);
+                                if (strpos($name, 'iphone') !== false || strpos($name, 'android') !== false || strpos($name, 'phone') !== false) echo 'fa-mobile-alt';
+                                elseif (strpos($name, 'macbook') !== false || strpos($name, 'laptop') !== false || strpos($name, 'pc') !== false) echo 'fa-laptop';
+                                elseif (strpos($name, 'tv') !== false) echo 'fa-tv';
+                                else echo 'fa-wifi';
+                            ?>"></i>
+                        </div>
+                        <div style="flex: 1;">
+                            <div style="font-weight: 700; color: var(--text-primary); font-size: 1rem;">
+                                <?php echo htmlspecialchars($host['HostName'] ?: 'Perangkat Tanpa Nama'); ?>
+                            </div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">
+                                <?php echo $host['Active'] ? 'Sedang Terhubung' : 'Terakhir terlihat baru-baru ini'; ?>
+                            </div>
+                        </div>
+                        <?php if ($host['Active']): ?>
+                            <div style="width: 8px; height: 8px; background: var(--neon-green); border-radius: 50%; box-shadow: 0 0 8px var(--neon-green);"></div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
         </div>
     </div>
     
+    <style>
+    .device-list { display: flex; flex-direction: column; gap: 12px; }
+    .device-item { 
+        padding: 15px; 
+        background: var(--bg-secondary); 
+        border: 1px solid var(--border-color); 
+        border-radius: 12px; 
+        box-shadow: var(--shadow-card);
+        transition: transform 0.2s;
+    }
+    .device-item:hover { transform: translateX(5px); border-color: var(--neon-cyan); }
+    .device-icon { 
+        width: 45px; 
+        height: 45px; 
+        background: rgba(0,0,0,0.05); 
+        border-radius: 10px; 
+        display: flex; 
+        align-items: center; 
+        justify-content: center; 
+        font-size: 1.2rem; 
+        color: var(--text-muted); 
+    }
+    .device-icon.active { background: rgba(0, 245, 255, 0.1); color: var(--neon-cyan); }
+    </style>
+
     <?php else: ?>
     <!-- Device Offline Message -->
     <?php if ($customerDevice): ?>

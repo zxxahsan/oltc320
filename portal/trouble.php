@@ -14,36 +14,58 @@ $pageTitle = 'Laporan Gangguan';
 ob_start();
 ?>
 
-<div style="max-width: 1200px; margin: 0 auto; padding: 20px;">
-    <!-- Trouble Tickets -->
-    <div class="card" id="lapor-gangguan">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-            <h3 style="color: var(--neon-cyan);">
-                <i class="fas fa-ticket-alt"></i> Daftar Laporan Gangguan
-            </h3>
-            <button class="btn btn-primary" onclick="openTicketModal()">
+    <!-- Trouble Header -->
+    <div class="card" style="margin-bottom: 25px; border-left: 5px solid var(--neon-cyan);">
+        <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
+            <div style="width: 60px; height: 60px; background: rgba(0, 245, 255, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; color: var(--neon-cyan);">
+                <i class="fas fa-headset"></i>
+            </div>
+            <div style="flex: 1; min-width: 250px;">
+                <h3 style="margin-bottom: 5px; color: var(--text-primary);">Punya Kendala Internet?</h3>
+                <p style="color: var(--text-secondary); font-size: 0.9rem; margin: 0;">Sampaikan laporan gangguan Anda di sini. Teknisi kami akan segera menindaklanjuti keluhan Anda dalam waktu singkat.</p>
+            </div>
+            <button class="btn btn-primary" onclick="openTicketModal()" style="padding: 12px 25px;">
                 <i class="fas fa-plus"></i> Buat Laporan Baru
             </button>
         </div>
+    </div>
+
+    <!-- Trouble Tickets List -->
+    <div class="card">
+        <h3 style="margin-bottom: 20px; color: var(--text-primary);">
+            <i class="fas fa-history"></i> Riwayat Laporan Anda
+        </h3>
         
         <div id="ticketsContainer">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>No</th>
-                        <th>Deskripsi</th>
-                        <th>Status</th>
-                        <th>Prioritas</th>
-                        <th>Tanggal</th>
-                    </tr>
-                </thead>
-                <tbody id="ticketsBody">
-                    <!-- Tickets will be loaded here via JS -->
-                </tbody>
-            </table>
+            <div id="ticketsBody" class="ticket-list">
+                <!-- Tickets will be loaded here via JS -->
+                <div style="text-align: center; padding: 40px 20px; color: var(--text-muted);">
+                    <i class="fas fa-spinner fa-spin" style="font-size: 2rem; margin-bottom: 10px;"></i>
+                    <p>Memuat data laporan...</p>
+                </div>
+            </div>
         </div>
     </div>
 </div>
+
+<style>
+.ticket-list { display: flex; flex-direction: column; gap: 12px; }
+.ticket-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 15px;
+    transition: all 0.2s;
+    box-shadow: var(--shadow-card);
+}
+.ticket-card:hover { transform: translateY(-2px); border-color: var(--neon-cyan); }
+.ticket-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+.ticket-id { font-size: 0.75rem; color: var(--text-muted); font-weight: 700; margin-bottom: 3px; }
+.ticket-desc { color: var(--text-primary); font-weight: 500; font-size: 0.95rem; line-height: 1.4; }
+.ticket-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; padding-top: 12px; border-top: 1px solid var(--border-color); }
+.ticket-date { font-size: 0.8rem; color: var(--text-muted); }
+.badge-pill { padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; }
+</style>
 
 <!-- Ticket Modal -->
 <div id="ticketModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 2000; align-items: center; justify-content: center;">
@@ -164,9 +186,7 @@ function loadTickets() {
             
             if (data.tickets && data.tickets.length > 0) {
                 data.tickets.forEach(ticket => {
-                    const row = document.createElement('tr');
-                    
-                    // Format status class
+                    // Format status
                     let statusClass = 'badge-warning';
                     let statusText = 'Pending';
                     if (ticket.status === 'resolved') {
@@ -177,25 +197,41 @@ function loadTickets() {
                         statusText = 'Diproses';
                     }
                     
-                    // Format priority class
-                    let priorityClass = 'badge-info';
-                    if (ticket.priority === 'high') priorityClass = 'badge-danger';
-                    if (ticket.priority === 'medium') priorityClass = 'badge-warning';
+                    // Format priority
+                    let priorityLabel = 'NORMAL';
+                    let priorityColor = 'var(--text-muted)';
+                    if (ticket.priority === 'high') { priorityLabel = 'TINGGI'; priorityColor = 'var(--neon-red)'; }
+                    if (ticket.priority === 'low') { priorityLabel = 'RENDAH'; priorityColor = 'var(--neon-green)'; }
                     
-                    row.innerHTML = `
-                        <td data-label="No">${ticket.id}</td>
-                        <td data-label="Deskripsi">${ticket.description.substring(0, 50)}${ticket.description.length > 50 ? '...' : ''}</td>
-                        <td data-label="Status"><span class="badge ${statusClass}">${statusText}</span></td>
-                        <td data-label="Prioritas"><span class="badge ${priorityClass}">${ticket.priority.charAt(0).toUpperCase() + ticket.priority.slice(1)}</span></td>
-                        <td data-label="Tanggal">${formatDate(ticket.created_at)}</td>
+                    const card = document.createElement('div');
+                    card.className = 'ticket-card';
+                    card.innerHTML = `
+                        <div class="ticket-card-header">
+                            <div>
+                                <div class="ticket-id">TICKET #${ticket.id}</div>
+                                <div class="ticket-desc">${ticket.description}</div>
+                            </div>
+                            <span class="badge ${statusClass}">${statusText}</span>
+                        </div>
+                        <div class="ticket-footer">
+                            <div class="ticket-date">
+                                <i class="far fa-calendar-alt" style="margin-right: 5px;"></i> ${formatDate(ticket.created_at)}
+                            </div>
+                            <div style="font-size: 0.75rem; font-weight: 700; color: ${priorityColor};">
+                                <i class="fas fa-exclamation-circle" style="margin-right: 4px;"></i> PRIORITY: ${priorityLabel}
+                            </div>
+                        </div>
                     `;
                     
-                    tbody.appendChild(row);
+                    tbody.appendChild(card);
                 });
             } else {
-                const row = document.createElement('tr');
-                row.innerHTML = `<td colspan="5" style="text-align: center; color: var(--text-muted); padding: 30px;" data-label="Data">Belum ada laporan gangguan</td>`;
-                tbody.appendChild(row);
+                tbody.innerHTML = `
+                    <div style="text-align: center; padding: 40px 20px; color: var(--text-muted);">
+                        <i class="fas fa-check-circle" style="font-size: 3rem; margin-bottom: 20px; opacity: 0.2;"></i>
+                        <p>Hebat! Anda tidak memiliki laporan gangguan aktif saat ini.</p>
+                    </div>
+                `;
             }
         })
         .catch(error => {
