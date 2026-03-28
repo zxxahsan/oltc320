@@ -25,9 +25,9 @@ if (!$invoice) {
 }
 
 // Gateway Settings
-$gatewayEnabled = getSettingValue('PAYMENT_GATEWAY_ENABLED', '1') === '1';
-$manualEnabled = getSettingValue('MANUAL_TRANSFER_ENABLED', '0') === '1';
-$bankInfo = getSettingValue('TRANSFER_BANK_INFO', '');
+$gatewayEnabled = getSetting('PAYMENT_GATEWAY_ENABLED', '1') === '1';
+$manualEnabled = getSetting('MANUAL_TRANSFER_ENABLED', '0') === '1';
+$bankInfo = getSetting('TRANSFER_BANK_INFO', '');
 $defaultGateway = 'tripay';
 
 require_once '../includes/payment.php';
@@ -86,7 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     // Notify Admin via WA
                     try {
                         require_once '../includes/whatsapp.php';
-                        $adminWa = getSettingValue('WHATSAPP_ADMIN_PHONE');
+                        $adminWa = getSetting('WHATSAPP_ADMIN_PHONE');
                         if ($adminWa) {
                             $msg = "🏦 *Konfirmasi Pembayaran Manual*\n\n";
                             $msg .= "Pelanggan: {$invoice['customer_name']}\n";
