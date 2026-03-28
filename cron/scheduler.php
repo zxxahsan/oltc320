@@ -118,6 +118,12 @@ function runScheduler() {
                         runSystemPing($pdo);
                         break;
 
+                    case 'hotspot_expiry':
+                        echo "Running hotspot expiry monitor...\n";
+                        $count = mikrotikMonitorHotspotExpiry();
+                        echo "  ✓ Checked and cleaned $count expired hotspot users.\n";
+                        break;
+
                     default:
                         echo "Unknown task type: {$schedule['task_type']}\n";
                         $status = 'failed';

@@ -1476,7 +1476,8 @@ function generateHotspotExpiryScript($mode, $price = 0, $validity = '', $selling
 {
     // ULTRA STABLE ROS 7 SCRIPT:
     // Added 2s delay and extra variable safety for RouterOS v7.
-    $script = ':delay 2s; :local u "$user"; :local d [/system clock get date]; :local t [/system clock get time]; :local id [/ip hotspot user find name=$u]; :if ([:len $id] > 0) do={:local c [:tostr [/ip hotspot user get $id comment]]; :if ([:find $c " / "] = -1) do={/ip hotspot user set $id comment=($c . " / " . $d . " " . $t); :log info "GEMBOK: Updated $u"}} else={:log warning "GEMBOK: User $u not found"}';
+    // Uses the Mikhmon v3 format for appending the activation timestamp.
+    $script = ':delay 2s; :local u "$user"; :local d [/system clock get date]; :local t [/system clock get time]; /ip hotspot user { :local id [find name=$u]; :if ([:len $id] > 0) do={ :local c [get $id comment]; :if (!([:tostr $c] ~ " / ")) do={ set $id comment=($c . " / " . $d . " " . $t); :log info "GEMBOK: Updated $u" } } }';
 
     $price = (int) $price;
     $sellingPrice = (int) $sellingPrice;
@@ -2229,4 +2230,82 @@ function mikrotikGetSecretByName($username) {
     
     $secrets = mikrotikParseUsers($allWords);
     return !empty($secrets) ? $secrets[0] : null;
+}
+
+/**
+ * Monitor Hotspot users and expire them based on validity
+ */
+function mikrotikMonitorHotspotExpiry($routerId = null)
+{
+    $socket = getMikrotikConnection($routerId);
+    if (!$socket) return 0;
+
+    $users = mikrotikGetHotspotUsers();
+    $profiles = mikrotikGetHotspotProfiles();
+    
+    // Create profiles index for fast lookup
+    $profilesMap = [];
+    foreach ($profiles as $p) {
+        $profilesMap[$p['name']] = parseMikhmonOnLogin($p['on-login'] ?? '');
+    }
+
+    $expiredCount = 0;
+    $now = time();
+
+    foreach ($users as $user) {
+        $comment = $user['comment'] ?? '';
+        $profileName = $user['profile'] ?? 'default';
+        $pData = $profilesMap[$profileName] ?? null;
+
+        if (!$pData || $pData['mode'] === 'none') continue;
+
+        // Check for activation timestamp in comment: "Initial / mar/28/2026 12:00:00"
+        if (strpos($comment, ' / ') !== false) {
+            $parts = explode(' / ', $comment);
+            $activationStr = trim(end($parts));
+            
+            // Expected format from MikroTik: "jan/01/2026 12:00:00"
+            $activationTime = strtotime($activationStr);
+            if (!$activationTime) continue;
+
+            $validity = $pData['validity'];
+            if (empty($validity)) continue;
+
+            // Simple parser for 1d, 3h, 10m etc.
+            $durationSec = 0;
+            if (preg_match('/(\d+)([dhms])/', $validity, $matches)) {
+                $val = (int)$matches[1];
+                $unit = $matches[2];
+                switch($unit) {
+                    case 'd': $durationSec = $val * 86400; break;
+                    case 'h': $durationSec = $val * 3600; break;
+                    case 'm': $durationSec = $val * 60; break;
+                    case 's': $durationSec = $val; break;
+                }
+            }
+
+            if ($durationSec > 0) {
+                $expiryTime = $activationTime + $durationSec;
+                if ($now > $expiryTime) {
+                    // EXPIRED!
+                    $expiredCount++;
+                    
+                    if ($pData['mode'] === 'remove') {
+                        mikrotikDeleteHotspotUser($user['name']);
+                        mikrotikKickHotspotUser($user['name']);
+                    } elseif ($pData['mode'] === 'notice') {
+                        // Just disable or change profile
+                        mikrotikToggleHotspotUser($user['name'], 'disable');
+                        mikrotikKickHotspotUser($user['name']);
+                    } elseif ($pData['mode'] === 'record') {
+                        // Simply record and disable
+                        mikrotikToggleHotspotUser($user['name'], 'disable');
+                        mikrotikKickHotspotUser($user['name']);
+                    }
+                }
+            }
+        }
+    }
+
+    return $expiredCount;
 }
