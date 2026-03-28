@@ -11,14 +11,11 @@ require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/functions.php';
 
-// Enable execution via Mikrotik /tool fetch (HTTP GET) bypassing strict CLI bounds
-if (php_sapi_name() === 'cli' && realpath(__FILE__) === realpath($_SERVER['SCRIPT_FILENAME'])) {
-    runScheduler();
-} else if (realpath(__FILE__) === realpath($_SERVER['SCRIPT_FILENAME'])) {
-    // Accessed via Web Runner
+// Execute unconditionally to bypass Nginx SCRIPT_FILENAME path resolution mismatches
+if (php_sapi_name() !== 'cli') {
     header('Content-Type: text/plain');
-    runScheduler();
 }
+runScheduler();
 
 /**
  * Main function to run the scheduler
