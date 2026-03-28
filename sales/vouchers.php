@@ -74,7 +74,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $v_length = (int)($_POST['v_length'] ?? 6);
         $v_mode = $_POST['v_mode'] ?? 'mix';
         $v_type = $_POST['v_type'] ?? 'up';
-        $v_limit = sanitize($_POST['limit_uptime'] ?? '');
+
+        // Fetch Profile details from Mikrotik to get validity/limit-uptime
+        $mtProfiles = mikrotikGetHotspotProfiles();
+        $profileDetails = null;
+        foreach ($mtProfiles as $mp) {
+            if ($mp['name'] === $selectedProfile['profile_name']) {
+                $profileDetails = parseMikhmonOnLogin($mp['on-login'] ?? '');
+                break;
+            }
+        }
+        
+        $v_limit = ($profileDetails && !empty($profileDetails['validity'])) ? $profileDetails['validity'] : '';
 
         for ($i = 0; $i < $qty; $i++) {
             $length = $v_length;
@@ -220,12 +231,6 @@ ob_start();
                             <option value="upp" selected>Username = Password</option>
                             <option value="up">Username & Password Beda</option>
                         </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Limit Waktu (Uptime)</label>
-                        <input type="text" name="limit_uptime" class="form-control" placeholder="Contoh: 1h, 5h, 1d (Kosongkan = Default Profile)">
-                        <small style="color: var(--text-muted);">Format MikroTik: 1h (1 jam), 30m (30 menit), 1d (1 hari)</small>
                     </div>
 
                     <div class="form-group">
