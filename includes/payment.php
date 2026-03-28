@@ -3,7 +3,7 @@
  * Payment Gateway Integration
  */
 
-require_once 'config.php';
+require_once __DIR__ . '/config.php';
 
 // Generate payment link based on gateway
 function generatePaymentLink($invoiceNumber, $amount, $customerName, $customerPhone, $dueDate, $gateway = 'tripay', $paymentMethod = '') {

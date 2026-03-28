@@ -141,7 +141,7 @@ ob_start();
         
         <div style="margin-bottom: 30px;">
             <h4 style="color: var(--neon-cyan);">Invoice #<?php echo htmlspecialchars($invoice['invoice_number']); ?></h4>
-            <p style="color: var(--text-secondary);">Paket: <?php echo htmlspecialchars($invoice['package_name']); ?></p>
+            <p style="color: var(--text-secondary);">Paket: <?php echo htmlspecialchars($invoice['package_name'] ?? '-'); ?></p>
             <p style="color: var(--text-secondary);">Jatuh Tempo: <?php echo formatDate($invoice['due_date']); ?></p>
             <p style="font-size: 1.5rem; font-weight: bold; color: var(--neon-cyan);">
                 Total: <?php echo formatCurrency($invoice['amount']); ?>
