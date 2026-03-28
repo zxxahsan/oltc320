@@ -45,14 +45,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (mikrotikAddHotspotProfile($data)) {
                 setFlash('success', "Profile $name berhasil ditambahkan.");
             } else {
-                setFlash('error', "Gagal menambahkan profile.");
+                $error = mikrotikGetLastError();
+                setFlash('error', "Gagal menambahkan profile. Respon MikroTik: " . ($error ?: 'Unknown error'));
             }
         } else {
             $id = $_POST['id'];
             if (mikrotikUpdateHotspotProfile($id, $data)) {
                 setFlash('success', "Profile $name berhasil diperbarui.");
             } else {
-                setFlash('error', "Gagal memperbarui profile.");
+                $error = mikrotikGetLastError();
+                setFlash('error', "Gagal memperbarui profile. Respon MikroTik: " . ($error ?: 'Unknown error'));
             }
         }
         redirect('hotspot-profile.php');

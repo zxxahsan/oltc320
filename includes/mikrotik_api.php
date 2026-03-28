@@ -1347,9 +1347,14 @@ function mikrotikGetHotspotActive()
 // Update Hotspot Profile
 function mikrotikUpdateHotspotProfile($id, $data)
 {
+    global $mikrotikLastError;
+    $mikrotikLastError = '';
+    
     $socket = getMikrotikConnection();
-    if (!$socket)
+    if (!$socket) {
+        $mikrotikLastError = 'Could not connect to Mikrotik.';
         return false;
+    }
 
     mikrotikWrite($socket, '/ip/hotspot/user/profile/set');
     mikrotikWrite($socket, '=.id=' . $id);
@@ -1375,18 +1380,39 @@ function mikrotikUpdateHotspotProfile($id, $data)
 
     $response = mikrotikReadSentence($socket);
     foreach ($response as $word) {
-        if (strpos($word, '!trap') === 0)
+        if (strpos($word, '!trap') === 0) {
+            foreach ($response as $w) {
+                if (strpos($w, '=message=') === 0) {
+                    $mikrotikLastError = substr($w, 9);
+                    break;
+                }
+            }
+            if (empty($mikrotikLastError)) $mikrotikLastError = 'Mikrotik side error (Trap on Update)';
             return false;
+        }
     }
     return true;
+}
+
+// Global to store last Mikrotik error
+$mikrotikLastError = '';
+
+function mikrotikGetLastError() {
+    global $mikrotikLastError;
+    return $mikrotikLastError;
 }
 
 // Add Hotspot Profile
 function mikrotikAddHotspotProfile($data)
 {
+    global $mikrotikLastError;
+    $mikrotikLastError = '';
+    
     $socket = getMikrotikConnection();
-    if (!$socket)
+    if (!$socket) {
+        $mikrotikLastError = 'Could not connect to Mikrotik.';
         return false;
+    }
 
     mikrotikWrite($socket, '/ip/hotspot/user/profile/add');
     if (isset($data['name']))
@@ -1411,8 +1437,17 @@ function mikrotikAddHotspotProfile($data)
 
     $response = mikrotikReadSentence($socket);
     foreach ($response as $word) {
-        if (strpos($word, '!trap') === 0)
+        if (strpos($word, '!trap') === 0) {
+            // Extract message if available
+            foreach ($response as $w) {
+                if (strpos($w, '=message=') === 0) {
+                    $mikrotikLastError = substr($w, 9);
+                    break;
+                }
+            }
+            if (empty($mikrotikLastError)) $mikrotikLastError = 'Mikrotik side error (Trap)';
             return false;
+        }
     }
     return true;
 }
@@ -1443,7 +1478,8 @@ function mikrotikDeleteHotspotProfile($id)
 
 function generateHotspotExpiryScript($mode, $price = 0, $validity = '', $sellingPrice = 0, $lockUser = 'disable')
 {
-    $script = ':nothing'; 
+    // Mode 'none' still needs metadata for the dashboard to show prices/validity
+    $script = ':nothing;'; 
 
     if ($mode === 'remove' || $mode === 'notice' || $mode === 'record') {
         $script = ':local date [/system clock get date];:local time [/system clock get time];:local uname $user;:local comment [/ip hotspot user get [find name=$uname] comment];:if ([:len $comment] = 0) do={/ip hotspot user set [find name=$uname] comment="$date $time"}';
@@ -1452,8 +1488,10 @@ function generateHotspotExpiryScript($mode, $price = 0, $validity = '', $selling
     $price = (int) $price;
     $sellingPrice = (int) $sellingPrice;
 
-    // Mikhmon v3 format: index[0]=script, [1]=mode, [2]=price, [3]=validity, [4]=sellingPrice, [5]=datalimit, [6]=timelimit, [7]=lockUser
-    return $script . ',' . $mode . ',' . $price . ',' . $validity . ',' . $sellingPrice . ',0,0,' . $lockUser;
+    // Mikhmon v3 indices for parseMikhmonOnLogin:
+    // We wrap metadata in a comment so it's technically valid code but parseable.
+    // [0]=script, [1]=mode, [2]=price, [3]=validity, [4]=sellingPrice, [5]=datalimit, [6]=timelimit, [7]=lockUser
+    return $script . "\r\n" . '#metadata:,' . $mode . ',' . $price . ',' . $validity . ',' . $sellingPrice . ',0,0,' . $lockUser;
 }
 
 // Parse Mikhmon v3 on-login script to extract price, validity, selling price, lock user
