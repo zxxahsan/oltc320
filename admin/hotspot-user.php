@@ -43,8 +43,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (empty($timelimit) && $profileValidity !== '-') {
             $timelimit = $profileValidity;
         }
-        // Add 'vc' comment for Mikhmon scheduler compatibility
-        $mikhmonComment = 'vc-' . date('d.m.y') . '-' . $profile;
+        // Get Sales Username for comment if selected
+        $salesToken = 'admin';
+        if ($salesId) {
+            $sUser = fetchOne("SELECT username FROM sales_users WHERE id = ?", [$salesId]);
+            if ($sUser) {
+                $salesToken = strtolower($sUser['username']);
+            }
+        }
+
+        // Standard Mikhmon Comment: vc-SALES-DATE/PROFILE
+        // Using d/m/y to match Sales Portal exactly
+        $mikhmonComment = 'vc-' . $salesToken . '-' . date('d/m/y');
 
         $successCount = 0;
         $generatedVouchers = [];
