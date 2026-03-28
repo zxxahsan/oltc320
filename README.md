@@ -42,13 +42,13 @@ EXIT;
 
 Unduh *source code* khusus container ini ke folder Root:
 ```bash
-mkdir -p /var/www/html/gembok
-cd /var/www/html/gembok
+cd /var/www/html
+rm -rf * index.nginx-debian.html   # Hapus file bawaan Nginx
 git clone https://github.com/zxxahsan/gembokcontainer.git .
 
 # Berikan izin tulis krusial
-chown -R www-data:www-data /var/www/html/gembok
-chmod -R 755 /var/www/html/gembok
+chown -R www-data:www-data /var/www/html
+chmod -R 755 /var/www/html
 ```
 
 Jangan lupa untuk mengubah `includes/config.sample.php` menjadi `includes/config.php` dan setting koneksi `gembok_user` Anda!
@@ -70,7 +70,7 @@ Dalam server *bare-metal* Linux, Isolir & Tagihan digerakkan oleh `crontab`. Di 
 Saya telah merakit skrip khusus `cron/daemon.php` yang memutar waktu (infinity loop 60 detik) untuk memicu task isolir & notifikasi WhatsApp otomatis tanpa campur tangan `crontab` OS.
 Nyalakan skrip ini langsung di latar belakang terminal Ubuntu Container:
 ```bash
-php /var/www/html/gembok/cron/daemon.php &
+php /var/www/html/cron/daemon.php &
 ```
 *Catatan: Anda perlu menjalankan ulang command di atas setiap kali Anda me-restart container Mikrotik.*
 
@@ -80,7 +80,7 @@ Karena Container ini berada langsung *di dalam* router Anda, Anda bisa menyuruh 
 2. Buat jadwal baru dengan Interval `00:01:00` (1 Menit)
 3. Masukkan script RouterOS berikut (ganti IP dengan IP container Ubuntu Anda):
    ```routeros
-   /tool fetch url="http://172.17.0.2/gembok/cron/scheduler.php" keep-result=no;
-   /tool fetch url="http://172.17.0.2/gembok/cron/wa_daemon.php" keep-result=no;
+   /tool fetch url="http://172.17.0.2/cron/scheduler.php" keep-result=no;
+   /tool fetch url="http://172.17.0.2/cron/wa_daemon.php" keep-result=no;
    ```
 *(Opsi 2 ini adalah bentuk simbiosis mutualisme paling kokoh antara Gembok dan sistem asli MikroTik Anda!)*
