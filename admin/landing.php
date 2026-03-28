@@ -57,8 +57,17 @@ if (file_exists('../landing_css.txt') && strpos($currentHtml, 'Internet Cepat & 
     $htmlbody = file_get_contents('../landing_html.txt');
 
     $appName = getSetting('app_name', 'GEMBOK ISP');
-    $htmlbody = str_replace('Ahsan Network', $appName, $htmlbody);
-    $js = str_replace('Ahsan Network', $appName, $js);
+    $waRaw = getSetting('contact_phone', '628xxxxxxxxxx');
+    $waClean = preg_replace('/[^0-9]/', '', $waRaw);
+
+    $replacements = [
+        'Ahsan Network' => $appName,
+        'NET' => $appName,
+        '628xxxxxxxxxx' => $waClean ?: '628xxxxxxxxxx'
+    ];
+
+    $htmlbody = str_replace(array_keys($replacements), array_values($replacements), $htmlbody);
+    $js = str_replace(array_keys($replacements), array_values($replacements), $js);
 
     $fullHtml = '<!DOCTYPE html>
 <html lang="id">
