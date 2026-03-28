@@ -154,34 +154,34 @@ ob_start();
     </div>
 
     <!-- Package Info -->
-    <div class="card" style="margin-bottom: 30px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px;">
+    <div class="card" style="margin-bottom: 30px; border-left: 5px solid var(--neon-cyan); padding: 25px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 30px;">
             <div style="flex: 1; min-width: 250px;">
-                <p style="color: var(--text-muted); font-size: 0.9rem; text-transform: uppercase; font-weight: 700; margin-bottom: 8px;">
-                    <i class="fas fa-box" style="margin-right: 5px; color: var(--neon-cyan);"></i> Paket Layanan Saat Ini
+                <p style="color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase; font-weight: 700; margin-bottom: 12px; letter-spacing: 1px;">
+                    <i class="fas fa-box" style="margin-right: 8px; color: var(--neon-cyan);"></i> Paket Layanan Saat Ini
                 </p>
-                <h2 style="font-size: 2.2rem; font-weight: 900; margin-bottom: 8px; color: var(--text-primary); letter-spacing: -0.5px;">
+                <h2 style="font-size: 2.5rem; font-weight: 900; margin-bottom: 10px; color: var(--text-primary); letter-spacing: -1px; line-height: 1.1;">
                     <?php echo htmlspecialchars($package['name'] ?? 'Tanpa Paket'); ?>
                 </h2>
-                <div style="color: var(--neon-green); font-size: 1.6rem; font-weight: 800;">
+                <div style="color: var(--neon-green); font-size: 1.6rem; font-weight: 800; display: flex; align-items: baseline; gap: 8px;">
                     <?php echo formatCurrency($package['price'] ?? 0); ?> 
-                    <span style="font-size: 1rem; color: var(--text-secondary); font-weight: 400;">/ bulan</span>
+                    <span style="font-size: 0.9rem; color: var(--text-secondary); font-weight: 400; text-transform: lowercase;">per bulan</span>
                 </div>
             </div>
             
-            <div style="text-align: right; min-width: 200px; background: var(--bg-secondary); padding: 15px 25px; border-radius: 12px; border: 1px solid var(--border-color); box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);">
-                <div style="margin-bottom: 12px;">
-                    <span style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; font-weight: 700; display: block; margin-bottom: 8px;">Status Layanan</span>
+            <div style="text-align: right; min-width: 155px; border-left: 1px solid var(--border-color); padding-left: 20px;">
+                <div style="margin-bottom: 15px;">
+                    <div style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; font-weight: 700; margin-bottom: 10px;">Status Layanan</div>
                     <?php if (isset($customer['status']) && $customer['status'] === 'active'): ?>
-                        <span class="badge badge-success" style="font-size: 1.1rem; padding: 8px 20px; border-radius: 8px;">Aktif</span>
+                        <span class="badge badge-success" style="font-size: 1rem; padding: 6px 18px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0, 255, 136, 0.2);">Aktif</span>
                     <?php else: ?>
-                        <span class="badge badge-warning" style="font-size: 1.1rem; padding: 8px 20px; border-radius: 8px;">Isolir</span>
+                        <span class="badge badge-warning" style="font-size: 1rem; padding: 6px 18px; border-radius: 8px; box-shadow: 0 4px 10px rgba(253, 126, 20, 0.2);">Isolir</span>
                     <?php endif; ?>
                 </div>
                 
                 <?php if (!empty($customer['isolation_date'])): ?>
-                    <div style="color: var(--text-secondary); font-size: 0.85rem; padding-top: 10px; border-top: 1px solid var(--border-color);">
-                        <i class="fas fa-calendar-alt" style="margin-right: 5px; color: var(--neon-orange);"></i> Isolir: Tanggal <strong><?php echo $customer['isolation_date']; ?></strong>
+                    <div style="color: var(--text-secondary); font-size: 0.85rem; padding-top: 10px; opacity: 0.8;">
+                        <i class="fas fa-calendar-alt" style="margin-right: 6px; color: var(--neon-orange);"></i> Isolir: <span style="font-weight: 700;">Tgl <?php echo $customer['isolation_date']; ?></span>
                     </div>
                 <?php endif; ?>
             </div>
