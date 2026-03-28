@@ -1374,8 +1374,6 @@ function mikrotikUpdateHotspotProfile($id, $data)
         mikrotikWrite($socket, '=parent-queue=' . $data['parent-queue']);
     if (isset($data['on-login']))
         mikrotikWrite($socket, '=on-login=' . $data['on-login']);
-    if (isset($data['comment']))
-        mikrotikWrite($socket, '=comment=' . $data['comment']);
     mikrotikWrite($socket, '');
 
     $response = mikrotikReadSentence($socket);
@@ -1431,8 +1429,6 @@ function mikrotikAddHotspotProfile($data)
         mikrotikWrite($socket, '=parent-queue=' . $data['parent-queue']);
     if (isset($data['on-login']))
         mikrotikWrite($socket, '=on-login=' . $data['on-login']);
-    if (isset($data['comment']))
-        mikrotikWrite($socket, '=comment=' . $data['comment']);
     mikrotikWrite($socket, '');
 
     $response = mikrotikReadSentence($socket);
