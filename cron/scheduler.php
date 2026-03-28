@@ -11,11 +11,13 @@ require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/functions.php';
 
-// CLI Check - Only run if called directly from CLI
+// Enable execution via Mikrotik /tool fetch (HTTP GET) bypassing strict CLI bounds
 if (php_sapi_name() === 'cli' && realpath(__FILE__) === realpath($_SERVER['SCRIPT_FILENAME'])) {
     runScheduler();
-} else if (php_sapi_name() !== 'cli' && realpath(__FILE__) === realpath($_SERVER['SCRIPT_FILENAME'])) {
-    die("This script can only be run from CLI or authorized web runner");
+} else if (realpath(__FILE__) === realpath($_SERVER['SCRIPT_FILENAME'])) {
+    // Accessed via Web Runner
+    header('Content-Type: text/plain');
+    runScheduler();
 }
 
 /**
