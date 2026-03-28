@@ -5,10 +5,18 @@ Panduan ini disusun khusus untuk instalasi di **MikroTik Container (ROS 7)** ata
 ---
 
 ## 🛠️ Langkah 1: Instalasi Paket Core (Copy & Paste)
-Jalankan perintah ini di Terminal/Shell Ubuntu Anda:
+Jalankan perintah ini di Terminal/Shell Ubuntu Anda untuk menginstall Nginx, Database, dan semua ekstensi PHP yang dibutuhkan:
 ```bash
 apt update && apt upgrade -y && \
-apt install -y nginx mariadb-server git unzip php-fpm php-mysql php-gd php-curl php-mbstring php-xml php-zip php-cli nano
+apt install -y nginx mariadb-server git unzip nano php-fpm php-mysql php-gd php-curl php-mbstring php-xml php-zip php-cli
+```
+
+### Penting: Aktifkan Ekstensi PHP
+Jika installer masih mendeteksi "Not Installed", pastikan service PHP-FPM sudah direstart agar ekstensi yang baru diinstall terbaca oleh web server:
+```bash
+# Otomatis deteksi versi PHP dan restart service-nya
+PHP_V=$(php -r "echo PHP_MAJOR_VERSION.'.'.PHP_MINOR_VERSION;")
+/etc/init.d/php$PHP_V-fpm restart
 ```
 
 ### Jalankan Service (Tanpa systemctl)
