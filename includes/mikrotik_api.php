@@ -1474,9 +1474,12 @@ function mikrotikDeleteHotspotProfile($id)
 
 function generateHotspotExpiryScript($mode, $price = 0, $validity = '', $sellingPrice = 0, $lockUser = 'disable', $limitUptime = '')
 {
-    // Timestamp script to record first login date and time (Mikhmon v3 style)
-    // We APPEND the timestamp to any existing comment using a separator " / "
-    $script = ':local date [/system clock get date];:local time [/system clock get time];:local getcomm [/ip hotspot user get [find name="$user"] comment];:if ([:find $getcomm " / "] = -1) do={[/ip hotspot user set [find name="$user"] comment=($getcomm . " / " . $date . " " . $time)]}';
+    // UNIFIED COMMENT LOGIC: 
+    // 1. Initial Comment (Generation): "vc-identifier-date"
+    // 2. Activation (On-Login): APPENDS " / mar/28/2026 12:00:00"
+    // Result: "vc-identifier-date / mar/28/2026 12:00:00"
+    
+    $script = ':local u "$user"; :local d [/system clock get date]; :local t [/system clock get time]; :local c [/ip hotspot user get [find name=$u] comment]; :if ([:find $c " / "] = -1) do={/ip hotspot user set [find name=$u] comment=("$c" . " / " . "$d" . " " . "$t")}';
 
     $price = (int) $price;
     $sellingPrice = (int) $sellingPrice;
