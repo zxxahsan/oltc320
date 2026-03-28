@@ -232,7 +232,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             if (genieacsSetParameter($deviceId, $ssidPath, $newSsid)) {
                 setFlash('success', 'Nama WiFi berhasil diubah. Router mungkin perlu restart.');
-                logActivity('CUSTOMER_CHANGE_SSID', "Customer {$customer['name']} changed SSID");
+                logActivity('CUSTOMER_CHANGE_SSID', "Customer {$customer['name']} changed SSID to {$newSsid}");
+                
+                // WhatsApp Notification
+                try {
+                    require_once '../includes/whatsapp.php';
+                    $vars = getUniversalWaVariables($customer);
+                    $vars['new_ssid'] = $newSsid;
+                    $vars['new_password'] = '******** (Tidak Berubah)';
+                    $message = buildWhatsAppMessage('wifi_change', $vars);
+                    if ($message) sendWhatsAppMessage($customer['phone'], $message);
+                } catch (Exception $e) {}
             } else {
                 setFlash('error', 'Gagal mengubah nama WiFi');
             }
@@ -262,6 +272,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (genieacsSetParameter($deviceId, $passPath, $newPass)) {
                 setFlash('success', 'Password WiFi berhasil diubah. Router mungkin perlu restart.');
                 logActivity('CUSTOMER_CHANGE_WIFI_PASS', "Customer {$customer['name']} changed WiFi password");
+                
+                // WhatsApp Notification
+                try {
+                    require_once '../includes/whatsapp.php';
+                    $vars = getUniversalWaVariables($customer);
+                    $vars['new_ssid'] = '******** (Tidak Berubah)';
+                    $vars['new_password'] = $newPass;
+                    $message = buildWhatsAppMessage('wifi_change', $vars);
+                    if ($message) sendWhatsAppMessage($customer['phone'], $message);
+                } catch (Exception $e) {}
             } else {
                 setFlash('error', 'Gagal mengubah password WiFi');
             }

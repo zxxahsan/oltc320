@@ -35,6 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             case 'add':
                 $pppoePassword = isset($_POST['pppoe_password']) ? trim((string) $_POST['pppoe_password']) : '';
+                $rawPortalPassword = generateRandomString(8); // Generate random password for portal
                 $data = [
                     'name' => sanitize($_POST['name']),
                     'phone' => sanitize($_POST['phone']),
@@ -46,14 +47,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'lat' => (!isset($_POST['lat']) || trim($_POST['lat']) === '') ? null : (string) str_replace(',', '.', trim($_POST['lat'])),
                     'lng' => (!isset($_POST['lng']) || trim($_POST['lng']) === '') ? null : (string) str_replace(',', '.', trim($_POST['lng'])),
                     'installed_by' => !empty($_POST['installed_by']) ? (int)$_POST['installed_by'] : null,
-                    'portal_password' => password_hash('1234', PASSWORD_DEFAULT),
+                    'portal_password' => password_hash($rawPortalPassword, PASSWORD_DEFAULT),
                     'created_at' => date('Y-m-d H:i:s')
                 ];
                 
-                if (insert('customers', $data)) {
+                if ($newCustomerId = insert('customers', $data)) {
                     // Auto-sync Map coordinates using the phone identifier
                     try {
-                        $phoneObj = trim($data['phone']);
+                        $phoneObj = trim((string)$data['phone']);
                         if (!empty($phoneObj)) {
                             $exists = fetchOne("SELECT id FROM onu_locations WHERE serial_number = ?", [$phoneObj]);
                             $payload = [
@@ -79,7 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         // Legacy ACS PPPoE Username injection
                         if (isset($_POST['save_onu']) && $_POST['save_onu'] == '1') {
-                            $serial = $data['pppoe_username'];
+                            $serial = (string)$data['pppoe_username'];
                             if (!empty($serial)) {
                                 genieacsSetParameter($serial, 'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.Username', $serial);
                                 if ($pppoePassword !== '') {
@@ -91,20 +92,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         // Do not block customer creation if ONU sync fails
                         logError('ONU sync (add customer) failed: ' . $e->getMessage());
                     }
-                    setFlash('success', 'Pelanggan berhasil ditambahkan');
-                    logActivity('ADD_CUSTOMER', "Name: {$data['name']}");
                     
-                    // Notify Technician if assigned
+                    setFlash('success', 'Pelanggan berhasil ditambahkan');
+                    logActivity('ADD_CUSTOMER', "Name: " . (string)$data['name']);
+
+                    // 1. Send Welcome Message to Customer (with their new password)
+                    $customerData = fetchOne("SELECT * FROM customers WHERE id = ?", [$newCustomerId]);
+                    if ($customerData) {
+                        sendCustomerWelcomeWA($customerData, $rawPortalPassword);
+                    }
+                    
+                    // 2. Notify Technician if assigned
                     if (!empty($data['installed_by'])) {
                         $tech = fetchOne("SELECT phone, name FROM technician_users WHERE id = ?", [$data['installed_by']]);
                         if ($tech && !empty($tech['phone'])) {
                             require_once '../includes/whatsapp.php';
                             $msg = "🔔 *TUGAS INSTALASI BARU*\n\n";
-                            $msg .= "Pelanggan: {$data['name']}\n";
-                            $msg .= "Kontak (WA): {$data['phone']}\n";
+                            $msg .= "Pelanggan: " . (string)$data['name'] . "\n";
+                            $msg .= "Kontak (WA): " . (string)$data['phone'] . "\n";
                             $msg .= "Alamat: " . ($data['address'] ?: '-') . "\n";
                             $msg .= "Paket: " . fetchOne("SELECT name FROM packages WHERE id = ?", [$data['package_id']])['name'] . "\n";
-                            $msg .= "Maps: https://www.google.com/maps?q={$data['lat']},{$data['lng']}\n\n";
+                            $msg .= "Maps: https://www.google.com/maps?q=" . (string)$data['lat'] . "," . (string)$data['lng'] . "\n\n";
                             $msg .= "Mohon segera diproses. Terima kasih.";
                             
                             sendWhatsAppMessage($tech['phone'], $msg);
@@ -134,7 +142,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (update('customers', $data, 'id = ?', [$customerId])) {
                     // Auto-sync Map coordinates using the phone identifier
                     try {
-                        $phoneObj = trim($data['phone']);
+                        $phoneObj = trim((string)$data['phone']);
                         if (!empty($phoneObj)) {
                             $exists = fetchOne("SELECT id FROM onu_locations WHERE serial_number = ?", [$phoneObj]);
                             $payload = [

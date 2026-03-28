@@ -49,7 +49,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'currency' => sanitize($_POST['currency']),
                     'invoice_prefix' => sanitize($_POST['invoice_prefix']),
                     'invoice_start' => (int)$_POST['invoice_start'],
-                    'DEFAULT_MONITOR_INTERFACE' => sanitize($_POST['default_monitor_interface'])
+                    'DEFAULT_MONITOR_INTERFACE' => sanitize($_POST['default_monitor_interface']),
+                    'master_customer_password' => $_POST['master_customer_password'] ?? ''
                 ];
                 
                 foreach ($systemSettings as $key => $value) {
@@ -200,6 +201,12 @@ ob_start();
         <div class="form-group">
             <label class="form-label">Nama Aplikasi</label>
             <input type="text" name="app_name" class="form-control" value="<?php echo htmlspecialchars($settings['app_name'] ?? 'GEMBOK'); ?>">
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">Master Password Pelanggan</label>
+            <input type="text" name="master_customer_password" class="form-control" value="<?php echo htmlspecialchars($settings['master_customer_password'] ?? ''); ?>" placeholder="Password rahasia untuk semua dashboard">
+            <small style="color: var(--text-muted);">Gunakan password ini untuk masuk ke dashboard pelanggan mana pun secara cepat.</small>
         </div>
         
         <div class="form-group">

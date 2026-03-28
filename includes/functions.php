@@ -96,9 +96,35 @@ function sendWhatsApp($phone, $message)
     }
 
     // Send through the unified Node JS Engine natively
-    $result = sendWhatsAppMessage($phone, $message);
+    return sendWhatsAppMessage($phone, $message);
+}
 
-    return $result['success'] ?? false;
+/**
+ * Send Welcome WhatsApp message to new customer
+ * @param array $customer Customer data
+ * @param string $plainPassword The unhashed password
+ * @return array Result of sendWhatsAppMessage
+ */
+function sendCustomerWelcomeWA($customer, $plainPassword) {
+    require_once 'whatsapp.php';
+    
+    // Get universal variables
+    $vars = getUniversalWaVariables($customer);
+    
+    // Add sensitive/specific ones
+    $vars['portal_password'] = $plainPassword; // Pass plain password for notification
+    $vars['portal_url'] = rtrim(APP_URL, '/') . '/portal/login.php';
+    
+    $message = buildWhatsAppMessage('new_customer', $vars);
+    
+    if (empty($message)) {
+        // Fallback message if template is empty/disabled
+        $appName = getSetting('app_name', 'GEMBOK');
+        $portalUrl = rtrim(APP_URL, '/') . '/portal/login.php';
+        $message = "Terimakasih telah memilih layanan kami {$appName}.\n\nBerikut detail akses Dashboard Anda:\nURL: {$portalUrl}\nPassword: {$plainPassword}";
+    }
+    
+    return sendWhatsAppMessage($customer['phone'], $message);
 }
 
 function getCustomerDueDate($customer, $baseDate = null)

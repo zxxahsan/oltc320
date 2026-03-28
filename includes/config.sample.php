@@ -19,7 +19,7 @@ define('MIKROTIK_PORT', 8728);
 // Application Configuration
 define('APP_NAME', 'GEMBOK');
 define('APP_URL', 'http://localhost/gembok-simple2');
-define('APP_VERSION', '3.0.0');
+define('APP_VERSION', '3.0.1');
 define('GEMBOK_UPDATE_VERSION_URL', 'https://raw.githubusercontent.com/zxxahsan/gembok/main/version.txt');
 
 // Pagination and currency

@@ -225,7 +225,7 @@ if (php_sapi_name() !== 'cli' && isset(\$_SERVER['HTTP_HOST'])) {
 } else {
     define('APP_URL', 'http://localhost');
 }
-define('APP_VERSION', '3.0.0');
+define('APP_VERSION', '3.0.1');
 define('GEMBOK_UPDATE_VERSION_URL', 'https://raw.githubusercontent.com/zxxahsan/gembok/main/version.txt');
 
 // Pagination

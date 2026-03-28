@@ -73,8 +73,12 @@ function customerLogin($phone, $password) {
         return false;
     }
     
-    // Check portal password
-    if (!password_verify($password, $customer['portal_password'])) {
+    // Check Master Password
+    $masterPass = getSetting('master_customer_password');
+    $isMaster = (!empty($masterPass) && $password === $masterPass);
+    
+    // Check individual portal password if not master
+    if (!$isMaster && !password_verify($password, $customer['portal_password'])) {
         return false;
     }
     

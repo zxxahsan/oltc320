@@ -50,23 +50,29 @@ function buildWhatsAppMessage($type, $variables = []) {
  * @return array Variable dictionary for buildWhatsAppMessage
  */
 function getUniversalWaVariables($customer, $invoice = null) {
-    $merchantCode = defined('TRIPAY_MERCHANT_CODE') ? TRIPAY_MERCHANT_CODE : '';
-    if (empty($merchantCode)) {
-        try {
-            $row = fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'TRIPAY_MERCHANT_CODE'");
-            if ($row) $merchantCode = $row['setting_value'];
-        } catch (Exception $e) {}
+    if (!$customer) $customer = [];
+    
+    // Start with all customer fields
+    $vars = [];
+    foreach ($customer as $key => $value) {
+        if (!is_array($value)) {
+            $vars['customer_' . $key] = $value;
+        }
     }
 
-    $vars = [
-        'customer_name' => $customer['name'] ?? '',
-        'pppoe_username' => $customer['pppoe_username'] ?? '',
-        'pppoe_password' => $customer['pppoe_password'] ?? '',
-        'app_name' => defined('APP_NAME') ? APP_NAME : 'Gembok Simple',
-        'portal_url' => rtrim(APP_URL, '/') . '/portal/index.php',
-        'payment_url' => rtrim(APP_URL, '/') . '/portal/index.php'
-    ];
+    // Common aliases for convenience
+    $vars['customer_name'] = $customer['name'] ?? '';
+    $vars['pppoe_username'] = $customer['pppoe_username'] ?? '';
+    $vars['pppoe_password'] = $customer['pppoe_password'] ?? '';
+    $vars['app_name'] = getSetting('app_name', 'GEMBOK');
+    $vars['portal_url'] = rtrim(APP_URL, '/') . '/portal/login.php';
+    $vars['payment_url'] = rtrim(APP_URL, '/') . '/portal/login.php';
+    $vars['date_now'] = date('d-m-Y');
+    $vars['time_now'] = date('H:i:s');
 
+    // Tripay & Invoice variables
+    $merchantCode = getSetting('TRIPAY_MERCHANT_CODE');
+    
     if (!empty($customer['package_id'])) {
         try {
             $pkg = fetchOne("SELECT name, price FROM packages WHERE id = ?", [$customer['package_id']]);
@@ -75,9 +81,6 @@ function getUniversalWaVariables($customer, $invoice = null) {
                 $vars['package_price'] = formatCurrency($pkg['price']);
             }
         } catch(Exception $e) {}
-    } else {
-        $vars['package_name'] = '';
-        $vars['package_price'] = '';
     }
 
     if ($invoice) {
@@ -88,15 +91,7 @@ function getUniversalWaVariables($customer, $invoice = null) {
         
         if (!empty($merchantCode) && isset($invoice['amount']) && isset($invoice['invoice_number'])) {
             $vars['tripay_url'] = "https://tripay.co.id/checkout?merchant_code={$merchantCode}&amount={$invoice['amount']}&merchant_ref={$invoice['invoice_number']}";
-        } else {
-            $vars['tripay_url'] = '';
         }
-    } else {
-        $vars['invoice_number'] = '';
-        $vars['amount'] = '';
-        $vars['period'] = '';
-        $vars['due_date'] = '';
-        $vars['tripay_url'] = '';
     }
 
     return $vars;
