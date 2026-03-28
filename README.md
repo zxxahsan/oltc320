@@ -81,7 +81,6 @@ Karena Container ini berada langsung *di dalam* router Anda, Anda bisa menyuruh 
 3. Masukkan script RouterOS berikut (ganti IP dengan IP container Ubuntu Anda):
    ```routeros
    /tool fetch url="http://172.17.0.2/cron/scheduler.php" keep-result=no;
-   /tool fetch url="http://172.17.0.2/cron/wa_daemon.php" keep-result=no;
    ```
 *(Opsi 2 ini adalah bentuk simbiosis mutualisme paling kokoh antara Gembok dan sistem asli MikroTik Anda!)*
 

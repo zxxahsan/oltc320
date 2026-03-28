@@ -17,9 +17,7 @@ while (true) {
     
     // Eksekusi scheduler utama (Isolir, reset kuota, dll)
     exec('php ' . __DIR__ . '/scheduler.php');
-    
-    // Eksekusi daemon whatsapp (jika dipakai untuk notifikasi berkala)
-    exec('php ' . __DIR__ . '/wa_daemon.php');
+
     
     echo "[GEMBOK DAEMON] Task selesai. Menunggu putaran berikutnya...\n";
     
