@@ -1,5 +1,5 @@
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('Website Ahsan Network Loaded Successfully');
+            console.log('Website ISP Network Loaded Successfully');
             
             // Theme Management
             const themeToggle = document.getElementById('theme-toggle');
@@ -303,7 +303,7 @@
                 button.addEventListener('click', function() {
                     const paket = this.getAttribute('data-paket');
                     const harga = this.closest('.package-card').querySelector('.price').textContent.trim();
-                    const message = `Halo, saya tertarik dengan paket ${paket} di Ahsan Network. \nPaket: ${paket}\nHarga: ${harga}\n\nBisa minta informasi lebih detail dan termasuk biaya pemasangan Rp 500.000?`;
+                    const message = `Halo, saya tertarik dengan paket ${paket} di ISP Network. \nPaket: ${paket}\nHarga: ${harga}\n\nBisa minta informasi lebih detail dan termasuk biaya pemasangan Rp 500.000?`;
                     const whatsappURL = `https://wa.me/6282398354086?text=${encodeURIComponent(message)}`;
                     window.open(whatsappURL, '_blank');
                 });

@@ -1474,17 +1474,16 @@ function mikrotikDeleteHotspotProfile($id)
 
 function generateHotspotExpiryScript($mode, $price = 0, $validity = '', $sellingPrice = 0, $lockUser = 'disable', $limitUptime = '')
 {
-    // Timestamp script to record first login date and time
-    // We APPEND the timestamp to any existing comment (like sales tracker 'vc-salesname-date')
-    // using a separator " / " to avoid overwriting or redundant entries.
-    $script = ':local d [/system clock get date];:local t [/system clock get time];:local u "$user";:local c [/ip hotspot user get [find name=$u] comment];:if ([:find "$c" " / "] = -1) do={/ip hotspot user set [find name=$u] comment=("$c" . " / " . "$d" . " " . "$t")}';
+    // Timestamp script to record first login date and time (Mikhmon v3 style)
+    // We APPEND the timestamp to any existing comment using a separator " / "
+    $script = ':local date [/system clock get date];:local time [/system clock get time];:local getcomm [/ip hotspot user get [find name="$user"] comment];:if ([:find $getcomm " / "] = -1) do={[/ip hotspot user set [find name="$user"] comment=($getcomm . " / " . $date . " " . $time)]}';
 
     $price = (int) $price;
     $sellingPrice = (int) $sellingPrice;
 
     // Mikhmon v3 indices for parseMikhmonOnLogin:
     // [0]=script, [1]=mode, [2]=price, [3]=validity, [4]=sellingPrice, [5]=datalimit, [6]=timelimit, [7]=lockUser
-    $metadata = '#metadata:,' . $mode . ',' . $price . ',' . $validity . ',' . $sellingPrice . ',0,' . $limitUptime . ',' . $lockUser;
+    $metadata = '# ,' . $mode . ',' . $price . ',' . $validity . ',' . $sellingPrice . ',0,' . $limitUptime . ',' . $lockUser;
     
     return $script . '; ' . $metadata;
 }

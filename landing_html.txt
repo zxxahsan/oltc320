@@ -16,7 +16,7 @@
     <header id="main-header">
         <a href="#" class="logo">
             <div class="logo-container" id="header-logo">
-                <div class="logo-text active">Ahsan Network</div>
+                <div class="logo-text active">ISP Network</div>
                 <div class="logo-image"></div>
             </div>
         </a>
@@ -63,7 +63,7 @@
         </div>
         
         <p class="hero-subtitle">
-            Ahsan Network menghadirkan koneksi internet super cepat dengan teknologi terkini untuk rumah dan bisnis Anda. 
+            ISP Network menghadirkan koneksi internet super cepat dengan teknologi terkini untuk rumah dan bisnis Anda. 
             Jelajahi dunia digital tanpa batas dengan dukungan langsung PT Jinom Network Indonesia.
         </p>
         
@@ -81,7 +81,7 @@
     <!-- Features Section -->
     <section id="features">
         <div class="section-header">
-            <h2 class="section-title">Mengapa Memilih Ahsan Network?</h2>
+            <h2 class="section-title">Mengapa Memilih ISP Network?</h2>
             <p class="section-subtitle">Kami memberikan pengalaman internet terbaik dengan tekhnologi fiber optik</p>
         </div>
         
@@ -275,7 +275,7 @@
         <div class="footer-simple">
             <a href="#" class="footer-logo">
                 <div class="footer-logo-container" id="footer-logo">
-                    <div class="footer-logo-text active">Ahsan Network</div>
+                    <div class="footer-logo-text active">ISP Network</div>
                     <div class="footer-logo-image"></div>
                 </div>
             </a>
@@ -288,7 +288,7 @@
             </div>
             
             <div class="copyright">
-                <p>&copy; 2026 Ahsan Network. Semua hak dilindungi. | Didukung oleh PT Jinom Network Indonesia</p>
+                <p>&copy; 2026 ISP Network. Semua hak dilindungi. | Didukung oleh PT Jinom Network Indonesia</p>
             </div>
         </div>
     </footer>

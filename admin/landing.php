@@ -56,12 +56,16 @@ if (file_exists('../landing_css.txt') && strpos($currentHtml, 'Internet Cepat & 
     $js = file_get_contents('../landing_script.txt');
     $htmlbody = file_get_contents('../landing_html.txt');
 
+    $appName = getSetting('app_name', 'GEMBOK ISP');
+    $htmlbody = str_replace('Ahsan Network', $appName, $htmlbody);
+    $js = str_replace('Ahsan Network', $appName, $js);
+
     $fullHtml = '<!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ahsan Network - Internet Cepat & Stabil</title>
+    <title>' . $appName . ' - Internet Cepat & Stabil</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>' . $css . '</style>
 </head>
