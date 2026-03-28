@@ -1276,15 +1276,17 @@ function syncHotspotSalesStatus()
         // Fetch Profiles first for validity parsing
         $profiles = mikrotikGetHotspotProfiles();
         $profValidity = [];
-        foreach ($profiles as $p) {
-            $pData = parseMikhmonOnLogin($p['on-login'] ?? '');
-            if (!empty($pData['validity'])) {
-                $profValidity[$p['name']] = $pData['validity'];
+        if (is_array($profiles)) {
+            foreach ($profiles as $p) {
+                $pData = parseMikhmonOnLogin($p['on-login'] ?? '');
+                if (!empty($pData['validity']) && $pData['validity'] !== '-') {
+                    $profValidity[$p['name']] = $pData['validity'];
+                }
             }
         }
 
         // Process Inactive -> Active migration
-        if (!empty($routerUsers)) {
+        if (is_array($routerUsers) && !empty($routerUsers)) {
             foreach ($routerUsers as $u) {
                 $uname = $u['name'] ?? '';
                 $uptime = $u['uptime'] ?? '0s';
@@ -1320,7 +1322,7 @@ function syncHotspotSalesStatus()
         }
         
         // Process Active -> Update Uptime/MAC
-        if (!empty($routerUsers)) {
+        if (is_array($routerUsers) && !empty($routerUsers)) {
             foreach ($routerUsers as $u) {
                 $uname = $u['name'] ?? '';
                 $uptime = $u['uptime'] ?? null;
@@ -1351,31 +1353,7 @@ function syncHotspotSalesStatus()
     }
 }
 
-/**
- * Parse Mikhmon-style on-login script for price/validity/etc
- */
-function parseMikhmonOnLogin($script)
-{
-    $data = [
-        'mode' => 'none',
-        'price' => 0,
-        'validity' => '',
-        'selling' => 0
-    ];
-
-    if (!$script) return $data;
-
-    // Format usually: ,,,,validity,price,selling
-    $parts = explode(',', $script);
-    if (count($parts) >= 2) {
-        $data['mode'] = trim($parts[1] ?? 'none');
-        $data['price'] = (float)trim($parts[2] ?? 0);
-        $data['validity'] = trim($parts[3] ?? '');
-        $data['selling'] = (float)trim($parts[4] ?? 0);
-    }
-
-    return $data;
-}
+// Helper for parsing Mikhmon metadata if needed
 
 /**
  * Convert RouterOS validity (1d, 1h, 30m) to seconds
