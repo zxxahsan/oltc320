@@ -1055,20 +1055,22 @@ function mikrotikAddHotspotUser($username, $password, $profile = 'default', $ext
     mikrotikWrite($socket, '=password=' . $password);
     mikrotikWrite($socket, '=profile=' . $profile);
 
-    // Add extra parameters if provided
-    if (isset($extraData['server'])) {
+    // Add extra parameters ONLY if they have values
+    if (!empty($extraData['server']) && $extraData['server'] !== 'all') {
         mikrotikWrite($socket, '=server=' . $extraData['server']);
     }
-    if (isset($extraData['limit-uptime'])) {
+    if (!empty($extraData['limit-uptime'])) {
         mikrotikWrite($socket, '=limit-uptime=' . $extraData['limit-uptime']);
     }
-    if (isset($extraData['limit-bytes-total'])) {
+    if (!empty($extraData['limit-bytes-total'])) {
         mikrotikWrite($socket, '=limit-bytes-total=' . $extraData['limit-bytes-total']);
     }
 
     // Mikhmon Style Comment
     $comment = $extraData['comment'] ?? "parent:{$profile}";
-    mikrotikWrite($socket, '=comment=' . $comment);
+    if (!empty($comment)) {
+        mikrotikWrite($socket, '=comment=' . $comment);
+    }
 
     mikrotikWrite($socket, '');
 

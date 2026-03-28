@@ -8,6 +8,9 @@ requireAdminLogin();
 
 $pageTitle = 'Hotspot Users';
 
+// Get Data for processing
+$hotspotProfiles = mikrotikGetHotspotProfiles();
+
 // Handle Actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
@@ -107,9 +110,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Get Data
+// Get Rest of Data
 $hotspotUsers = mikrotikGetHotspotUsers();
-$hotspotProfiles = mikrotikGetHotspotProfiles();
 $activeUsers = mikrotikGetHotspotActive();
 $activeUsernames = array_column($activeUsers, 'user');
 
