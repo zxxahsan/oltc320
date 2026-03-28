@@ -51,18 +51,8 @@ ob_start();
 
 <div style="max-width: 1200px; margin: 0 auto; padding: 20px;">
 
-    <?php if ($totalUnpaid > 0): ?>
-    <!-- Outstanding Alert -->
-    <div class="alert alert-error" style="margin-bottom: 20px; border-left: 5px solid var(--neon-red); background: rgba(220, 53, 69, 0.1);">
-        <i class="fas fa-exclamation-triangle" style="font-size: 1.5rem; color: var(--neon-red);"></i>
-        <div>
-            <h4 style="margin: 0; color: var(--neon-red); font-weight: 800;">Tagihan Tertunggak!</h4>
-            <p style="margin: 5px 0 0 0; color: var(--text-primary);">
-                Segera lakukan pembayaran sebesar <strong><?php echo formatCurrency($totalUnpaid); ?></strong> untuk menghindari isolasi layanan.
-            </p>
-        </div>
-    </div>
-    <?php endif; ?>
+
+
 
     <!-- Payment Status (Current Month) -->
     <div class="card">
