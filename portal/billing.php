@@ -71,22 +71,27 @@ ob_start();
         </h3>
         
         <?php if ($currentInvoice): ?>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
-                <div>
-                    <h4 style="margin-bottom: 5px;">Tagihan: <?php echo date('F Y', strtotime($currentInvoice['created_at'])); ?></h4>
-                    <p style="color: var(--text-secondary);">
-                        Jatuh Tempo: <?php echo formatDate($currentInvoice['due_date']); ?>
+            <div style="background: var(--bg-secondary); border-radius: 12px; padding: 25px; border: 1px solid var(--border-color); text-align: center; margin-bottom: 20px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);">
+                <div style="margin-bottom: 20px;">
+                    <p style="color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase; font-weight: 700; margin-bottom: 5px;">Tagihan Bulan</p>
+                    <h2 style="font-size: 1.8rem; font-weight: 800; color: var(--text-primary); margin: 0;">
+                        <?php echo date('F Y', strtotime($currentInvoice['created_at'])); ?>
+                    </h2>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 5px;">
+                        Jatuh Tempo: <span style="font-weight: 600;"><?php echo formatDate($currentInvoice['due_date']); ?></span>
                     </p>
                 </div>
-                <div style="text-align: right;">
-                    <p style="font-size: 1.8rem; font-weight: 800; color: var(--text-primary); margin-bottom: 5px;">
+                
+                <div style="border-top: 1px solid var(--border-color); padding-top: 20px;">
+                    <p style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; font-weight: 700; margin-bottom: 8px;">Total Tagihan</p>
+                    <div style="font-size: 2.2rem; font-weight: 900; color: var(--text-primary); line-height: 1; margin-bottom: 12px;">
                         <?php echo formatCurrency($currentInvoice['amount']); ?>
-                    </p>
-                    <div style="display: flex; justify-content: flex-end;">
+                    </div>
+                    <div>
                         <?php if ($currentInvoice['status'] === 'unpaid'): ?>
-                            <span class="badge badge-warning" style="font-size: 0.9rem; padding: 5px 15px; border-radius: 6px;">Belum Bayar</span>
+                            <span class="badge badge-warning" style="font-size: 1rem; padding: 6px 20px; border-radius: 50px; box-shadow: 0 4px 10px rgba(253, 126, 20, 0.2);">Belum Bayar</span>
                         <?php else: ?>
-                            <span class="badge badge-success" style="font-size: 0.9rem; padding: 5px 15px; border-radius: 6px;">Lunas</span>
+                            <span class="badge badge-success" style="font-size: 1rem; padding: 6px 20px; border-radius: 50px; box-shadow: 0 4px 10px rgba(0, 255, 136, 0.2);">Lunas</span>
                         <?php endif; ?>
                     </div>
                 </div>
@@ -98,10 +103,10 @@ ob_start();
                 </a>
             <?php endif; ?>
         <?php else: ?>
-            <div style="text-align: center; padding: 30px 10px;">
-                <i class="fas fa-check-circle" style="font-size: 3rem; color: var(--neon-green); margin-bottom: 15px;"></i>
-                <h4 style="color: #fff;">Semua Tagihan Lunas</h4>
-                <p style="color: var(--text-muted);">Tidak ada tagihan yang belum terbayar untuk bulan ini.</p>
+            <div style="text-align: center; padding: 40px 10px; background: var(--bg-secondary); border-radius: 12px; border: 1px dashed var(--border-color);">
+                <i class="fas fa-check-circle" style="font-size: 3.5rem; color: var(--neon-green); margin-bottom: 20px; filter: drop-shadow(0 0 10px rgba(0, 255, 136, 0.3));"></i>
+                <h4 style="color: var(--text-primary); font-size: 1.3rem; margin-bottom: 10px;">Semua Tagihan Lunas</h4>
+                <p style="color: var(--text-secondary);">Hebat! Tidak ada tagihan yang belum terbayar untuk bulan ini.</p>
             </div>
         <?php endif; ?>
     </div>
