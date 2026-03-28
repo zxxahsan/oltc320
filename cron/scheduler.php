@@ -1,4 +1,3 @@
-#!/usr/bin/php
 <?php
 /**
  * Cron Job Scheduler
@@ -60,7 +59,7 @@ function runScheduler() {
             $pdo->exec("UPDATE cron_schedules SET next_run = NULL WHERE schedule_days = 'every_minute' AND next_run > DATE_ADD(NOW(), INTERVAL 5 MINUTE)");
             
             // Anti-stall: Forcibly clear any dead locks from previously crashed executions
-            $pdo->exec("UPDATE cron_schedules SET last_status = 'failed' WHERE last_status = 'running' AND last_run < DATE_SUB(NOW(), INTERVAL 5 MINUTE)");
+            $pdo->exec("UPDATE cron_schedules SET last_status = 'failed' WHERE last_status = 'running' AND (last_run IS NULL OR last_run < DATE_SUB(NOW(), INTERVAL 5 MINUTE))");
         } catch (Throwable $e) {}
 
         // Get all active schedules
@@ -82,7 +81,8 @@ function runScheduler() {
             echo "\n--- Running schedule: {$schedule['name']} ---\n";
 
             // ATOMIC LOCK: Prevent concurrent execution duplicates (Double WA / Double Invoice bugs)
-            $lockStmt = $pdo->prepare("UPDATE cron_schedules SET last_status = 'running' WHERE id = ? AND (last_status != 'running' OR last_run < DATE_SUB(NOW(), INTERVAL 2 HOUR))");
+            // Injecting a `last_run = NOW()` update guarantees MySQL modifies the row, preventing PDO rowCount() returning 0 on identical `last_status` fields!
+            $lockStmt = $pdo->prepare("UPDATE cron_schedules SET last_status = 'running', last_run = NOW() WHERE id = ? AND (last_status IS NULL OR last_status != 'running')");
             $lockStmt->execute([$schedule['id']]);
             if ($lockStmt->rowCount() === 0) {
                 echo "Schedule {$schedule['name']} is currently locked by another thread. Skipping to prevent duplicates...\n";
