@@ -1472,7 +1472,7 @@ function mikrotikDeleteHotspotProfile($id)
 // Mikhmon v3 format: on-login script stores comma-separated values:
 // index[0]=script, [1]=script, [2]=price, [3]=validity, [4]=sellingPrice, [5]=script, [6]=lockUser
 
-function generateHotspotExpiryScript($mode, $price = 0, $validity = '', $sellingPrice = 0, $lockUser = 'disable')
+function generateHotspotExpiryScript($mode, $price = 0, $validity = '', $sellingPrice = 0, $lockUser = 'disable', $limitUptime = '')
 {
     // Mode 'none' still needs metadata for the dashboard to show prices/validity
     $script = ':nothing;'; 
@@ -1485,9 +1485,8 @@ function generateHotspotExpiryScript($mode, $price = 0, $validity = '', $selling
     $sellingPrice = (int) $sellingPrice;
 
     // Mikhmon v3 indices for parseMikhmonOnLogin:
-    // We wrap metadata in a comment so it's technically valid code but parseable.
     // [0]=script, [1]=mode, [2]=price, [3]=validity, [4]=sellingPrice, [5]=datalimit, [6]=timelimit, [7]=lockUser
-    return $script . "\r\n" . '#metadata:,' . $mode . ',' . $price . ',' . $validity . ',' . $sellingPrice . ',0,0,' . $lockUser;
+    return $script . "\r\n" . '#metadata:,' . $mode . ',' . $price . ',' . $validity . ',' . $sellingPrice . ',0,' . $limitUptime . ',' . $lockUser;
 }
 
 // Parse Mikhmon v3 on-login script to extract price, validity, selling price, lock user

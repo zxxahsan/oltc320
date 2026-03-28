@@ -85,7 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         
-        $v_limit = ($profileDetails && !empty($profileDetails['validity'])) ? $profileDetails['validity'] : '';
+        $v_limit = ($profileDetails && !empty($profileDetails['timelimit'])) ? $profileDetails['timelimit'] : '';
 
         for ($i = 0; $i < $qty; $i++) {
             $length = $v_length;

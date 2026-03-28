@@ -17,6 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $shared = sanitize($_POST['shared_users'] ?? '1');
         $rate = sanitize($_POST['rate_limit'] ?? '');
         $validity = sanitize($_POST['validity'] ?? '');
+        $limit_uptime = sanitize($_POST['limit_uptime'] ?? '');
         $price = sanitize($_POST['price'] ?? '0');
         $selling = sanitize($_POST['selling_price'] ?? '0');
         $expiry = sanitize($_POST['expiry_mode'] ?? 'none');
@@ -25,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $idle = sanitize($_POST['idle_timeout'] ?? '');
 
         // Mikhmon v3: Store price/validity/selling in on-login script as comma-separated
-        $onLogin = generateHotspotExpiryScript($expiry, $price, $validity, $selling);
+        $onLogin = generateHotspotExpiryScript($expiry, $price, $validity, $selling, 'disable', $limit_uptime);
 
         // Comment is kept simple
         $comment = '';
@@ -112,8 +113,12 @@ ob_start();
                 <input type="text" name="rate_limit" id="pRate" class="form-control" placeholder="1M/1M">
             </div>
             <div class="form-group">
-                <label class="form-label">Validity (e.g. 1d, 30d)</label>
+                <label class="form-label">Validity (Masa Aktif, e.g. 1d)</label>
                 <input type="text" name="validity" id="pValidity" class="form-control" placeholder="1d">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Limit Uptime (Kuota Waktu, e.g. 1h)</label>
+                <input type="text" name="limit_uptime" id="pLimitUptime" class="form-control" placeholder="1h">
             </div>
             <div class="form-group">
                 <label class="form-label">Harga Modal (Modal untuk Sales)</label>
@@ -181,6 +186,7 @@ ob_start();
                     <th>Harga Modal</th>
                     <th>Harga Jual</th>
                     <th>Validity</th>
+                    <th>Uptime</th>
                     <th>Active</th>
                     <th>Aksi</th>
                 </tr>
@@ -206,6 +212,9 @@ ob_start();
                         </td>
                         <td data-label="Validity">
                             <small><?php echo htmlspecialchars($pData['validity']); ?></small>
+                        </td>
+                        <td data-label="Uptime">
+                            <small><?php echo htmlspecialchars($pData['timelimit'] ?: '∞'); ?></small>
                         </td>
                         <td data-label="Active">
                             <span
@@ -241,16 +250,18 @@ ob_start();
         document.getElementById('pRate').value = p['rate-limit'] || '';
 
         // Parse on-login script for price and validity (Mikhmon v3 format)
-        let price = 0, validity = '', selling = 0;
+        let price = 0, validity = '', selling = 0, limitUptime = '';
         if (p['on-login']) {
             const parts = p['on-login'].split(',');
             if (parts[2]) price = parts[2];
             if (parts[3]) validity = parts[3];
             if (parts[4]) selling = parts[4];
+            if (parts[6]) limitUptime = parts[6];
         }
         document.getElementById('pPrice').value = price;
         document.getElementById('pValidity').value = validity;
         document.getElementById('pSelling').value = selling;
+        document.getElementById('pLimitUptime').value = limitUptime;
         document.getElementById('pPool').value = p['address-pool'] || 'none';
         document.getElementById('pParent').value = p['parent-queue'] || 'none';
         document.getElementById('pIdle').value = p['idle-timeout'] || '';
