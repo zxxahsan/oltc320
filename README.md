@@ -84,3 +84,20 @@ Karena Container ini berada langsung *di dalam* router Anda, Anda bisa menyuruh 
    /tool fetch url="http://172.17.0.2/cron/wa_daemon.php" keep-result=no;
    ```
 *(Opsi 2 ini adalah bentuk simbiosis mutualisme paling kokoh antara Gembok dan sistem asli MikroTik Anda!)*
+
+---
+
+## 🛑 Troubleshooting Sering Ditanyakan (FAQ)
+
+**1. Q: Saat Upload File Backup / Setting Logo muncul "413 Request Entity Too Large"**  
+**A:** Ini artinya batas unggah Nginx dan PHP bawaan terlalu kecil (biasanya hanya 1-2MB). Anda perlu membesarkannya di sisi Container Anda.
+Jalankan di shell Container:
+* **Pada Nginx (`/etc/nginx/sites-available/default`)**  
+  Tambahkan baris `client_max_body_size 100M;` tepat di bawah `server_name _;`
+* **Pada PHP (`/etc/php/VERSION/fpm/php.ini`)**  
+  *(Contoh untuk php7.4-fpm)* Buka `nano /etc/php/7.4/fpm/php.ini` cari `upload_max_filesize` ubah menjadi `100M` dan `post_max_size` menjadi `100M`.
+* Setelah diubah, jalankan ulang:
+  ```bash
+  /etc/init.d/nginx restart
+  /etc/init.d/php7.4-fpm restart
+  ```
