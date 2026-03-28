@@ -132,8 +132,8 @@ ob_start();
 
     <!-- Tables Row: Side-by-Side on Desktop -->
     <div style="display: flex; flex-wrap: wrap; gap: 25px;">
-        <!-- Left: Active Vouchers (60%) -->
-        <div style="flex: 1.5; min-width: 350px;">
+        <!-- Left: Active Vouchers (Desktop side-by-side, Mobile full-width) -->
+        <div style="flex: 1.5; min-width: 280px; width: 100%;">
             <div class="card" style="border-top: 4px solid var(--neon-green); height: 100%;">
                 <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding: 15px 20px;">
                     <h3 class="card-title" style="color: var(--neon-green); font-size: 1.1rem; margin-bottom: 0;">
@@ -190,8 +190,8 @@ ob_start();
             </div>
         </div>
 
-        <!-- Right: Inactive/Stock (35%) -->
-        <div style="flex: 1; min-width: 300px;">
+        <!-- Right: Inactive/Stock (Desktop side-by-side, Mobile full-width) -->
+        <div style="flex: 1; min-width: 280px; width: 100%;">
             <div class="card" style="border-top: 4px solid var(--text-muted); height: 100%;">
                 <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding: 15px 20px;">
                     <h3 class="card-title" style="color: var(--text-secondary); font-size: 1.1rem; margin-bottom: 0;">

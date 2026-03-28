@@ -114,11 +114,11 @@ ob_start();
                 <input type="text" name="validity" id="pValidity" class="form-control" placeholder="1d">
             </div>
             <div class="form-group">
-                <label class="form-label">Price (for MikroTik Comment)</label>
+                <label class="form-label">Harga Modal (Modal untuk Sales)</label>
                 <input type="number" name="price" id="pPrice" class="form-control" value="0">
             </div>
             <div class="form-group">
-                <label class="form-label">Selling Price</label>
+                <label class="form-label">Harga Jual (Harga ke User)</label>
                 <input type="number" name="selling_price" id="pSelling" class="form-control" value="0">
             </div>
             <div class="form-group">
@@ -176,7 +176,8 @@ ob_start();
                     <th>Name</th>
                     <th>Shared</th>
                     <th>Rate Limit</th>
-                    <th>Price</th>
+                    <th>Harga Modal</th>
+                    <th>Harga Jual</th>
                     <th>Validity</th>
                     <th>Active</th>
                     <th>Aksi</th>
@@ -195,8 +196,11 @@ ob_start();
                         <td data-label="Rate Limit">
                             <?php echo htmlspecialchars($p['rate-limit'] ?? '∞'); ?>
                         </td>
-                        <td data-label="Price">
+                        <td data-label="Harga Modal">
                             <?php echo $pData['price'] > 0 ? formatCurrency($pData['price']) : '-'; ?>
+                        </td>
+                        <td data-label="Harga Jual">
+                            <?php echo $pData['selling_price'] > 0 ? formatCurrency($pData['selling_price']) : '-'; ?>
                         </td>
                         <td data-label="Validity">
                             <small><?php echo htmlspecialchars($pData['validity']); ?></small>

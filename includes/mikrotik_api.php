@@ -1440,38 +1440,20 @@ function mikrotikDeleteHotspotProfile($id)
 // Generate Mikhmon v3-style on-login script
 // Mikhmon v3 format: on-login script stores comma-separated values:
 // index[0]=script, [1]=script, [2]=price, [3]=validity, [4]=sellingPrice, [5]=script, [6]=lockUser
+
 function generateHotspotExpiryScript($mode, $price = 0, $validity = '', $sellingPrice = 0, $lockUser = 'disable')
 {
-    // Mikhmon v3 on-login script structure (simplified)
-    // The comma-separated string stores metadata at fixed positions
-    $script = '';
+    $script = ':nothing'; 
 
-    if ($mode === 'remove') {
-        // Script that removes user after expiry
-        $script = ':local date [/system clock get date];:local time [/system clock get time];:local uname \$user;';
-        $script .= ':local comment [/ip hotspot user get [find name=\$uname] comment];';
-        $script .= ':if ([:len \$comment] = 0) do={/ip hotspot user set [find name=\$uname] comment="\$date \$time"};';
-    } elseif ($mode === 'notice') {
-        $script = ':local date [/system clock get date];:local time [/system clock get time];:local uname \$user;';
-        $script .= ':local comment [/ip hotspot user get [find name=\$uname] comment];';
-        $script .= ':if ([:len \$comment] = 0) do={/ip hotspot user set [find name=\$uname] comment="\$date \$time"};';
-    } elseif ($mode === 'record') {
-        $script = ':local date [/system clock get date];:local time [/system clock get time];:local uname \$user;';
-        $script .= ':local comment [/ip hotspot user get [find name=\$uname] comment];';
-        $script .= ':if ([:len \$comment] = 0) do={/ip hotspot user set [find name=\$uname] comment="\$date \$time"};';
-    } else {
-        // mode 'none' - only store metadata, no expiry action
-        $script = ':nothing';
+    if ($mode === 'remove' || $mode === 'notice' || $mode === 'record') {
+        $script = ':local date [/system clock get date];:local time [/system clock get time];:local uname $user;:local comment [/ip hotspot user get [find name=$uname] comment];:if ([:len $comment] = 0) do={/ip hotspot user set [find name=$uname] comment="$date $time"}';
     }
 
     $price = (int) $price;
     $sellingPrice = (int) $sellingPrice;
 
-    // Mikhmon v3 comma-separated format at fixed positions:
-    // [0]=script, [1]=(unused), [2]=price, [3]=validity, [4]=sellingPrice, [5]=(unused), [6]=lockUser
-    $onLoginData = $script . ',' . $mode . ',' . $price . ',' . $validity . ',' . $sellingPrice . ',0,' . $lockUser;
-
-    return $onLoginData;
+    // Mikhmon v3 format: index[0]=script, [1]=mode, [2]=price, [3]=validity, [4]=sellingPrice, [5]=datalimit, [6]=timelimit, [7]=lockUser
+    return $script . ',' . $mode . ',' . $price . ',' . $validity . ',' . $sellingPrice . ',0,0,' . $lockUser;
 }
 
 // Parse Mikhmon v3 on-login script to extract price, validity, selling price, lock user
