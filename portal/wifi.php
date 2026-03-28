@@ -294,31 +294,12 @@ ob_start();
             <i class="fas fa-wifi"></i> Pengaturan WiFi
         </h3>
         
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
-            <div style="background: rgba(0,0,0,0.3); border-radius: 12px; padding: 15px; border: 1px solid rgba(255,255,255,0.05); text-align: center;">
-                <i class="fas fa-desktop" style="font-size: 1.5rem; color: var(--neon-cyan); margin-bottom: 10px;"></i>
-                <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 5px;">IP Address Router</div>
-                <div style="font-size: 1.1rem; font-weight: bold; color: var(--text-primary);"><?php echo htmlspecialchars($onuData['ip_address'] ?? 'N/A'); ?></div>
-            </div>
-            <div style="background: rgba(0,0,0,0.3); border-radius: 12px; padding: 15px; border: 1px solid rgba(255,255,255,0.05); text-align: center;">
-                <i class="fas fa-users" style="font-size: 1.5rem; color: var(--primary); margin-bottom: 10px;"></i>
-                <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 5px;">Perangkat Terhubung</div>
-                <div style="font-size: 1.1rem; font-weight: bold; color: var(--text-primary);"><?php echo htmlspecialchars($onuDevices); ?> Device</div>
-            </div>
-            <div style="background: rgba(0,0,0,0.3); border-radius: 12px; padding: 15px; border: 1px solid rgba(255,255,255,0.05); text-align: center;">
-                <i class="fas fa-microchip" style="font-size: 1.5rem; color: var(--neon-purple); margin-bottom: 10px;"></i>
-                <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 5px;">Model Perangkat</div>
-                <div style="font-size: 1.1rem; font-weight: bold; color: var(--text-primary);"><?php echo htmlspecialchars(trim(($onuData['manufacturer'] ?? '') . ' ' . ($onuData['model'] ?? 'N/A'))); ?></div>
-            </div>
-        </div>
-        
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
-            <div style="display: flex; flex-direction: column; justify-content: space-between;">
                 <div>
                     <div class="form-group">
                         <label class="form-label">SSID WiFi Saat Ini</label>
-                        <p style="font-size: 1.2rem; font-weight: 600; padding: 10px; background: rgba(0, 245, 255, 0.05); border-radius: 8px; border: 1px solid rgba(0, 245, 255, 0.2);">
-                            <i class="fas fa-signal" style="color: var(--neon-cyan); margin-right: 10px;"></i>
+                        <p style="font-size: 1.2rem; font-weight: 600; padding: 12px; background: var(--bg-secondary); border-radius: 10px; border: 2px solid var(--border-color); color: var(--text-primary); display: flex; align-items: center;">
+                            <i class="fas fa-signal" style="color: var(--neon-cyan); margin-right: 12px;"></i>
                             <?php 
                                 $currentSsid = $onuData['ssid'] ?? null;
                                 echo htmlspecialchars(is_array($currentSsid) ? ($currentSsid['_value'] ?? 'Unknown') : ($currentSsid ?? 'Unknown')); 
@@ -335,9 +316,9 @@ ob_start();
                 <div>
                     <div class="form-group">
                         <label class="form-label">Password WiFi Saat Ini</label>
-                        <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px; background: rgba(0, 245, 255, 0.05); border-radius: 8px; border: 1px solid rgba(0, 245, 255, 0.2);">
+                        <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: var(--bg-secondary); border-radius: 10px; border: 2px solid var(--border-color); color: var(--text-primary);">
                             <div style="display: flex; align-items: center; width: 100%;">
-                                <i class="fas fa-key" style="color: var(--neon-cyan); margin-right: 10px;"></i>
+                                <i class="fas fa-key" style="color: var(--neon-cyan); margin-right: 12px;"></i>
                                 <?php 
                                     $currentPass = $onuData['wifi_password'] ?? null;
                                     $passVal = htmlspecialchars(is_array($currentPass) ? ($currentPass['_value'] ?? '') : ($currentPass ?? '')); 
@@ -345,7 +326,7 @@ ob_start();
                                 <input type="password" id="currentWifiPass" value="<?php echo $passVal; ?>" readonly style="background: transparent; border: none; color: var(--text-primary); font-size: 1.2rem; font-weight: 600; width: 100%; outline: none;">
                             </div>
                             <button type="button" onclick="togglePasswordVisibility('currentWifiPass', this)" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; margin-left: 10px;">
-                                <i class="fas fa-eye"></i>
+                                <i class="fas fa-eye" style="font-size: 1.1rem;"></i>
                             </button>
                         </div>
                     </div>
@@ -460,40 +441,40 @@ ob_start();
 
 <!-- Modals -->
 <div id="modalChangeSsid" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center;">
-    <div style="background: var(--bg-card); width: 400px; max-width: 90%; padding: 25px; border-radius: 12px; border: 1px solid var(--border-color);">
-        <h3 style="color: var(--neon-cyan); margin-bottom: 20px;">Ubah Nama WiFi</h3>
+    <div style="background: var(--bg-card); width: 400px; max-width: 95%; padding: 30px; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 20px 40px rgba(0,0,0,0.4);">
+        <h3 style="color: var(--neon-cyan); margin-bottom: 25px; font-weight: 800;">Ubah Nama WiFi</h3>
         <form method="POST">
             <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
             <input type="hidden" name="action" value="change_ssid">
             
-            <div class="form-group" style="margin-bottom: 20px;">
-                <label style="display: block; margin-bottom: 8px; color: var(--text-secondary);">Nama WiFi Baru (SSID)</label>
-                <input type="text" name="new_ssid" class="form-control" style="width: 100%; padding: 10px; background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color: white; border-radius: 6px;" required>
+            <div class="form-group" style="margin-bottom: 25px;">
+                <label style="display: block; margin-bottom: 10px; color: var(--text-secondary); font-weight: 600;">Nama WiFi Baru (SSID)</label>
+                <input type="text" name="new_ssid" class="form-control" style="width: 100%; padding: 12px; background: var(--bg-secondary); border: 2px solid var(--border-color); color: var(--text-primary); border-radius: 8px; font-size: 1rem;" required>
             </div>
             
-            <div style="display: flex; justify-content: flex-end; gap: 10px;">
-                <button type="button" class="btn btn-secondary" onclick="closeModal('modalChangeSsid')" style="padding: 8px 15px; background: transparent; border: 1px solid var(--border-color); color: white; border-radius: 6px; cursor: pointer;">Batal</button>
-                <button type="submit" class="btn btn-primary" style="padding: 8px 15px; background: var(--gradient-primary); border: none; color: white; border-radius: 6px; cursor: pointer;">Simpan</button>
+            <div style="display: flex; justify-content: flex-end; gap: 12px;">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('modalChangeSsid')" style="padding: 10px 20px; font-weight: 600;">Batal</button>
+                <button type="submit" class="btn btn-primary" style="padding: 10px 20px; font-weight: 600;">Simpan Perubahan</button>
             </div>
         </form>
     </div>
 </div>
 
 <div id="modalChangeWifiPass" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center;">
-    <div style="background: var(--bg-card); width: 400px; max-width: 90%; padding: 25px; border-radius: 12px; border: 1px solid var(--border-color);">
-        <h3 style="color: var(--neon-cyan); margin-bottom: 20px;">Ubah Password WiFi</h3>
+    <div style="background: var(--bg-card); width: 400px; max-width: 95%; padding: 30px; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 20px 40px rgba(0,0,0,0.4);">
+        <h3 style="color: var(--neon-cyan); margin-bottom: 25px; font-weight: 800;">Ubah Password WiFi</h3>
         <form method="POST">
             <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
             <input type="hidden" name="action" value="change_wifi_pass">
             
-            <div class="form-group" style="margin-bottom: 20px;">
-                <label style="display: block; margin-bottom: 8px; color: var(--text-secondary);">Password WiFi Baru (Minimal 8 karakter)</label>
-                <input type="password" name="new_wifi_pass" class="form-control" minlength="8" style="width: 100%; padding: 10px; background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color: white; border-radius: 6px;" required>
+            <div class="form-group" style="margin-bottom: 25px;">
+                <label style="display: block; margin-bottom: 10px; color: var(--text-secondary); font-weight: 600;">Password Baru (Minimal 8 karakter)</label>
+                <input type="password" name="new_wifi_pass" class="form-control" minlength="8" style="width: 100%; padding: 12px; background: var(--bg-secondary); border: 2px solid var(--border-color); color: var(--text-primary); border-radius: 8px; font-size: 1rem;" required>
             </div>
             
-            <div style="display: flex; justify-content: flex-end; gap: 10px;">
-                <button type="button" class="btn btn-secondary" onclick="closeModal('modalChangeWifiPass')" style="padding: 8px 15px; background: transparent; border: 1px solid var(--border-color); color: white; border-radius: 6px; cursor: pointer;">Batal</button>
-                <button type="submit" class="btn btn-primary" style="padding: 8px 15px; background: var(--gradient-primary); border: none; color: white; border-radius: 6px; cursor: pointer;">Simpan</button>
+            <div style="display: flex; justify-content: flex-end; gap: 12px;">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('modalChangeWifiPass')" style="padding: 10px 20px; font-weight: 600;">Batal</button>
+                <button type="submit" class="btn btn-primary" style="padding: 10px 20px; font-weight: 600;">Simpan Perubahan</button>
             </div>
         </form>
     </div>
