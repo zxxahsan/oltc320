@@ -294,65 +294,47 @@ ob_start();
             <i class="fas fa-wifi"></i> Pengaturan WiFi
         </h3>
         
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
-                <div>
-                    <div class="form-group">
-                        <label class="form-label">SSID WiFi Saat Ini</label>
-                        <p style="font-size: 1.2rem; font-weight: 600; padding: 12px; background: var(--bg-secondary); border-radius: 10px; border: 2px solid var(--border-color); color: var(--text-primary); display: flex; align-items: center;">
-                            <i class="fas fa-signal" style="color: var(--neon-cyan); margin-right: 12px;"></i>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
+            <div style="display: flex; flex-direction: column;">
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label">SSID WiFi Saat Ini</label>
+                    <div style="font-size: 1.1rem; font-weight: 600; padding: 12px; background: var(--bg-secondary); border-radius: 10px; border: 2px solid var(--border-color); color: var(--text-primary); display: flex; align-items: center; overflow: hidden;">
+                        <i class="fas fa-signal" style="color: var(--neon-cyan); margin-right: 12px; flex-shrink: 0;"></i>
+                        <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                             <?php 
                                 $currentSsid = $onuData['ssid'] ?? null;
                                 echo htmlspecialchars(is_array($currentSsid) ? ($currentSsid['_value'] ?? 'Unknown') : ($currentSsid ?? 'Unknown')); 
                             ?>
-                        </p>
-                     </div>
-                </div>
-                <button type="button" class="btn btn-primary" onclick="openModal('modalChangeSsid')">
+                        </span>
+                    </div>
+                 </div>
+                <button type="button" class="btn btn-primary" onclick="openModal('modalChangeSsid')" style="width: 100%;">
                     <i class="fas fa-edit"></i> Ubah Nama WiFi
                 </button>
             </div>
             
-            <div style="display: flex; flex-direction: column; justify-content: space-between;">
-                <div>
-                    <div class="form-group">
-                        <label class="form-label">Password WiFi Saat Ini</label>
-                        <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: var(--bg-secondary); border-radius: 10px; border: 2px solid var(--border-color); color: var(--text-primary);">
-                            <div style="display: flex; align-items: center; width: 100%;">
-                                <i class="fas fa-key" style="color: var(--neon-cyan); margin-right: 12px;"></i>
-                                <?php 
-                                    $currentPass = $onuData['wifi_password'] ?? null;
-                                    $passVal = htmlspecialchars(is_array($currentPass) ? ($currentPass['_value'] ?? '') : ($currentPass ?? '')); 
-                                ?>
-                                <input type="password" id="currentWifiPass" value="<?php echo $passVal; ?>" readonly style="background: transparent; border: none; color: var(--text-primary); font-size: 1.2rem; font-weight: 600; width: 100%; outline: none;">
-                            </div>
-                            <button type="button" onclick="togglePasswordVisibility('currentWifiPass', this)" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; margin-left: 10px;">
-                                <i class="fas fa-eye" style="font-size: 1.1rem;"></i>
-                            </button>
+            <div style="display: flex; flex-direction: column;">
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label">Password WiFi Saat Ini</label>
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: var(--bg-secondary); border-radius: 10px; border: 2px solid var(--border-color); color: var(--text-primary); overflow: hidden;">
+                        <div style="display: flex; align-items: center; width: 100%; overflow: hidden;">
+                            <i class="fas fa-key" style="color: var(--neon-cyan); margin-right: 12px; flex-shrink: 0;"></i>
+                            <?php 
+                                $currentPass = $onuData['wifi_password'] ?? null;
+                                $passVal = htmlspecialchars(is_array($currentPass) ? ($currentPass['_value'] ?? '') : ($currentPass ?? '')); 
+                            ?>
+                            <input type="password" id="currentWifiPass" value="<?php echo $passVal; ?>" readonly style="background: transparent; border: none; color: var(--text-primary); font-size: 1.1rem; font-weight: 600; width: 100%; outline: none;">
                         </div>
+                        <button type="button" onclick="togglePasswordVisibility('currentWifiPass', this)" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; margin-left: 10px; flex-shrink: 0;">
+                            <i class="fas fa-eye" style="font-size: 1.1rem;"></i>
+                        </button>
                     </div>
                 </div>
-                <button type="button" class="btn btn-secondary" onclick="openModal('modalChangeWifiPass')">
+                <button type="button" class="btn btn-secondary" onclick="openModal('modalChangeWifiPass')" style="width: 100%;">
                     <i class="fas fa-lock"></i> Ubah Password WiFi
                 </button>
             </div>
         </div>
-    </div>
-    
-    <!-- Reboot Router -->
-    <div class="card">
-        <h3 style="margin-bottom: 15px; color: var(--neon-orange);">
-            <i class="fas fa-power-off"></i> Mulai Ulang Router
-        </h3>
-        <p style="color: var(--text-secondary); margin-bottom: 15px;">
-            Jika koneksi internet terasa lambat atau bermasalah, Anda dapat mencoba me-restart router WiFi dari sini tanpa perlu mematikan saklar listrik. Proses restart memakan waktu sekitar 1-2 menit.
-        </p>
-        <form method="POST" onsubmit="return confirm('Apakah Anda yakin ingin me-restart router WiFi? Internet akan terputus selama proses restart.');">
-            <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
-            <input type="hidden" name="action" value="reboot_router">
-            <button type="submit" class="btn btn-danger">
-                <i class="fas fa-sync-alt"></i> Restart Router Sekarang
-            </button>
-        </form>
     </div>
     
     <!-- Connected Devices List -->
@@ -398,6 +380,23 @@ ob_start();
         </div>
     </div>
     
+    <!-- Reboot Router Section -->
+    <div class="card" style="margin-top: 30px; border-top: 4px solid var(--neon-orange);">
+        <h3 style="margin-bottom: 15px; color: var(--neon-orange);">
+            <i class="fas fa-power-off"></i> Mulai Ulang Router
+        </h3>
+        <p style="color: var(--text-secondary); margin-bottom: 15px; font-size: 0.9rem;">
+            Jika koneksi internet terasa lambat atau bermasalah, Anda dapat me-restart router WiFi dari sini tanpa mematikan listrik. Proses memakan waktu sekitar 1-2 menit.
+        </p>
+        <form method="POST" onsubmit="return confirm('Apakah Anda yakin ingin me-restart router WiFi? Internet akan terputus selama proses restart.');">
+            <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+            <input type="hidden" name="action" value="reboot_router">
+            <button type="submit" class="btn btn-danger" style="width: 100%; border-radius: 8px;">
+                <i class="fas fa-sync-alt"></i> Restart Router Sekarang
+            </button>
+        </form>
+    </div>
+
     <style>
     .device-list { display: flex; flex-direction: column; gap: 12px; }
     .device-item { 
@@ -424,17 +423,17 @@ ob_start();
     </style>
 
     <?php else: ?>
-    <!-- Device Offline Message -->
-    <?php if ($customerDevice): ?>
-    <div class="card" style="border-color: rgba(255, 71, 87, 0.3);">
-        <h3 style="margin-bottom: 15px; color: var(--neon-red);">
-            <i class="fas fa-exclamation-triangle"></i> Perangkat Offline
-        </h3>
-        <p style="color: var(--text-secondary);">
-            Router Anda saat ini tidak terhubung ke sistem kami. Pengaturan WiFi dan fitur Restart Router tidak dapat digunakan saat ini. Pastikan router Anda dalam keadaan menyala.
-        </p>
-    </div>
-    <?php endif; ?>
+        <!-- Device Offline Message -->
+        <?php if ($customerDevice): ?>
+        <div class="card" style="border-color: rgba(255, 71, 87, 0.3); margin-bottom: 20px;">
+            <h3 style="margin-bottom: 15px; color: var(--neon-red);">
+                <i class="fas fa-exclamation-triangle"></i> Perangkat Offline
+            </h3>
+            <p style="color: var(--text-secondary);">
+                Router Anda saat ini tidak terhubung ke sistem kami. Pengaturan WiFi tidak dapat diakses saat ini. Pastikan router Anda menyala dan kabel fiber optic terpasang dengan benar.
+            </p>
+        </div>
+        <?php endif; ?>
     <?php endif; ?>
 
 </div>
