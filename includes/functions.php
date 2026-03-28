@@ -1292,19 +1292,30 @@ function syncHotspotSalesStatus()
                 $uptime = $u['uptime'] ?? '0s';
                 $mac = $u['mac-address'] ?? null;
                 $pName = $u['profile'] ?? 'default';
+                $comment = $u['comment'] ?? '';
                 
                 if (!empty($uname) && in_array($uname, $inactiveNames)) {
-                    if (!empty($uptime) && $uptime !== '0s') {
+                    // Marker check: if uptime > 0 OR comment has our activation " / " separator
+                    if (($uptime !== '0s' && !empty($uptime)) || strpos($comment, ' / ') !== false) {
                         $id = array_search($uname, $inactiveNames);
-                        if ($id) {
+                        if ($id !== false) {
                             $usedAt = date('Y-m-d H:i:s');
-                            $expiryAt = null;
                             
+                            // Try to parse accurate time from comment: "Username / 2026-03-29 06:29:45"
+                            if (strpos($comment, ' / ') !== false) {
+                                $cParts = explode(' / ', $comment);
+                                $ts = trim(end($cParts));
+                                if (strtotime($ts)) {
+                                    $usedAt = date('Y-m-d H:i:s', strtotime($ts));
+                                }
+                            }
+                            
+                            $expiryAt = null;
                             // Calculate Expiry if validity is known
                             if (isset($profValidity[$pName])) {
                                 $sec = parseValidityToSeconds($profValidity[$pName]);
                                 if ($sec > 0) {
-                                    $expiryAt = date('Y-m-d H:i:s', time() + $sec);
+                                    $expiryAt = date('Y-m-d H:i:s', strtotime($usedAt) + $sec);
                                 }
                             }
 
@@ -1330,10 +1341,12 @@ function syncHotspotSalesStatus()
                 
                 if (!empty($uname) && in_array($uname, $activeNames)) {
                     $id = array_search($uname, $activeNames);
-                    update('hotspot_sales', [
-                        'mac_address' => $mac,
-                        'uptime' => $uptime
-                    ], 'id = ?', [$id]);
+                    if ($id !== false) {
+                        update('hotspot_sales', [
+                            'mac_address' => $mac,
+                            'uptime' => $uptime
+                        ], 'id = ?', [$id]);
+                    }
                 }
             }
         }
