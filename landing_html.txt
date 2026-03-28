@@ -1,0 +1,294 @@
+<!-- Parallax Background -->
+    <div class="parallax-container" id="parallax-container">
+        <div class="parallax-layer parallax-layer-1"></div>
+        <div class="parallax-layer parallax-layer-2"></div>
+        <div class="parallax-layer parallax-layer-3">
+            <div class="orb orb-1"></div>
+            <div class="orb orb-2"></div>
+            <div class="orb orb-3"></div>
+        </div>
+        <div class="parallax-layer parallax-layer-4">
+            <div class="particles" id="particles"></div>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header id="main-header">
+        <a href="#" class="logo">
+            <div class="logo-container" id="header-logo">
+                <div class="logo-text active">Ahsan Network</div>
+                <div class="logo-image"></div>
+            </div>
+        </a>
+        
+        <div class="nav-container">
+            <button class="menu-toggle" id="menu-toggle">
+                <i class="fas fa-bars"></i>
+            </button>
+            
+            <nav id="main-nav">
+                <ul>
+                    <li><a href="#home" class="active">Beranda</a></li>
+                    <li><a href="#features">Fitur</a></li>
+                    <li><a href="#packages">Paket</a></li>
+                    <li><a href="#contact">Kontak</a></li>
+                </ul>
+            </nav>
+            
+            <div class="header-actions">
+                <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme">
+                    <i class="fas fa-sun"></i>
+                    <i class="fas fa-moon"></i>
+                </button>
+                
+                <a href="https://wa.me/082398354086?text=Halo,%20saya%20ingin%20bertanya%20tentang%20layanan%20Ahsan%20Network" 
+                   class="btn btn-primary">
+                    <i class="fab fa-whatsapp"></i> Daftar Sekarang
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero" id="home">
+        <div class="hero-background"></div>
+        <h1>
+            Internet Cepat & Stabil
+            <span>Untuk Tetangga, Dari Tetangga</span>
+        </h1>
+        
+        <div class="typing-container">
+            <span class="typing-text" id="typed-text"></span>
+            <span class="cursor"></span>
+        </div>
+        
+        <p class="hero-subtitle">
+            Ahsan Network menghadirkan koneksi internet super cepat dengan teknologi terkini untuk rumah dan bisnis Anda. 
+            Jelajahi dunia digital tanpa batas dengan dukungan langsung PT Jinom Network Indonesia.
+        </p>
+        
+        <div class="hero-buttons">
+            <a href="#packages" class="btn btn-primary">
+                <i class="fas fa-wifi"></i> Lihat Paket
+            </a>
+            <!-- REPLACEMENT FOR LOGIN AS PROPOSED -->
+            <a href="login.php" class="btn btn-secondary">
+                <i class="fas fa-sign-in-alt"></i> Login Portal
+            </a>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features">
+        <div class="section-header">
+            <h2 class="section-title">Mengapa Memilih Ahsan Network?</h2>
+            <p class="section-subtitle">Kami memberikan pengalaman internet terbaik dengan tekhnologi fiber optik</p>
+        </div>
+        
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon"><i class="fas fa-bolt"></i></div>
+                <h3>Kecepatan Optimal</h3>
+                <p>Dapatkan kecepatan internet yang stabil dan maksimal untuk streaming, gaming, dan bekerja dari rumah.</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon"><i class="fas fa-shield-alt"></i></div>
+                <h3>Keamanan Premium</h3>
+                <p>Perlindungan 24/7 dengan sistem firewall canggih dan monitoring berkelanjutan untuk data Anda.</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon"><i class="fas fa-headset"></i></div>
+                <h3>Support 24/7</h3>
+                <p>Tim teknis kami siap membantu kapan saja dengan respons cepat dan solusi terbaik untuk masalah Anda.</p>
+            </div>
+			<div class="feature-card">
+                <div class="feature-icon"><i class="fas fa-layer-group"></i></div>
+                <h3>Fleksibel Sesuai Kebutuhan</h3>
+                <p>Bulanan?Harian? langganan mulai dari 1 perngkat sesuaikan dengan kebutuhan anda, SEWA/BELI Perangkat..</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Packages Section -->
+    <section id="packages" style="background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);">
+        <div class="section-header">
+            <h2 class="section-title">Paket Layanan Unggulan</h2>
+            <p class="section-subtitle">Pilih paket yang sesuai dengan kebutuhan Anda</p>
+        </div>
+        
+        <div class="packages-grid">
+            <!-- Paket 2D -->
+            <div class="package-card">
+                <div class="package-header">
+                    <h3>PAKET 2D</h3>
+                    <div class="price">Rp 100.000<span>/bulan</span></div>
+                </div>
+                <ul class="package-features">
+                    <li><i class="fas fa-wifi"></i> Router Single Band (2.4 GHz)</li>
+                    <li><i class="fas fa-tachometer-alt"></i> Kecepatan 7 Mbps</li>
+                    <li><i class="fas fa-plug"></i> Maksimal 2 Perangkat</li>
+                    <li><i class="fas fa-infinity"></i> Unlimited Quota</li>
+                </ul>
+                <div class="package-footer">
+                    <button class="btn btn-primary pilih-paket" data-paket="2D">Pilih Paket</button>
+                </div>
+            </div>
+            
+            <!-- Paket 3D -->
+            <div class="package-card">
+                <div class="package-header">
+                    <h3>PAKET 3D</h3>
+                    <div class="price">Rp 135.000<span>/bulan</span></div>
+                </div>
+                <ul class="package-features">
+                    <li><i class="fas fa-wifi"></i> Router Single Band (2.4 GHz)</li>
+                    <li><i class="fas fa-tachometer-alt"></i> Kecepatan 10 Mbps</li>
+                    <li><i class="fas fa-plug"></i> Maksimal 3 Perangkat</li>
+                    <li><i class="fas fa-infinity"></i> Unlimited Quota</li>
+                </ul>
+                <div class="package-footer">
+                    <button class="btn btn-primary pilih-paket" data-paket="3D">Pilih Paket</button>
+                </div>
+            </div>
+            
+            <!-- Paket 4D -->
+            <div class="package-card">
+                <div class="package-header">
+                    <h3>PAKET 4D</h3>
+                    <div class="price">Rp 165.000<span>/bulan</span></div>
+                </div>
+                <ul class="package-features">
+                    <li><i class="fas fa-wifi"></i> Router Single Band (2.4 GHz)</li>
+                    <li><i class="fas fa-tachometer-alt"></i> Kecepatan 12 Mbps</li>
+                    <li><i class="fas fa-plug"></i> Maksimal 4 Perangkat</li>
+                    <li><i class="fas fa-infinity"></i> Unlimited Quota</li>
+                </ul>
+                <div class="package-footer">
+                    <button class="btn btn-primary pilih-paket" data-paket="4D">Pilih Paket</button>
+                </div>
+            </div>
+            
+            <!-- Paket 5D -->
+            <div class="package-card">
+                <div class="package-header">
+                    <h3>PAKET 5D</h3>
+                    <div class="price">Rp 190.000<span>/bulan</span></div>
+                </div>
+                <ul class="package-features">
+                    <li><i class="fas fa-wifi"></i> Router Single Band (2.4 GHz)</li>
+                    <li><i class="fas fa-tachometer-alt"></i> Kecepatan 14 Mbps</li>
+                    <li><i class="fas fa-plug"></i> Maksimal 5 Perangkat</li>
+                    <li><i class="fas fa-infinity"></i> Unlimited Quota</li>
+                </ul>
+                <div class="package-footer">
+                    <button class="btn btn-primary pilih-paket" data-paket="5D">Pilih Paket</button>
+                </div>
+            </div>
+            
+            <!-- Paket 6D - POPULER -->
+            <div class="package-card popular">
+                <div class="popular-badge">POPULER</div>
+                <div class="package-header">
+                    <h3>PAKET 6D</h3>
+                    <div class="price">Rp 220.000<span>/bulan</span></div>
+                </div>
+                <ul class="package-features">
+                    <li><i class="fas fa-wifi"></i> Router Dual Band (2.4 & 5.8 GHz)</li>
+                    <li><i class="fas fa-tachometer-alt"></i> Kecepatan 16 Mbps</li>
+                    <li><i class="fas fa-plug"></i> Maksimal 6 Perangkat</li>
+                    <li><i class="fas fa-infinity"></i> Unlimited Quota</li>
+                    <li><i class="fas fa-star"></i> Prioritas Support</li>
+                </ul>
+                <div class="package-footer">
+                    <button class="btn btn-primary pilih-paket" data-paket="6D"><i class="fas fa-crown"></i> Pilih Paket</button>
+                </div>
+            </div>
+            
+            <!-- Paket 10D -->
+            <div class="package-card">
+                <div class="package-header">
+                    <h3>PAKET 10D</h3>
+                    <div class="price">Rp 345.000<span>/bulan</span></div>
+                </div>
+                <ul class="package-features">
+                    <li><i class="fas fa-wifi"></i> Router Dual Band (2.4 & 5.8 GHz)</li>
+                    <li><i class="fas fa-tachometer-alt"></i> Kecepatan 25 Mbps</li>
+                    <li><i class="fas fa-plug"></i> Maksimal 10 Perangkat</li>
+                    <li><i class="fas fa-infinity"></i> Unlimited Quota</li>
+                    <li><i class="fas fa-tachometer-alt"></i> Prioritas Bandwidth</li>
+                </ul>
+                <div class="package-footer">
+                    <button class="btn btn-primary pilih-paket" data-paket="10D">Pilih Paket</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Installation Info -->
+        <div class="info-box">
+            <h4><i class="fas fa-tools"></i> Free Biaya Instalasi</h4>
+            <p>
+                Biaya pemasangan (instalasi) untuk semua paket di atas <strong>FREE</strong><br>Cukup bayar biaya paket + Sewa Perangkat 20ribu / bulan internet sudah aktif atau Beli Perangkat cukup Bayar 500RB internet sudah aktif dan bulan selanjutnya sesuai paket yang dipilih.
+            </p>
+        </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section id="contact">
+        <div class="section-header">
+            <h2 class="section-title">Hubungi Kami</h2>
+            <p class="section-subtitle">Kami siap membantu kebutuhan internet Anda</p>
+        </div>
+        
+        <div class="contact-grid">
+            <div class="contact-info">
+                <div class="contact-item">
+                    <div class="contact-icon"><i class="fas fa-map-marker-alt"></i></div>
+                    <div class="contact-details">
+                        <h4>Alamat Kami</h4>
+                        <p>Jl. Poros Batu Belerang, Sinjai Borong<br>Kabupaten Sinjai, Sulawesi Selatan</p>
+                    </div>
+                </div>
+                
+                <div class="contact-item">
+                    <div class="contact-icon"><i class="fas fa-phone-alt"></i></div>
+                    <div class="contact-details">
+                        <h4>Telepon & WhatsApp</h4>
+                        <p>+62 82 398 354 086<br>Senin - Minggu</p>
+                    </div>
+                </div>
+                
+                <div class="contact-item">
+                    <div class="contact-icon"><i class="fas fa-clock"></i></div>
+                    <div class="contact-details">
+                        <h4>Jam Operasional</h4>
+                        <p>Setiap Hari: 24 Jam<br>Support teknis tersedia kapan saja</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="footer-simple">
+            <a href="#" class="footer-logo">
+                <div class="footer-logo-container" id="footer-logo">
+                    <div class="footer-logo-text active">Ahsan Network</div>
+                    <div class="footer-logo-image"></div>
+                </div>
+            </a>
+            
+            <div class="social-links">
+                <a href="#" class="social-link"><i class="fab fa-facebook-f"></i></a>
+                <a href="#" class="social-link"><i class="fab fa-instagram"></i></a>
+                <a href="#" class="social-link"><i class="fab fa-whatsapp"></i></a>
+                <a href="#" class="social-link"><i class="fab fa-youtube"></i></a>
+            </div>
+            
+            <div class="copyright">
+                <p>&copy; 2026 Ahsan Network. Semua hak dilindungi. | Didukung oleh PT Jinom Network Indonesia</p>
+            </div>
+        </div>
+    </footer>

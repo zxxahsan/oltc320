@@ -1,0 +1,591 @@
+<?php
+/**
+ * Packages Management
+ */
+
+require_once '../includes/auth.php';
+requireAdminLogin();
+
+$pageTitle = 'Paket Internet';
+
+// Handle form submissions
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Verify CSRF token
+    if (!isset($_POST['csrf_token']) || !verifyCsrfToken($_POST['csrf_token'])) {
+        setFlash('error', 'Invalid CSRF token');
+        redirect('packages.php');
+    }
+
+    if (isset($_POST['action'])) {
+        switch ($_POST['action']) {
+            case 'import_csv':
+                if (isset($_FILES['file']) && $_FILES['file']['error'] === UPLOAD_ERR_OK) {
+                    $handle = fopen($_FILES['file']['tmp_name'], 'r');
+                    if ($handle) {
+                        fgetcsv($handle); // skip header
+                        $success = 0;
+                        while (($data = fgetcsv($handle)) !== false) {
+                            if (count($data) >= 4) {
+                                $name = trim($data[0]);
+                                if (empty($name)) continue;
+                                $price = (float)str_replace(['Rp', '.', ','], '', $data[1]);
+                                $pn = trim($data[2]);
+                                $pi = trim($data[3]);
+                                $desc = isset($data[4]) ? trim($data[4]) : '';
+                                
+                                $existing = fetchOne("SELECT id FROM packages WHERE name = ?", [$name]);
+                                if (!$existing) {
+                                    insert('packages', [
+                                        'name' => $name, 'price' => $price,
+                                        'profile_normal' => $pn, 'profile_isolir' => $pi,
+                                        'description' => $desc, 'created_at' => date('Y-m-d H:i:s')
+                                    ]);
+                                    $success++;
+                                }
+                            }
+                        }
+                        fclose($handle);
+                        setFlash('success', "$success Paket Layanan berhasil diimport dari CSV!");
+                        logActivity('IMPORT_PACKAGES', "Imported $success packages");
+                    }
+                }
+                redirect('packages.php');
+                break;
+            case 'add':
+                $data = [
+                    'name' => sanitize($_POST['name']),
+                    'price' => (float)$_POST['price'],
+                    'profile_normal' => sanitize($_POST['profile_normal']),
+                    'profile_isolir' => sanitize($_POST['profile_isolir']),
+                    'description' => sanitize($_POST['description']),
+                    'created_at' => date('Y-m-d H:i:s')
+                ];
+                
+                if (insert('packages', $data)) {
+                    setFlash('success', 'Paket berhasil ditambahkan');
+                    logActivity('ADD_PACKAGE', "Name: {$data['name']}");
+                } else {
+                    setFlash('error', 'Gagal menambahkan paket');
+                }
+                redirect('packages.php');
+                break;
+                
+            case 'edit':
+                $packageId = (int)$_POST['package_id'];
+                $data = [
+                    'name' => sanitize($_POST['name']),
+                    'price' => (float)$_POST['price'],
+                    'profile_normal' => sanitize($_POST['profile_normal']),
+                    'profile_isolir' => sanitize($_POST['profile_isolir']),
+                    'description' => sanitize($_POST['description']),
+                    'updated_at' => date('Y-m-d H:i:s')
+                ];
+                
+                if (update('packages', $data, 'id = ?', [$packageId])) {
+                    setFlash('success', 'Paket berhasil diperbarui');
+                    logActivity('UPDATE_PACKAGE', "ID: {$packageId}");
+                } else {
+                    setFlash('error', 'Gagal memperbarui paket');
+                }
+                redirect('packages.php');
+                break;
+                
+            case 'delete':
+                $packageId = (int)$_POST['package_id'];
+                
+                // Check if package has customers
+                $customerCount = fetchOne("SELECT COUNT(*) as total FROM customers WHERE package_id = ?", [$packageId])['total'];
+                if ($customerCount > 0) {
+                    setFlash('error', "Tidak dapat menghapus paket yang masih memiliki {$customerCount} pelanggan");
+                    redirect('packages.php');
+                }
+                
+                if (delete('packages', 'id = ?', [$packageId])) {
+                    setFlash('success', 'Paket berhasil dihapus');
+                    logActivity('DELETE_PACKAGE', "ID: {$packageId}");
+                } else {
+                    setFlash('error', 'Gagal menghapus paket');
+                }
+                redirect('packages.php');
+                break;
+        }
+    }
+}
+
+// Handle Export CSV
+if (isset($_GET['action']) && $_GET['action'] === 'export_csv') {
+    $packagesInfo = fetchAll("SELECT name, price, profile_normal, profile_isolir, description FROM packages ORDER BY name");
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="export_paket_layanan.csv"');
+    $output = fopen('php://output', 'w');
+    // Header
+    fputcsv($output, ['Nama Paket', 'Harga (Rp)', 'Profile Normal', 'Profile Isolir', 'Deskripsi']);
+    foreach ($packagesInfo as $p) {
+        fputcsv($output, [$p['name'], $p['price'], $p['profile_normal'], $p['profile_isolir'], $p['description']]);
+    }
+    fclose($output);
+    exit;
+}
+
+// Get data
+$packages = fetchAll("
+    SELECT p.*, COUNT(c.id) as customer_count 
+    FROM packages p 
+    LEFT JOIN customers c ON p.id = c.package_id 
+    GROUP BY p.id 
+    ORDER BY p.name
+");
+
+// Get MikroTik profiles from actual MikroTik
+$mikrotikConnected = true;
+$mikrotikProfiles = mikrotikGetProfiles();
+
+// If connection fails, use fallback profiles
+if (empty($mikrotikProfiles)) {
+    $mikrotikConnected = false;
+    $mikrotikProfiles = [
+        ['name' => 'default'],
+        ['name' => '10Mbps'],
+        ['name' => '20Mbps'],
+        ['name' => '50Mbps'],
+        ['name' => 'isolir-10Mbps'],
+        ['name' => 'isolir-20Mbps'],
+        ['name' => 'isolir-50Mbps']
+    ];
+}
+
+ob_start();
+?>
+
+<?php if (!$mikrotikConnected): ?>
+<div style="background: rgba(255, 0, 0, 0.1); border: 1px solid #ff4444; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+    <div style="display: flex; align-items: center; gap: 10px; color: #ff6666;">
+        <i class="fas fa-exclamation-triangle" style="font-size: 1.2rem;"></i>
+        <div>
+            <strong>Gagal terhubung ke MikroTik!</strong>
+            <p style="margin: 5px 0 0 0; font-size: 0.9rem; color: #ffaaaa;">
+                Profile yang ditampilkan adalah profil default. 
+                Silakan periksa pengaturan MikroTik di <a href="settings.php" style="color: #66ccff;">Settings</a> 
+                untuk memastikan kredensial benar.
+            </p>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
+<!-- Stats -->
+<div class="stats-grid" style="grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 30px;">
+    <div class="stat-card">
+        <div class="stat-icon cyan">
+            <i class="fas fa-box"></i>
+        </div>
+        <div class="stat-info">
+            <h3><?php echo count($packages); ?></h3>
+            <p>Total Paket</p>
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-icon green">
+            <i class="fas fa-users"></i>
+        </div>
+        <div class="stat-info">
+            <?php 
+            $totalCustomers = array_sum(array_column($packages, 'customer_count'));
+            ?>
+            <h3><?php echo $totalCustomers; ?></h3>
+            <p>Pelanggan Aktif</p>
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-icon purple">
+            <i class="fas fa-star"></i>
+        </div>
+        <div class="stat-info">
+            <?php 
+            $mostPopularPackage = '-';
+            $maxCustomers = 0;
+            $avgPrice = 0;
+            $totalPrice = 0;
+            $countPrice = 0;
+            
+            foreach ($packages as $p) {
+                if ($p['customer_count'] > $maxCustomers) {
+                    $maxCustomers = $p['customer_count'];
+                    $mostPopularPackage = $p['name'];
+                }
+                $totalPrice += $p['price'];
+                $countPrice++;
+            }
+            
+            if ($countPrice > 0) {
+                $avgPrice = $totalPrice / $countPrice;
+            }
+            ?>
+            <h3 style="font-size: 1.2rem;"><?php echo htmlspecialchars($mostPopularPackage); ?></h3>
+            <p>Paket Terlaris</p>
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-icon orange">
+            <i class="fas fa-check-double"></i>
+        </div>
+        <div class="stat-info">
+            <?php 
+            $activePackages = 0;
+            foreach ($packages as $p) {
+                if ($p['customer_count'] > 0) {
+                    $activePackages++;
+                }
+            }
+            ?>
+            <h3><?php echo $activePackages; ?></h3>
+            <p>Paket Terpakai</p>
+        </div>
+    </div>
+</div>
+
+<style>
+    @media (max-width: 768px) {
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr) !important;
+        }
+        .stat-card {
+            padding: 15px;
+        }
+        .stat-icon {
+            width: 40px;
+            height: 40px;
+            font-size: 1.2rem;
+        }
+        .stat-info h3 {
+            font-size: 1.5rem;
+        }
+        .stat-info p {
+            font-size: 0.8rem;
+        }
+    }
+</style>
+
+<!-- Add Package Form -->
+<div class="card">
+    <div class="card-header" style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between;">
+        <h3 class="card-title"><i class="fas fa-plus-circle"></i> Tambah Paket Baru</h3>
+        
+        <div style="display: flex; gap: 10px;">
+            <a href="?action=export_csv" class="btn btn-secondary btn-sm">
+                <i class="fas fa-download"></i> Export CSV
+            </a>
+            <button onclick="document.getElementById('importPackageFile').click()" class="btn btn-secondary btn-sm">
+                <i class="fas fa-file-import"></i> Import CSV
+            </button>
+            <form id="importPackageForm" method="POST" enctype="multipart/form-data" style="display:none;">
+                <input type="hidden" name="action" value="import_csv">
+                <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+                <input type="file" name="file" id="importPackageFile" accept=".csv" onchange="if(confirm('Import data paket dari CSV? Paket dengan nama sama akan dilewati.')) document.getElementById('importPackageForm').submit();">
+            </form>
+        </div>
+    </div>
+    
+    <form method="POST">
+        <input type="hidden" name="action" value="add">
+        <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+        
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+            <div class="form-group">
+                <label class="form-label">Nama Paket</label>
+                <input type="text" name="name" class="form-control" required placeholder="Misal: Paket 10 Mbps">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Harga per Bulan</label>
+                <input type="number" name="price" class="form-control" required placeholder="250000">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Profile MikroTik (Normal)</label>
+                <select name="profile_normal" id="profile_normal" class="form-control" required style="color: var(--text-primary); background: var(--bg-card);">
+                    <?php foreach ($mikrotikProfiles as $profile): ?>
+                        <option value="<?php echo htmlspecialchars($profile['name']); ?>">
+                            <?php echo htmlspecialchars($profile['name']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+                <div id="profile_info_normal" class="profile-info-display" style="margin-top: 8px; font-size: 0.85rem; padding: 8px; border-radius: 6px; background: rgba(0,255,255,0.05); border: 1px dashed rgba(0,255,255,0.2); display: none;"></div>
+                <small style="color: var(--text-muted);">Profile saat pelanggan aktif</small>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Profile MikroTik (Isolir)</label>
+                <select name="profile_isolir" id="profile_isolir" class="form-control" required style="color: var(--text-primary); background: var(--bg-card);">
+                    <?php foreach ($mikrotikProfiles as $profile): ?>
+                        <option value="<?php echo htmlspecialchars($profile['name']); ?>">
+                            <?php echo htmlspecialchars($profile['name']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+                <div id="profile_info_isolir" class="profile-info-display" style="margin-top: 8px; font-size: 0.85rem; padding: 8px; border-radius: 6px; background: rgba(255,150,0,0.05); border: 1px dashed rgba(255,150,0,0.2); display: none;"></div>
+                <small style="color: var(--text-muted);">Profile saat pelanggan belum bayar</small>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">Keterangan</label>
+            <textarea name="description" class="form-control" rows="2" placeholder="Keterangan tambahan (opsional)"></textarea>
+        </div>
+        
+        <button type="submit" class="btn btn-primary">
+            <i class="fas fa-save"></i> Simpan Paket
+        </button>
+    </form>
+</div>
+
+<!-- Packages Table -->
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-list"></i> Daftar Paket</h3>
+    </div>
+    
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Nama Paket</th>
+                <th>Harga</th>
+                <th>Profile Normal</th>
+                <th>Profile Isolir</th>
+                <th>Pelanggan</th>
+                <th>Aksi</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php if (empty($packages)): ?>
+                <tr>
+                    <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 30px;">
+                        Belum ada paket terdaftar
+                    </td>
+                </tr>
+            <?php else: ?>
+                <?php foreach ($packages as $pkg): ?>
+                <tr>
+                    <td data-label="Nama Paket">
+                        <strong><?php echo htmlspecialchars($pkg['name']); ?></strong>
+                        <?php if ($pkg['description']): ?>
+                            <br><small style="color: var(--text-muted);"><?php echo htmlspecialchars($pkg['description']); ?></small>
+                        <?php endif; ?>
+                    </td>
+                    <td data-label="Harga">
+                        <strong style="color: var(--neon-green);">
+                            <?php echo formatCurrency($pkg['price']); ?>
+                        </strong>
+                    </td>
+                    <td data-label="Profile Normal">
+                        <span class="badge badge-success"><?php echo htmlspecialchars($pkg['profile_normal']); ?></span>
+                    </td>
+                    <td data-label="Profile Isolir">
+                        <span class="badge badge-warning"><?php echo htmlspecialchars($pkg['profile_isolir']); ?></span>
+                    </td>
+                    <td data-label="Jumlah Pelanggan"><?php echo $pkg['customer_count']; ?> pelanggan</td>
+                    <td data-label="Aksi">
+                        <button class="btn btn-secondary btn-sm" onclick="editPackage(<?php echo $pkg['id']; ?>)">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-secondary btn-sm" onclick="deletePackage(<?php echo $pkg['id']; ?>)">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </tbody>
+    </table>
+</div>
+
+<!-- Edit Package Modal -->
+<div id="editModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 2000; overflow-y: auto; padding: 40px 0;">
+    <div class="card" style="width: 500px; max-width: 90%; margin: 0 auto; position: relative;">
+        <div class="card-header">
+            <h3 class="card-title"><i class="fas fa-edit"></i> Edit Paket</h3>
+            <button onclick="closeEditModal()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1.25rem;">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <form id="editForm" method="POST">
+            <input type="hidden" name="action" value="edit">
+            <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+            <input type="hidden" name="package_id" id="edit_package_id">
+            
+            <div class="form-group">
+                <label class="form-label">Nama Paket</label>
+                <input type="text" name="name" id="edit_name" class="form-control" required>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Harga per Bulan</label>
+                <input type="number" name="price" id="edit_price" class="form-control" required>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div class="form-group">
+                    <label class="form-label">Profile Normal</label>
+                    <select name="profile_normal" id="edit_profile_normal" class="form-control" required style="color: var(--text-primary); background: var(--bg-card);">
+                        <?php foreach ($mikrotikProfiles as $profile): ?>
+                            <option value="<?php echo htmlspecialchars($profile['name']); ?>">
+                                <?php echo htmlspecialchars($profile['name']); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <div id="edit_profile_info_normal" class="profile-info-display" style="margin-top: 8px; font-size: 0.85rem; padding: 8px; border-radius: 6px; background: rgba(0,255,255,0.05); border: 1px dashed rgba(0,255,255,0.2); display: none;"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Profile Isolir</label>
+                    <select name="profile_isolir" id="edit_profile_isolir" class="form-control" required style="color: var(--text-primary); background: var(--bg-card);">
+                        <?php foreach ($mikrotikProfiles as $profile): ?>
+                            <option value="<?php echo htmlspecialchars($profile['name']); ?>">
+                                <?php echo htmlspecialchars($profile['name']); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <div id="edit_profile_info_isolir" class="profile-info-display" style="margin-top: 8px; font-size: 0.85rem; padding: 8px; border-radius: 6px; background: rgba(255,150,0,0.05); border: 1px dashed rgba(255,150,0,0.2); display: none;"></div>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Keterangan</label>
+                <textarea name="description" id="edit_description" class="form-control" rows="2"></textarea>
+            </div>
+            
+            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 10px;">
+                <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Batal</button>
+                <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Simpan</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+const packagesData = <?php echo json_encode($packages); ?>;
+const mikrotikProfiles = <?php echo json_encode($mikrotikProfiles); ?>;
+
+function updateProfileInfo(selectId, displayId) {
+    const select = document.getElementById(selectId);
+    const display = document.getElementById(displayId);
+    const profileName = select.value;
+    
+    if (!profileName || !mikrotikProfiles) {
+        display.style.display = 'none';
+        return;
+    }
+    
+    // Find profile in our list
+    const profile = mikrotikProfiles.find(p => p.name === profileName);
+    
+    if (profile) {
+        let html = '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">';
+        
+        // Key fields to display
+        if (profile['rate-limit']) {
+            html += `<div><strong><i class="fas fa-tachometer-alt"></i> Limit:</strong> ${profile['rate-limit']}</div>`;
+        }
+        if (profile['local-address']) {
+            html += `<div><strong><i class="fas fa-server"></i> Local:</strong> ${profile['local-address']}</div>`;
+        }
+        if (profile['remote-address']) {
+            html += `<div><strong><i class="fas fa-globe"></i> Remote Pool:</strong> ${profile['remote-address']}</div>`;
+        }
+        if (profile['session-timeout']) {
+            html += `<div><strong><i class="fas fa-clock"></i> Timeout:</strong> ${profile['session-timeout']}</div>`;
+        }
+        if (profile['only-one']) {
+            html += `<div><strong><i class="fas fa-user-lock"></i> Only One:</strong> ${profile['only-one']}</div>`;
+        }
+        
+        html += '</div>';
+        
+        // If no key fields found, show "General profile info"
+        if (html === '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px;"></div>') {
+            html = `<div><i class="fas fa-info-circle"></i> Profile: <strong>${profile.name}</strong></div>`;
+        }
+        
+        display.innerHTML = html;
+        display.style.display = 'block';
+    } else {
+        display.style.display = 'none';
+    }
+}
+
+// Initial update for Add form
+document.addEventListener('DOMContentLoaded', function() {
+    updateProfileInfo('profile_normal', 'profile_info_normal');
+    updateProfileInfo('profile_isolir', 'profile_info_isolir');
+});
+
+// Event listeners for Add form
+document.getElementById('profile_normal').addEventListener('change', () => updateProfileInfo('profile_normal', 'profile_info_normal'));
+document.getElementById('profile_isolir').addEventListener('change', () => updateProfileInfo('profile_isolir', 'profile_info_isolir'));
+
+// Event listeners for Edit modal
+document.getElementById('edit_profile_normal').addEventListener('change', () => updateProfileInfo('edit_profile_normal', 'edit_profile_info_normal'));
+document.getElementById('edit_profile_isolir').addEventListener('change', () => updateProfileInfo('edit_profile_isolir', 'edit_profile_info_isolir'));
+
+function editPackage(id) {
+    const pkg = packagesData.find(p => p.id == id);
+    if (!pkg) {
+        alert('Paket tidak ditemukan!');
+        return;
+    }
+    
+    document.getElementById('edit_package_id').value = pkg.id;
+    document.getElementById('edit_name').value = pkg.name || '';
+    document.getElementById('edit_price').value = pkg.price || '';
+    document.getElementById('edit_profile_normal').value = pkg.profile_normal || '';
+    document.getElementById('edit_profile_isolir').value = pkg.profile_isolir || '';
+    document.getElementById('edit_description').value = pkg.description || '';
+    
+    // Update profile info in modal
+    updateProfileInfo('edit_profile_normal', 'edit_profile_info_normal');
+    updateProfileInfo('edit_profile_isolir', 'edit_profile_info_isolir');
+    
+    document.getElementById('editForm').action = 'packages.php';
+    document.getElementById('editModal').style.display = 'flex';
+}
+
+function deletePackage(id) {
+    const pkg = packagesData.find(p => p.id == id);
+    if (!pkg) return;
+    
+    if (confirm('Yakin ingin menghapus paket "' + pkg.name + '"?\n\nPelanggan yang menggunakan paket ini akan terpengaruh!')) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.innerHTML = `
+            <input type="hidden" name="action" value="delete">
+            <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+            <input type="hidden" name="package_id" value="${id}">
+        `;
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+function closeEditModal() {
+    document.getElementById('editModal').style.display = 'none';
+}
+
+document.getElementById('editModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeEditModal();
+    }
+});
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeEditModal();
+    }
+});
+</script>
+
+<?php
+$content = ob_get_clean();
+require_once '../includes/layout.php';

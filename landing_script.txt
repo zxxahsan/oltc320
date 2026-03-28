@@ -1,0 +1,346 @@
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Website Ahsan Network Loaded Successfully');
+            
+            // Theme Management
+            const themeToggle = document.getElementById('theme-toggle');
+            const html = document.documentElement;
+            
+            function getCurrentTheme() {
+                return html.getAttribute('data-theme') || 'light';
+            }
+            
+            function setTheme(theme) {
+                html.setAttribute('data-theme', theme);
+                localStorage.setItem('theme', theme);
+                
+                const sunIcon = themeToggle.querySelector('.fa-sun');
+                const moonIcon = themeToggle.querySelector('.fa-moon');
+                
+                if (theme === 'dark') {
+                    sunIcon.style.opacity = '1';
+                    sunIcon.style.transform = 'rotate(0)';
+                    moonIcon.style.opacity = '0';
+                    moonIcon.style.transform = 'rotate(-90deg)';
+                } else {
+                    sunIcon.style.opacity = '0';
+                    sunIcon.style.transform = 'rotate(90deg)';
+                    moonIcon.style.opacity = '1';
+                    moonIcon.style.transform = 'rotate(0)';
+                }
+            }
+            
+            function toggleTheme() {
+                const currentTheme = getCurrentTheme();
+                const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+                setTheme(newTheme);
+            }
+            
+            function initTheme() {
+                const savedTheme = localStorage.getItem('theme');
+                if (savedTheme) {
+                    setTheme(savedTheme);
+                } else {
+                    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    setTheme(prefersDark ? 'dark' : 'light');
+                }
+            }
+            
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+                if (!localStorage.getItem('theme')) {
+                    setTheme(e.matches ? 'dark' : 'light');
+                }
+            });
+            
+            themeToggle.addEventListener('click', toggleTheme);
+            initTheme();
+            
+            // Typing Effect
+            const texts = [
+                "Internet Tanpa Batas",
+                "Streaming & Gaming Lancar",
+                "Support 24 Jam",
+                "Teknologi Fiber Optic",
+                "Didukung PT Jinom"
+            ];
+            let speed = 100;
+            let textIndex = 0;
+            let charIndex = 0;
+            let isDeleting = false;
+            
+            function typeEffect() {
+                const typedTextElement = document.getElementById('typed-text');
+                const currentText = texts[textIndex];
+                
+                if (isDeleting) {
+                    typedTextElement.textContent = currentText.substring(0, charIndex - 1);
+                    charIndex--;
+                } else {
+                    typedTextElement.textContent = currentText.substring(0, charIndex + 1);
+                    charIndex++;
+                }
+                
+                if (!isDeleting && charIndex === currentText.length) {
+                    isDeleting = true;
+                    setTimeout(typeEffect, 2000);
+                } else if (isDeleting && charIndex === 0) {
+                    isDeleting = false;
+                    textIndex = (textIndex + 1) % texts.length;
+                    setTimeout(typeEffect, 500);
+                } else {
+                    setTimeout(typeEffect, isDeleting ? 50 : speed);
+                }
+            }
+            
+            setTimeout(typeEffect, 1000);
+            
+            // Logo Animation Function
+            function setupLogoAnimation(logoContainer, isFooter = false) {
+                const textElement = logoContainer.querySelector(isFooter ? '.footer-logo-text' : '.logo-text');
+                const imageElement = logoContainer.querySelector(isFooter ? '.footer-logo-image' : '.logo-image');
+                
+                const imageUrl = 'https://reseller.jinom.net/user-assets/images/design/Jinom%20Reseller%20Logo%20Original%20Black%20Landscape.png';
+                imageElement.style.backgroundImage = `url('${imageUrl}')`;
+                
+                if (isFooter) {
+                    const updateImageFilter = () => {
+                        const currentTheme = getCurrentTheme();
+                        imageElement.style.filter = currentTheme === 'dark' ? 'brightness(0) invert(1)' : 'brightness(0) invert(0)';
+                    };
+                    updateImageFilter();
+                    themeToggle.addEventListener('click', updateImageFilter);
+                }
+                
+                let current = 'text';
+                
+                function switchLogo() {
+                    if (current === 'text') {
+                        textElement.classList.remove('active');
+                        setTimeout(() => {
+                            imageElement.classList.add('active');
+                            current = 'image';
+                        }, 800);
+                    } else {
+                        imageElement.classList.remove('active');
+                        setTimeout(() => {
+                            textElement.classList.add('active');
+                            current = 'text';
+                        }, 800);
+                    }
+                }
+                
+                setTimeout(() => {
+                    setInterval(switchLogo, 4000);
+                }, 2000);
+            }
+            
+            const headerLogo = document.getElementById('header-logo');
+            const footerLogo = document.getElementById('footer-logo');
+            
+            if (headerLogo) setupLogoAnimation(headerLogo);
+            if (footerLogo) setupLogoAnimation(footerLogo, true);
+            
+            // Parallax Effect
+            function initParallax() {
+                if (window.innerWidth <= 768) return;
+                
+                const parallaxContainer = document.getElementById('parallax-container');
+                const particlesContainer = document.getElementById('particles');
+                
+                function createParticles() {
+                    if (!particlesContainer) return;
+                    particlesContainer.innerHTML = '';
+                    
+                    for (let i = 0; i < 30; i++) {
+                        const particle = document.createElement('div');
+                        particle.className = 'particle';
+                        
+                        const size = Math.random() * 5 + 2;
+                        const x = Math.random() * 100;
+                        const y = Math.random() * 100;
+                        const opacity = Math.random() * 0.2 + 0.05;
+                        const animationDelay = Math.random() * 20;
+                        const duration = Math.random() * 20 + 10;
+                        
+                        particle.style.width = `${size}px`;
+                        particle.style.height = `${size}px`;
+                        particle.style.left = `${x}%`;
+                        particle.style.top = `${y}%`;
+                        particle.style.opacity = opacity;
+                        particle.style.animationDelay = `${animationDelay}s`;
+                        particle.style.animationDuration = `${duration}s`;
+                        
+                        particlesContainer.appendChild(particle);
+                    }
+                }
+                
+                createParticles();
+                
+                function handleParallax() {
+                    const scrollY = window.scrollY;
+                    if (window.innerWidth <= 768) return;
+                    
+                    const layers = document.querySelectorAll('.parallax-layer');
+                    layers.forEach((layer, index) => {
+                        let speed;
+                        switch(index) {
+                            case 0: speed = 0.2; break;
+                            case 1: speed = 0.4; break;
+                            case 2: speed = 0.6; break;
+                            case 3: speed = 0.8; break;
+                            default: speed = 0.5;
+                        }
+                        const yPos = scrollY * speed;
+                        layer.style.transform = `translate3d(0, ${yPos}px, ${index * -100}px) scale(${1 + index * 0.2})`;
+                    });
+                    
+                    const heroTitle = document.querySelector('.hero h1');
+                    const heroSubtitle = document.querySelector('.hero-subtitle');
+                    const typingContainer = document.querySelector('.typing-container');
+                    const heroButtons = document.querySelector('.hero-buttons');
+                    
+                    if (heroTitle) heroTitle.style.transform = `translate3d(0, ${scrollY * 0.1}px, 50px)`;
+                    if (heroSubtitle) heroSubtitle.style.transform = `translate3d(0, ${scrollY * 0.08}px, 40px)`;
+                    if (typingContainer) typingContainer.style.transform = `translate3d(0, ${scrollY * 0.06}px, 30px)`;
+                    if (heroButtons) heroButtons.style.transform = `translate3d(0, ${scrollY * 0.04}px, 20px)`;
+                    
+                    requestAnimationFrame(handleParallax);
+                }
+                
+                requestAnimationFrame(handleParallax);
+                window.addEventListener('resize', createParticles);
+            }
+            
+            initParallax();
+            
+            // Mobile Menu Toggle
+            const menuToggle = document.getElementById('menu-toggle');
+            const mainNav = document.getElementById('main-nav');
+            
+            menuToggle.addEventListener('click', function() {
+                mainNav.classList.toggle('active');
+                const icon = menuToggle.querySelector('i');
+                if (mainNav.classList.contains('active')) {
+                    icon.classList.remove('fa-bars');
+                    icon.classList.add('fa-times');
+                } else {
+                    icon.classList.remove('fa-times');
+                    icon.classList.add('fa-bars');
+                }
+            });
+            
+            document.addEventListener('click', function(event) {
+                if (window.innerWidth <= 768) {
+                    const isClickInsideNav = mainNav.contains(event.target);
+                    const isClickOnToggle = menuToggle.contains(event.target);
+                    
+                    if (!isClickInsideNav && !isClickOnToggle && mainNav.classList.contains('active')) {
+                        mainNav.classList.remove('active');
+                        const icon = menuToggle.querySelector('i');
+                        icon.classList.remove('fa-times');
+                        icon.classList.add('fa-bars');
+                    }
+                }
+            });
+            
+            // Smooth Scroll for Navigation Links
+            document.querySelectorAll('nav a, .footer-logo').forEach(anchor => {
+                anchor.addEventListener('click', function(e) {
+                    const href = this.getAttribute('href');
+                    if (href.startsWith('#')) {
+                        e.preventDefault();
+                        document.querySelectorAll('nav a').forEach(link => link.classList.remove('active'));
+                        this.classList.add('active');
+                        
+                        const targetElement = document.getElementById(href.substring(1));
+                        if (targetElement) {
+                            window.scrollTo({
+                                top: targetElement.offsetTop - 80,
+                                behavior: 'smooth'
+                            });
+                            
+                            if (window.innerWidth <= 768 && mainNav.classList.contains('active')) {
+                                mainNav.classList.remove('active');
+                                const icon = menuToggle.querySelector('i');
+                                icon.classList.remove('fa-times');
+                                icon.classList.add('fa-bars');
+                            }
+                        }
+                    }
+                });
+            });
+            
+            // Header Scroll Effect
+            const header = document.getElementById('main-header');
+            
+            window.addEventListener('scroll', function() {
+                if (window.scrollY > 50) {
+                    header.classList.add('scrolled');
+                } else {
+                    header.classList.remove('scrolled');
+                }
+                
+                const sections = document.querySelectorAll('section');
+                const navLinks = document.querySelectorAll('nav a');
+                let current = '';
+                
+                sections.forEach(section => {
+                    const sectionTop = section.offsetTop;
+                    if (window.scrollY >= (sectionTop - 100)) {
+                        current = section.getAttribute('id');
+                    }
+                });
+                
+                navLinks.forEach(link => {
+                    link.classList.remove('active');
+                    if (link.getAttribute('href') === `#${current}`) {
+                        link.classList.add('active');
+                    }
+                });
+            });
+            
+            // Package Selection - WhatsApp Integration
+            document.querySelectorAll('.pilih-paket').forEach(button => {
+                button.addEventListener('click', function() {
+                    const paket = this.getAttribute('data-paket');
+                    const harga = this.closest('.package-card').querySelector('.price').textContent.trim();
+                    const message = `Halo, saya tertarik dengan paket ${paket} di Ahsan Network. \nPaket: ${paket}\nHarga: ${harga}\n\nBisa minta informasi lebih detail dan termasuk biaya pemasangan Rp 500.000?`;
+                    const whatsappURL = `https://wa.me/6282398354086?text=${encodeURIComponent(message)}`;
+                    window.open(whatsappURL, '_blank');
+                });
+            });
+            
+            // Animate elements on scroll
+            const observerOptions = { threshold: 0.1, rootMargin: '0px 0px -50px 0px' };
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.style.opacity = '1';
+                        entry.target.style.transform = 'translateY(0)';
+                    }
+                });
+            }, observerOptions);
+            
+            document.querySelectorAll('.feature-card, .package-card').forEach(card => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(30px)';
+                card.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+                observer.observe(card);
+            });
+            
+            document.querySelectorAll('.hero h1, .hero-subtitle, .typing-container, .hero-buttons').forEach(el => {
+                el.style.opacity = '0';
+                el.style.transform = 'translateY(20px)';
+                el.style.animation = 'fadeInUp 0.8s ease forwards';
+            });
+            
+            document.querySelectorAll('.hero > *').forEach((el, index) => {
+                el.style.animationDelay = `${index * 0.2}s`;
+            });
+        });
+        
+        if (!('IntersectionObserver' in window)) {
+            document.querySelectorAll('.feature-card, .package-card').forEach(card => {
+                card.style.opacity = '1';
+                card.style.transform = 'translateY(0)';
+            });
+        }
