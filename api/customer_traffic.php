@@ -9,6 +9,14 @@ require_once '../includes/mikrotik_api.php';
 header('Content-Type: application/json');
 
 $customerSession = getCurrentCustomer();
+$pdo = getDB();
+try {
+    $pdo->exec("ALTER TABLE customers ADD COLUMN usage_last_rx BIGINT DEFAULT 0, ADD COLUMN usage_last_tx BIGINT DEFAULT 0");
+} catch(Exception $e2) {}
+try {
+    $pdo->exec("ALTER TABLE customers MODIFY COLUMN usage_bytes_in BIGINT UNSIGNED DEFAULT 0, MODIFY COLUMN usage_bytes_out BIGINT UNSIGNED DEFAULT 0");
+} catch(Exception $e3) {}
+
 $customer = fetchOne("SELECT id, pppoe_username, router_id, usage_last_rx, usage_last_tx FROM customers WHERE id = ?", [$customerSession['id']]);
 $pppoeUsername = trim((string)($customer['pppoe_username'] ?? ''));
 $rid = $customer['router_id'] ?? null;
