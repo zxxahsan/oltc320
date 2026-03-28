@@ -21,6 +21,10 @@ runScheduler();
  * Main function to run the scheduler
  */
 function runScheduler() {
+    // Ensure HTTP aborts don't kill the background database processing midway
+    ignore_user_abort(true);
+    set_time_limit(0);
+    
     echo "[" . date('Y-m-d H:i:s') . "] Cron Scheduler started\n";
 
     try {
@@ -36,6 +40,9 @@ function runScheduler() {
         $pdo->exec("UPDATE cron_schedules SET schedule_days = 'every_minute' WHERE task_type IN ('auto_isolir', 'auto_invoice')");
         // Self-heal: If any every_minute job is stuck more than 5 minutes in the future (due to old daily caching), pull it back to NOW
         $pdo->exec("UPDATE cron_schedules SET next_run = NULL WHERE schedule_days = 'every_minute' AND next_run > DATE_ADD(NOW(), INTERVAL 5 MINUTE)");
+        
+        // Anti-stall: Forcibly clear any dead locks from previously crashed executions
+        $pdo->exec("UPDATE cron_schedules SET last_status = 'failed' WHERE last_status = 'running' AND last_run < DATE_SUB(NOW(), INTERVAL 5 MINUTE)");
 
         // Get all active schedules
         $schedules = fetchAll("
@@ -123,8 +130,8 @@ function runScheduler() {
 
         echo "\n[" . date('Y-m-d H:i:s') . "] Cron Scheduler completed\n";
 
-    } catch (Exception $e) {
-        echo "Error: " . $e->getMessage() . "\n";
+    } catch (Throwable $e) {
+        echo "Fatal Error: " . $e->getMessage() . "\n";
         return;
     }
 }
