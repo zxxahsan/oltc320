@@ -47,6 +47,13 @@ function runScheduler() {
             $pdo->prepare("INSERT IGNORE INTO cron_schedules (name, task_type, schedule_days, schedule_time, is_active) VALUES (?, ?, ?, ?, ?)")
                 ->execute(['System Heartbeat', 'system_ping', 'every_minute', '00:00', 1]);
         }
+
+        // Self-heal: Ensure Hotspot Expiry Monitor exists
+        $hasHotspotExpiry = fetchOne("SELECT id FROM cron_schedules WHERE task_type = 'hotspot_expiry'");
+        if (!$hasHotspotExpiry) {
+            $pdo->prepare("INSERT IGNORE INTO cron_schedules (name, task_type, schedule_days, schedule_time, is_active) VALUES (?, ?, ?, ?, ?)")
+                ->execute(['Hotspot Expiry Monitor', 'hotspot_expiry', 'every_minute', '00:00', 1]);
+        }
         // Self-heal: Ensure critical missing columns exist in case table was restored from a highly legacy schema
         try {
             $pdo->exec("ALTER TABLE cron_schedules ADD COLUMN last_status VARCHAR(20) DEFAULT NULL, ADD COLUMN last_run DATETIME DEFAULT NULL, ADD COLUMN next_run DATETIME DEFAULT NULL");
