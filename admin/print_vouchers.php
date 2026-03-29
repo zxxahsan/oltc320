@@ -154,6 +154,8 @@
                         voucherHtml = voucherHtml.replace(/\{\{hotspotname\}\}/g, voucher.hotspotname || 'Gembok WiFi');
                         voucherHtml = voucherHtml.replace(/\{\{dnsname\}\}/g, voucher.dnsname || 'hotspot.net');
                         voucherHtml = voucherHtml.replace(/\{\{num\}\}/g, index + 1);
+                        voucherHtml = voucherHtml.replace(/\{\{login_url\}\}/g, '<?php echo getSetting('vcr_login_url', 'http://hotspot.net'); ?>');
+                        voucherHtml = voucherHtml.replace(/\{\{admin_num\}\}/g, '<?php echo getSetting('vcr_admin_num', '0812-3456-7890'); ?>');
                         
                         // Add dummy QR code if needed
                         if (voucherHtml.includes('{{qrcode}}')) {

@@ -47,6 +47,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             }
         }
     }
+    
+    // Handle Voucher Metadata Settings
+    if ($_POST['action'] === 'save_vcr_settings') {
+        $vcr_login_url = sanitize($_POST['vcr_login_url'] ?? '');
+        $vcr_admin_num = sanitize($_POST['vcr_admin_num'] ?? '');
+        
+        // Save to settings table
+        $settingsToSave = [
+            'vcr_login_url' => $vcr_login_url,
+            'vcr_admin_num' => $vcr_admin_num
+        ];
+        
+        foreach ($settingsToSave as $key => $value) {
+            $existing = fetchOne("SELECT id FROM settings WHERE setting_key = ?", [$key]);
+            if ($existing) {
+                update('settings', ['setting_value' => $value], 'setting_key = ?', [$key]);
+            } else {
+                insert('settings', ['setting_key' => $key, 'setting_value' => $value]);
+            }
+        }
+        $message = "Voucher settings updated successfully.";
+    }
 }
 
 // Get templates
@@ -195,6 +217,33 @@ ob_start();
 
         <div class="card" style="margin-top: 20px;">
             <div class="card-header">
+                <h3 class="card-title"><i class="fas fa-cog"></i> Voucher Settings (Global)</h3>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+                    <input type="hidden" name="action" value="save_vcr_settings">
+                    <div class="form-group">
+                        <label>Login URL (DNS Name)</label>
+                        <input type="text" name="vcr_login_url" class="form-control" 
+                            value="<?php echo htmlspecialchars(getSetting('vcr_login_url', 'http://hotspot.net')); ?>" placeholder="http://hotspot.net">
+                        <small style="color: var(--text-muted);">Gunakan variabel <code>{{login_url}}</code> di dalam template.</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Nomor Admin (WhatsApp/Telp)</label>
+                        <input type="text" name="vcr_admin_num" class="form-control" 
+                            value="<?php echo htmlspecialchars(getSetting('vcr_admin_num', '0812-3456-7890')); ?>" placeholder="0812... ">
+                        <small style="color: var(--text-muted);">Gunakan variabel <code>{{admin_num}}</code> di dalam template.</small>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm" style="width: 100%;">
+                        <i class="fas fa-save"></i> Simpan Settings
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card" style="margin-top: 20px;">
+            <div class="card-header">
                 <h3 class="card-title"><i class="fas fa-info-circle"></i> Variabel Tersedia</h3>
             </div>
             <div class="card-body">
@@ -232,6 +281,14 @@ ob_start();
                         <td><code>{{num}}</code></td>
                         <td>Nomor Urut</td>
                     </tr>
+                    <tr>
+                        <td><code>{{login_url}}</code></td>
+                        <td>Login URL (Global Setting)</td>
+                    </tr>
+                    <tr>
+                        <td><code>{{admin_num}}</code></td>
+                        <td>Nomor Admin (Global Setting)</td>
+                    </tr>
                 </table>
             </div>
         </div>
@@ -253,6 +310,8 @@ ob_start();
             '{{validity}}': '24 Jam',
             '{{hotspotname}}': 'Gembok WiFi',
             '{{dnsname}}': 'hotspot.net',
+            '{{login_url}}': '<?php echo getSetting('vcr_login_url', 'http://hotspot.net'); ?>',
+            '{{admin_num}}': '<?php echo getSetting('vcr_admin_num', '0812-3456-7890'); ?>',
             '{{num}}': '1',
             '{{profile}}': 'Member-1',
             '{{price_small}}': 'Rp',

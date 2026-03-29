@@ -144,8 +144,8 @@ $appName = APP_NAME;
                     </div>
                 </div>
                 <div class="voucher-footer">
-                    Login: http://mikrotik.local<br>
-                    <i>Gunakan kode di atas untuk login</i>
+                    Login: <?php echo getSetting('vcr_login_url', 'http://hotspot.net'); ?><br>
+                    <i>CS: <?php echo getSetting('vcr_admin_num', '0812-3456-7890'); ?></i>
                 </div>
             </div>
             <?php endforeach; ?>
