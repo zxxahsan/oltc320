@@ -41,18 +41,20 @@ function runScheduler() {
             execution_time FLOAT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (schedule_id) REFERENCES cron_schedules(id) ON DELETE SET NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
-        // Self-heal: Ensure System Heartbeat exists
-        $hasHeartbeat = fetchOne("SELECT id FROM cron_schedules WHERE task_type = 'system_ping'");
-        if (!$hasHeartbeat) {
-            $pdo->prepare("INSERT IGNORE INTO cron_schedules (name, task_type, schedule_days, schedule_time, is_active) VALUES (?, ?, ?, ?, ?)")
-                ->execute(['System Heartbeat', 'system_ping', 'every_minute', '00:00', 1]);
-        }
+        // Self-heal: Ensure critical tasks exist
+        $criticalTasks = [
+            ['name' => 'Auto Invoice', 'task_type' => 'auto_invoice'],
+            ['name' => 'Auto Isolir', 'task_type' => 'auto_isolir'],
+            ['name' => 'System Heartbeat', 'task_type' => 'system_ping'],
+            ['name' => 'Hotspot Expiry Monitor', 'task_type' => 'hotspot_expiry']
+        ];
 
-        // Self-heal: Ensure Hotspot Expiry Monitor exists
-        $hasHotspotExpiry = fetchOne("SELECT id FROM cron_schedules WHERE task_type = 'hotspot_expiry'");
-        if (!$hasHotspotExpiry) {
-            $pdo->prepare("INSERT IGNORE INTO cron_schedules (name, task_type, schedule_days, schedule_time, is_active) VALUES (?, ?, ?, ?, ?)")
-                ->execute(['Hotspot Expiry Monitor', 'hotspot_expiry', 'every_minute', '00:00', 1]);
+        foreach ($criticalTasks as $task) {
+            $hasTask = fetchOne("SELECT id FROM cron_schedules WHERE task_type = ?", [$task['task_type']]);
+            if (!$hasTask) {
+                $pdo->prepare("INSERT IGNORE INTO cron_schedules (name, task_type, schedule_days, schedule_time, is_active) VALUES (?, ?, 'every_minute', '00:00', 1)")
+                    ->execute([$task['name'], $task['task_type']]);
+            }
         }
         // Self-heal: Ensure critical missing columns exist in case table was restored from a highly legacy schema
         try {

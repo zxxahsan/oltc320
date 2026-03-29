@@ -123,6 +123,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($result['success']) {
                 $paymentLink = $result['link'];
                 update('invoices', ['payment_method' => $defaultGateway], 'id = ?', [$invoiceId]);
+                
+                // AUTOMATIC REDIRECT
+                header("Location: " . $paymentLink);
+                exit;
             } else {
                 setFlash('error', $result['message'] ?? 'Gagal generate payment link');
             }
