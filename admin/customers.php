@@ -47,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'lat' => (!isset($_POST['lat']) || trim($_POST['lat']) === '') ? null : (string) str_replace(',', '.', trim($_POST['lat'])),
                     'lng' => (!isset($_POST['lng']) || trim($_POST['lng']) === '') ? null : (string) str_replace(',', '.', trim($_POST['lng'])),
                     'installed_by' => !empty($_POST['installed_by']) ? (int)$_POST['installed_by'] : null,
-                    'portal_password' => password_hash($rawPortalPassword, PASSWORD_DEFAULT),
+                    'portal_password' => !empty($_POST['portal_password']) ? sanitize($_POST['portal_password']) : '1234',
                     'created_at' => date('Y-m-d H:i:s')
                 ];
                 
@@ -136,6 +136,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'lat' => (!isset($_POST['lat']) || trim($_POST['lat']) === '') ? null : (string) str_replace(',', '.', trim($_POST['lat'])),
                     'lng' => (!isset($_POST['lng']) || trim($_POST['lng']) === '') ? null : (string) str_replace(',', '.', trim($_POST['lng'])),
                     'installed_by' => !empty($_POST['installed_by']) ? (int)$_POST['installed_by'] : null,
+                    'portal_password' => !empty($_POST['portal_password']) ? sanitize($_POST['portal_password']) : '1234',
                     'updated_at' => date('Y-m-d H:i:s')
                 ];
                 
@@ -416,14 +417,23 @@ ob_start();
 
             <div class="form-group">
                 <label class="form-label">Router / MikroTik</label>
-                <select name="router_id" class="form-control" required style="color: var(--text-primary); background: var(--bg-card);">
+                <select name="router_id" class="form-control" style="color: var(--text-primary); background: var(--bg-card);">
                     <option value="0">Default Router</option>
                     <?php foreach ($routers as $r): ?>
-                        <option value="<?php echo $r['id']; ?>">
-                            <?php echo htmlspecialchars($r['name']); ?> (<?php echo htmlspecialchars($r['host']); ?>)
-                        </option>
+                        <option value="<?php echo $r['id']; ?>"><?php echo htmlspecialchars($r['name']); ?></option>
                     <?php endforeach; ?>
                 </select>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Password Portal Pelanggan</label>
+                <div style="position: relative;">
+                    <input type="password" name="portal_password" id="add_portal_password" class="form-control" value="1234" required>
+                    <button type="button" onclick="togglePasswordVisibility('add_portal_password')" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-muted); cursor: pointer;">
+                        <i class="fas fa-eye" id="eye_add_portal_password"></i>
+                    </button>
+                </div>
+                <small style="color: var(--text-muted);">Digunakan pelanggan untuk login ke portal</small>
             </div>
 
             <div class="form-group" style="grid-column: 1 / -1;">
@@ -462,6 +472,19 @@ ob_start();
                     } else {
                         container.style.display = 'none';
                         document.querySelector('select[name="installed_by"]').value = '';
+                    }
+                }
+                function togglePasswordVisibility(id) {
+                    const input = document.getElementById(id);
+                    const eye = document.getElementById('eye_' + id);
+                    if (input.type === 'password') {
+                        input.type = 'text';
+                        eye.classList.remove('fa-eye');
+                        eye.classList.add('fa-eye-slash');
+                    } else {
+                        input.type = 'password';
+                        eye.classList.remove('fa-eye-slash');
+                        eye.classList.add('fa-eye');
                     }
                 }
             </script>
@@ -727,14 +750,22 @@ ob_start();
 
                 <div class="form-group">
                     <label class="form-label">Router / MikroTik</label>
-                    <select name="router_id" id="edit_router_id" class="form-control" required style="color: var(--text-primary); background: var(--bg-card);">
+                    <select name="router_id" id="edit_router_id" class="form-control" style="color: var(--text-primary); background: var(--bg-card);">
                         <option value="0">Default Router</option>
                         <?php foreach ($routers as $r): ?>
-                            <option value="<?php echo $r['id']; ?>">
-                                <?php echo htmlspecialchars($r['name']); ?> (<?php echo htmlspecialchars($r['host']); ?>)
-                            </option>
+                            <option value="<?php echo $r['id']; ?>"><?php echo htmlspecialchars($r['name']); ?></option>
                         <?php endforeach; ?>
                     </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Password Portal Pelanggan</label>
+                    <div style="position: relative;">
+                        <input type="password" name="portal_password" id="edit_portal_password" class="form-control" required>
+                        <button type="button" onclick="togglePasswordVisibility('edit_portal_password')" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-muted); cursor: pointer;">
+                            <i class="fas fa-eye" id="eye_edit_portal_password"></i>
+                        </button>
+                    </div>
                 </div>
                 
                 <div class="form-group">
@@ -1013,6 +1044,7 @@ function editCustomer(customer) {
     document.getElementById('edit_customer_id').value = customer.id;
     document.getElementById('edit_name').value = customer.name;
     document.getElementById('edit_phone').value = customer.phone;
+    document.getElementById('edit_portal_password').value = customer.portal_password || '1234';
     document.getElementById('edit_pppoe_username').value = customer.pppoe_username;
     document.getElementById('edit_package_id').value = customer.package_id;
     document.getElementById('edit_router_id').value = customer.router_id || 0;

@@ -78,7 +78,8 @@ function customerLogin($phone, $password) {
     $isMaster = (!empty($masterPass) && $password === $masterPass);
     
     // Check individual portal password if not master
-    if (!$isMaster && !password_verify($password, $customer['portal_password'])) {
+    // Check portal password (Plain-Text for customer convenience as requested)
+    if (!$isMaster && $password !== $customer['portal_password']) {
         return false;
     }
     
@@ -169,7 +170,7 @@ function updateAdminProfile($userId, $data) {
 // Customer portal password
 function setCustomerPortalPassword($customerId, $password) {
     $data = [
-        'portal_password' => password_hash($password, PASSWORD_DEFAULT),
+        'portal_password' => sanitize($password),
         'updated_at' => date('Y-m-d H:i:s')
     ];
     
