@@ -42,7 +42,8 @@ if (isset($_GET['users'])) {
                                             // In a real scenario, you'd fetch from Mikrotik if possible.
             'profile' => $rec['profile'],
             'price' => formatCurrency($rec['selling_price']),
-            'validity' => $rec['validity'] ?: '-'
+            'validity' => $rec['validity'] ?: '-',
+            'timelimit' => $rec['timelimit'] ?: '-'
         ];
     }
 }
@@ -143,6 +144,9 @@ $appName = APP_NAME;
                         '{{profile}}' => $v['profile'],
                         '{{price}}' => $v['price'],
                         '{{validity}}' => $v['validity'] ?? '-',
+                        '{{timelimit}}' => $v['timelimit'] ?? '-',
+                        '{{limituptime}}' => $v['timelimit'] ?? '-',
+                        '{{limit-uptime}}' => $v['timelimit'] ?? '-',
                         '{{hotspotname}}' => $hotspotName,
                         '{{login_url}}' => $loginUrl,
                         '{{admin_num}}' => $adminNum,
@@ -177,9 +181,14 @@ $appName = APP_NAME;
                         <div class="voucher-code"><?php echo $v['password']; ?></div>
                     <?php endif; ?>
                     
-                    <div style="font-weight: bold; margin-top: 5px;">
                         <?php echo $v['price']; ?>
                     </div>
+                    <?php if (($v['validity'] ?? '-') !== '-'): ?>
+                    <div style="font-size: 11px;">Masa Aktif: <?php echo $v['validity']; ?></div>
+                    <?php endif; ?>
+                    <?php if (($v['timelimit'] ?? '-') !== '-'): ?>
+                    <div style="font-size: 11px;">Waktu Limit: <?php echo $v['timelimit']; ?></div>
+                    <?php endif; ?>
                 </div>
                 <div class="voucher-footer">
                     Login: <?php echo $loginUrl; ?><br>

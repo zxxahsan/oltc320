@@ -124,7 +124,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $selectedProfile['selling_price'], 
                     $prefix, 
                     $salesId,
-                    $selectedProfile['validity']
+                    $selectedProfile['validity'],
+                    $selectedProfile['timelimit']
                 );
                 
                 $generatedVouchers[] = [
@@ -132,7 +133,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'password' => $pass,
                     'profile' => $selectedProfile['profile_name'],
                     'price' => formatCurrency($selectedProfile['selling_price']),
-                    'validity' => $selectedProfile['validity'] ?: '-'
+                    'validity' => $selectedProfile['validity'] ?: '-',
+                    'timelimit' => $selectedProfile['timelimit'] ?: '-'
                 ];
                 $successCount++;
             }

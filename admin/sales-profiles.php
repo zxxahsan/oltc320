@@ -32,6 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $basePrice = (float)$_POST['base_price'];
     $sellingPrice = (float)$_POST['selling_price'];
     $validity = sanitize($_POST['validity'] ?? '');
+    $timelimit = sanitize($_POST['timelimit'] ?? '');
     $isActive = isset($_POST['is_active']) ? 1 : 0;
     
     // Check if exists
@@ -42,6 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'base_price' => $basePrice,
             'selling_price' => $sellingPrice,
             'validity' => $validity,
+            'timelimit' => $timelimit,
             'is_active' => $isActive
         ], 'id = ?', [$exists['id']]);
     } else {
@@ -51,6 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'base_price' => $basePrice,
             'selling_price' => $sellingPrice,
             'validity' => $validity,
+            'timelimit' => $timelimit,
             'is_active' => $isActive
         ]);
     }
@@ -82,6 +85,7 @@ ob_start();
                         <th>Harga Modal</th>
                         <th>Harga Jual</th>
                         <th>Masa Aktif</th>
+                        <th>Waktu Limit</th>
                         <th>Aksi</th>
                     </tr>
                 </thead>
@@ -116,7 +120,10 @@ ob_start();
                             <input type="number" name="selling_price" class="form-control" value="<?php echo $defaultSelling; ?>" style="width: 120px;" form="<?php echo $formId; ?>">
                         </td>
                         <td>
-                            <input type="text" name="validity" class="form-control" value="<?php echo $assigned ? $assigned['validity'] : ($mikhmonData['validity'] ?? ''); ?>" placeholder="misal: 1d, 30d" style="width: 100px;" form="<?php echo $formId; ?>">
+                            <input type="text" name="validity" class="form-control" value="<?php echo $assigned ? $assigned['validity'] : ($mikhmonData['validity'] ?? ''); ?>" placeholder="misal: 1d" style="width: 80px;" form="<?php echo $formId; ?>">
+                        </td>
+                        <td>
+                            <input type="text" name="timelimit" class="form-control" value="<?php echo $assigned ? $assigned['timelimit'] : ($p['limit-uptime'] ?? ''); ?>" placeholder="misal: 2h" style="width: 80px;" form="<?php echo $formId; ?>">
                         </td>
                         <td>
                             <form id="<?php echo $formId; ?>" method="POST">

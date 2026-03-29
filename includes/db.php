@@ -30,7 +30,13 @@ function getDB() {
                     $pdo->exec("ALTER TABLE sales_profile_prices ADD COLUMN validity VARCHAR(50) DEFAULT NULL AFTER selling_price");
                 } catch (\Exception $e) {}
                 try {
+                    $pdo->exec("ALTER TABLE sales_profile_prices ADD COLUMN timelimit VARCHAR(50) DEFAULT NULL AFTER validity");
+                } catch (\Exception $e) {}
+                try {
                     $pdo->exec("ALTER TABLE hotspot_sales ADD COLUMN validity VARCHAR(50) DEFAULT NULL AFTER profile");
+                } catch (\Exception $e) {}
+                try {
+                    $pdo->exec("ALTER TABLE hotspot_sales ADD COLUMN timelimit VARCHAR(50) DEFAULT NULL AFTER validity");
                 } catch (\Exception $e) {}
                 try {
                     $pdo->exec("ALTER TABLE hotspot_sales ADD COLUMN status ENUM('active','inactive') DEFAULT 'inactive', ADD COLUMN used_at DATETIME NULL");
