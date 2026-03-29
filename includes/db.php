@@ -41,6 +41,9 @@ function getDB() {
                 try {
                     $pdo->exec("ALTER TABLE hotspot_sales ADD COLUMN status ENUM('active','inactive') DEFAULT 'inactive', ADD COLUMN used_at DATETIME NULL");
                 } catch (\Exception $e) {}
+                try {
+                    $pdo->exec("ALTER TABLE hotspot_sales ADD COLUMN router_id INT DEFAULT 0");
+                } catch (\Exception $e) {}
                 
                 // Auto-Migration for Manual Transfer Features
                 try {

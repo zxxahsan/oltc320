@@ -985,9 +985,9 @@ function mikrotikGetHotspotServers()
 }
 
 // Get MikroTik Hotspot User Profiles
-function mikrotikGetHotspotProfiles()
+function mikrotikGetHotspotProfiles($routerId = null)
 {
-    $socket = getMikrotikConnection();
+    $socket = getMikrotikConnection($routerId);
     if (!$socket) {
         return [];
     }
@@ -1042,9 +1042,9 @@ function mikrotikGetHotspotProfiles()
 }
 
 // Add MikroTik Hotspot User with Mikhmon Metadata support
-function mikrotikAddHotspotUser($username, $password, $profile = 'default', $extraData = [])
+function mikrotikAddHotspotUser($username, $password, $profile = 'default', $extraData = [], $routerId = null)
 {
-    $socket = getMikrotikConnection();
+    $socket = getMikrotikConnection($routerId);
     if (!$socket) {
         return false;
     }
@@ -1087,9 +1087,9 @@ function mikrotikAddHotspotUser($username, $password, $profile = 'default', $ext
 }
 
 // Delete MikroTik Hotspot User
-function mikrotikDeleteHotspotUser($username)
+function mikrotikDeleteHotspotUser($username, $routerId = null)
 {
-    $socket = getMikrotikConnection();
+    $socket = getMikrotikConnection($routerId);
     if (!$socket) {
         return false;
     }
@@ -1203,9 +1203,9 @@ function mikrotikToggleHotspotUser($username, $status)
 }
 
 // Get MikroTik Hotspot Users
-function mikrotikGetHotspotUsers()
+function mikrotikGetHotspotUsers($routerId = null)
 {
-    $socket = getMikrotikConnection();
+    $socket = getMikrotikConnection($routerId);
     if (!$socket) {
         return [];
     }
@@ -1264,9 +1264,9 @@ function mikrotikGetHotspotUsers()
     return $users;
 }
 // Update MikroTik Hotspot User
-function mikrotikUpdateHotspotUser($id, $data)
+function mikrotikUpdateHotspotUser($id, $data, $routerId = null)
 {
-    $socket = getMikrotikConnection();
+    $socket = getMikrotikConnection($routerId);
     if (!$socket)
         return false;
 
@@ -1298,9 +1298,9 @@ function mikrotikUpdateHotspotUser($id, $data)
 }
 
 // Get Active Hotspot Users
-function mikrotikGetHotspotActive()
+function mikrotikGetHotspotActive($routerId = null)
 {
-    $socket = getMikrotikConnection();
+    $socket = getMikrotikConnection($routerId);
     if (!$socket)
         return [];
 
@@ -1832,7 +1832,7 @@ function mikrotikGetParentQueues()
 }
 
 // Record Hotspot Sale in Database
-function recordHotspotSale($username, $profile, $price, $sellingPrice, $prefix = '', $salesUserId = null, $validity = null, $timelimit = null)
+function recordHotspotSale($username, $profile, $price, $sellingPrice, $prefix = '', $salesUserId = null, $validity = null, $timelimit = null, $routerId = 0)
 {
     $data = [
         'username' => sanitize($username),
@@ -1843,6 +1843,7 @@ function recordHotspotSale($username, $profile, $price, $sellingPrice, $prefix =
         'timelimit' => sanitize($timelimit),
         'prefix' => sanitize($prefix),
         'sales_user_id' => $salesUserId,
+        'router_id' => (int) $routerId,
         'created_at' => date('Y-m-d H:i:s')
     ];
 

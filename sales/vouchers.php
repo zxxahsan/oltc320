@@ -76,7 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $v_type = $_POST['v_type'] ?? 'up';
 
         // Fetch Profile details from Mikrotik to get validity/limit-uptime
-        $mtProfiles = mikrotikGetHotspotProfiles();
+        $mtProfiles = mikrotikGetHotspotProfiles($selectedProfile['router_id']);
         $profileDetails = null;
         foreach ($mtProfiles as $mp) {
             if ($mp['name'] === $selectedProfile['profile_name']) {
@@ -116,16 +116,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $extra['limit-uptime'] = $v_limit;
             }
             
-            if (mikrotikAddHotspotUser($user, $pass, $selectedProfile['profile_name'], $extra)) {
+            if (mikrotikAddHotspotUser($user, $pass, $selectedProfile['profile_name'], $extra, $selectedProfile['router_id'])) {
                 // Record Sale
                 recordHotspotSale(
                     $user, 
                     $selectedProfile['profile_name'], 
+                    $selectedProfile['base_price'], 
                     $selectedProfile['selling_price'], 
                     $prefix, 
                     $salesId,
                     $selectedProfile['validity'],
-                    $selectedProfile['timelimit']
+                    $selectedProfile['timelimit'],
+                    $selectedProfile['router_id']
                 );
                 
                 $generatedVouchers[] = [
