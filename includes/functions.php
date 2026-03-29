@@ -71,6 +71,20 @@ function formatDate($date, $format = 'd M Y')
     return $time ? date($format, $time) : '-';
 }
 
+// Format Day and Indonesian Month Name (e.g. 1 Maret)
+function formatDayMonthIndo($date)
+{
+    if (!$date) return '-';
+    $time = strtotime($date);
+    $months = [
+        1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April', 
+        5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus', 
+        9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
+    ];
+    $m = (int)date('n', $time);
+    return date('j', $time) . ' ' . $months[$m];
+}
+
 function generateInvoiceNumber()
 {
     $prefix = INVOICE_PREFIX;

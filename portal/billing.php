@@ -83,26 +83,26 @@ ob_start();
         <h3 style="margin-bottom: 20px; color: var(--neon-cyan); font-size: 1.1rem; text-transform: uppercase; font-weight: 800; letter-spacing: 1px;">
             <i class="fas fa-calendar-check"></i> Jadwal Penagihan Otomatis
         </h3>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 25px;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 30px;">
             <div>
                 <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; margin-bottom: 8px;">Invoice Berikutnya</div>
-                <div style="font-size: 1.4rem; font-weight: 700; color: var(--text-primary);">
-                    <i class="fas fa-file-invoice" style="margin-right: 8px; font-size: 1rem; opacity: 0.5;"></i>
-                    <?php echo $nextGenDate ? formatDate($nextGenDate) : 'Segera'; ?>
+                <div style="font-size: 1.6rem; font-weight: 700; color: var(--text-primary);">
+                    <i class="fas fa-file-invoice" style="margin-right: 8px; font-size: 1.1rem; opacity: 0.5;"></i>
+                    <?php echo $nextGenDate ? formatDayMonthIndo($nextGenDate) : 'Segera'; ?>
                 </div>
             </div>
             <div>
                 <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; margin-bottom: 8px;">Batas Akhir Bayar</div>
-                <div style="font-size: 1.4rem; font-weight: 700; color: var(--neon-orange);">
-                    <i class="fas fa-clock" style="margin-right: 8px; font-size: 1rem; opacity: 0.5;"></i>
-                    <?php echo $displayNextDueDate ? formatDate($displayNextDueDate) : 'Sesuai Siklus'; ?>
+                <div style="font-size: 1.6rem; font-weight: 700; color: var(--neon-orange);">
+                    <i class="fas fa-clock" style="margin-right: 8px; font-size: 1.1rem; opacity: 0.5;"></i>
+                    <?php echo $displayNextDueDate ? formatDayMonthIndo($displayNextDueDate) : 'Sesuai Siklus'; ?>
                 </div>
             </div>
-            <div style="display: flex; align-items: center; border-left: 1px solid var(--border-color); padding-left: 20px;">
-                <p style="color: var(--text-secondary); font-size: 0.85rem; line-height: 1.5; margin: 0;">
-                    <i class="fas fa-info-circle" style="color: var(--neon-cyan); margin-right: 5px;"></i> Tagihan dikirimkan otomatis ke WhatsApp. Pastikan nomor terdaftar aktif agar tidak melewatkan info tagihan.
-                </p>
-            </div>
+        </div>
+        <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid var(--border-color);">
+            <p style="color: var(--text-secondary); font-size: 0.85rem; line-height: 1.5; margin: 0;">
+                <i class="fas fa-info-circle" style="color: var(--neon-cyan); margin-right: 5px;"></i> Tagihan dikirimkan otomatis ke WhatsApp. Pastikan nomor terdaftar aktif agar tidak melewatkan info tagihan.
+            </p>
         </div>
     </div>
     <!-- Payment Status (Current Month) -->
