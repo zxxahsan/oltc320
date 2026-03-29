@@ -938,15 +938,15 @@ if (isset($_GET['switch_router'])) {
     <!-- Main Content -->
     <div class="main-content">
         <?php if (isSalesLoggedIn()): ?>
-            <div class="header">
-                <div class="header-title">
-                    <h1><?php echo htmlspecialchars($pageTitle); ?></h1>
+            <div class="header" style="display: flex; align-items: center; gap: 15px;">
+                <button class="menu-toggle" onclick="toggleSidebar()"
+                    style="display: none; background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1.5rem;">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <div class="header-title" style="flex: 1;">
+                    <h1 style="margin: 0; font-size: 1.3rem;"><?php echo htmlspecialchars($pageTitle); ?></h1>
                 </div>
                 <div class="header-actions">
-                    <button class="menu-toggle" onclick="toggleSidebar()"
-                        style="display: none; background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1.5rem;">
-                        <i class="fas fa-bars"></i>
-                    </button>
                     <span style="color: var(--text-secondary);">
                         <i class="fas fa-user-circle"></i>
                         <?php echo htmlspecialchars($_SESSION['sales']['name'] ?? 'Sales'); ?>
