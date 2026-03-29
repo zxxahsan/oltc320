@@ -235,6 +235,10 @@ if (tableExists('onu_locations')) {
 // Get technicians
 $technicians = fetchAll("SELECT * FROM technician_users WHERE status = 'active' ORDER BY name ASC");
 
+// Get billing lead time
+$leadDays = (int)getSetting('invoice_generate_days', 7);
+if ($leadDays < 1) $leadDays = 1;
+
 
 if ($customersTableExists) {
     $totalCustomers = fetchOne("SELECT COUNT(*) as total FROM customers")['total'] ?? 0;
@@ -479,8 +483,9 @@ ob_start();
             </script>
             
             <div class="form-group">
-                <label class="form-label">Tanggal Isolir (1-28)</label>
+                <label class="form-label">Tanggal Jatuh Tempo (1-28)</label>
                 <input type="number" name="isolation_date" class="form-control" value="20" min="1" max="28" required>
+                <small style="color: var(--text-muted);">Invoice terbit otomatis H-<?php echo $leadDays; ?> sebelum tanggal ini.</small>
             </div>
             
             <div class="form-group">
@@ -553,7 +558,8 @@ ob_start();
                 <th>Paket & Router</th>
                 <th>Status</th>
                 <th>PPPoE</th>
-                <th>Tgl Isolir</th>
+                <th>Jatuh Tempo</th>
+                <th>Invoice Terbit</th>
                 <th>Aksi</th>
             </tr>
         </thead>
@@ -590,8 +596,17 @@ ob_start();
                             <?php echo htmlspecialchars($c['pppoe_username']); ?>
                         </code>
                     </td>
-                    <td data-label="Tgl Isolir">
+                    <td data-label="Jatuh Tempo">
                         <span class="badge badge-info">Tgl <?php echo $c['isolation_date']; ?></span>
+                    </td>
+                    <td data-label="Invoice Terbit">
+                        <span class="badge badge-secondary" style="background: rgba(0,255,136,0.1); color: var(--neon-green); border: 1px solid rgba(0,255,136,0.3); font-size: 0.8rem; padding: 4px 8px;">
+                            <?php 
+                                $genDay = $c['isolation_date'] - $leadDays;
+                                if ($genDay <= 0) $genDay += 30; 
+                                echo "Tgl " . $genDay;
+                            ?>
+                        </span>
                     </td>
                     <td data-label="Aksi">
                         <a href="pay_process.php?id=<?php echo $c['id']; ?>" class="btn btn-success btn-sm" title="Bayar Tagihan">
@@ -758,7 +773,7 @@ ob_start();
                 </div>
                 
                 <div class="form-group">
-                    <label class="form-label">Tanggal Isolir (1-28)</label>
+                    <label class="form-label">Tanggal Jatuh Tempo (1-28)</label>
                     <input type="number" name="isolation_date" id="edit_isolation_date" class="form-control" min="1" max="28" required>
                 </div>
                 

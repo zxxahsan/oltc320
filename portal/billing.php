@@ -46,14 +46,65 @@ $totalUnpaidQuery = fetchOne("
 );
 $totalUnpaid = $totalUnpaidQuery['total'] ?? 0;
 
+// Calculate Next Invoice Generation Schedule
+$leadDays = (int)getSetting('invoice_generate_days', 7);
+$billingDay = (int)($customer['due_date'] ?? 1);
+if ($billingDay == 0) $billingDay = 1;
+
+$today = date('Y-m-d');
+$todayTs = strtotime($today);
+$currentMonthNum = (int)date('n');
+$currentYearNum = (int)date('Y');
+
+$potentialDueDates = [
+    date('Y-m-d', mktime(0, 0, 0, $currentMonthNum, $billingDay, $currentYearNum)),
+    date('Y-m-d', mktime(0, 0, 0, $currentMonthNum + 1, $billingDay, $currentYearNum))
+];
+
+$nextGenDate = '';
+$displayNextDueDate = '';
+
+foreach ($potentialDueDates as $dueDate) {
+    if (strtotime($dueDate) > $todayTs) {
+        $genDate = date('Y-m-d', strtotime("-{$leadDays} days", strtotime($dueDate)));
+        $nextGenDate = $genDate;
+        $displayNextDueDate = $dueDate;
+        
+        $existing = fetchOne("SELECT id FROM invoices WHERE customer_id = ? AND due_date = ?", [$customer['id'], $dueDate]);
+        if (!$existing) break;
+    }
+}
+
 ob_start();
 ?>
 
-<div style="max-width: 1200px; margin: 0 auto; padding: 20px;">
-
-
-
-
+    <!-- Automated Billing Schedule -->
+    <div class="card" style="margin-bottom: 25px; background: rgba(0, 200, 255, 0.03); border: 1px solid rgba(0, 200, 255, 0.15); border-left: 4px solid var(--neon-cyan); padding: 25px;">
+        <h3 style="margin-bottom: 20px; color: var(--neon-cyan); font-size: 1.1rem; text-transform: uppercase; font-weight: 800; letter-spacing: 1px;">
+            <i class="fas fa-calendar-check"></i> Jadwal Penagihan Otomatis
+        </h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 25px;">
+            <div>
+                <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; margin-bottom: 8px;">Invoice Berikutnya</div>
+                <div style="font-size: 1.4rem; font-weight: 700; color: var(--text-primary);">
+                    <i class="fas fa-file-invoice" style="margin-right: 8px; font-size: 1rem; opacity: 0.5;"></i>
+                    <?php echo $nextGenDate ? formatDate($nextGenDate) : 'Segera'; ?>
+                </div>
+            </div>
+            <div>
+                <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; margin-bottom: 8px;">Batas Akhir Bayar</div>
+                <div style="font-size: 1.4rem; font-weight: 700; color: var(--neon-orange);">
+                    <i class="fas fa-clock" style="margin-right: 8px; font-size: 1rem; opacity: 0.5;"></i>
+                    <?php echo $displayNextDueDate ? formatDate($displayNextDueDate) : 'Sesuai Siklus'; ?>
+                </div>
+            </div>
+            <div style="display: flex; align-items: center; border-left: 1px solid var(--border-color); padding-left: 20px;">
+                <p style="color: var(--text-secondary); font-size: 0.85rem; line-height: 1.5; margin: 0;">
+                    <i class="fas fa-info-circle" style="color: var(--neon-cyan); margin-right: 5px;"></i> Tagihan dikirimkan otomatis ke WhatsApp. Pastikan nomor terdaftar aktif agar tidak melewatkan info tagihan.
+                </p>
+            </div>
+        </div>
+    </div>
     <!-- Payment Status (Current Month) -->
     <div class="card">
         <h3 style="margin-bottom: 15px; color: var(--neon-cyan);">

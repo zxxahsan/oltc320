@@ -98,41 +98,6 @@ if ($customerDevice) {
     $onuDevices = $activeCount > 0 ? $activeCount : count($lanHosts);
 }
 
-// Calculate Next Invoice Generation Schedule
-$leadDays = (int)getSetting('invoice_generate_days', 7);
-$billingDay = (int)($customer['due_date'] ?? 1);
-if ($billingDay == 0) $billingDay = 1;
-
-$today = date('Y-m-d');
-$todayTs = strtotime($today);
-$currentMonth = (int)date('n');
-$currentYear = (int)date('Y');
-
-// We check this month and next month
-$potentialDueDates = [
-    date('Y-m-d', mktime(0, 0, 0, $currentMonth, $billingDay, $currentYear)),
-    date('Y-m-d', mktime(0, 0, 0, $currentMonth + 1, $billingDay, $currentYear))
-];
-
-$nextGenDate = '';
-$displayNextDueDate = '';
-
-foreach ($potentialDueDates as $dueDate) {
-    if (strtotime($dueDate) > $todayTs) {
-        $genDate = date('Y-m-d', strtotime("-{$leadDays} days", strtotime($dueDate)));
-        
-        $nextGenDate = $genDate;
-        $displayNextDueDate = $dueDate;
-        
-        // Check if an invoice for this due date already exists
-        $existing = fetchOne("SELECT id FROM invoices WHERE customer_id = ? AND due_date = ?", [$customer['id'], $dueDate]);
-        if (!$existing) {
-            // This is the next one to be generated
-            break;
-        }
-    }
-}
-
 $pageTitle = 'Dashboard Pelanggan';
 
 ob_start();
@@ -188,8 +153,8 @@ ob_start();
         </div>
     </div>
 
-    <!-- Package Info & Billing Schedule -->
-    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin-bottom: 30px;">
+    <!-- Package Info -->
+    <div style="margin-bottom: 30px;">
         <div class="card" style="margin-bottom: 0; border-left: 5px solid var(--neon-cyan); padding: 25px;">
             <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 30px;">
                 <div style="flex: 1; min-width: 250px;">
@@ -215,29 +180,6 @@ ob_start();
                         <?php endif; ?>
                     </div>
                 </div>
-            </div>
-        </div>
-
-        <div class="card" style="margin-bottom: 0; background: rgba(0, 200, 255, 0.05); border: 1px solid rgba(0, 200, 255, 0.2); padding: 25px;">
-            <h3 style="margin-bottom: 15px; color: var(--neon-cyan); font-size: 1.1rem; text-transform: uppercase; font-weight: 800; letter-spacing: 1px;">
-                <i class="fas fa-calendar-check"></i> Jadwal Tagihan
-            </h3>
-            <div style="margin-bottom: 18px;">
-                <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; margin-bottom: 6px;">Invoice Berikutnya</div>
-                <div style="font-size: 1.3rem; font-weight: 700; color: var(--text-primary); letter-spacing: -0.5px;">
-                    <?php echo $nextGenDate ? formatDate($nextGenDate) : 'Segera'; ?>
-                </div>
-            </div>
-            <div>
-                <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; margin-bottom: 6px;">Batas Akhir Bayar</div>
-                <div style="font-size: 1.2rem; font-weight: 700; color: var(--neon-orange); letter-spacing: -0.5px;">
-                    <?php echo $displayNextDueDate ? formatDate($displayNextDueDate) : 'Sesuai Siklus'; ?>
-                </div>
-            </div>
-            <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid var(--border-color);">
-                <small style="color: var(--text-muted); line-height: 1.4; font-size: 0.75rem; display: block;">
-                    <i class="fas fa-info-circle" style="color: var(--neon-cyan); margin-right: 5px;"></i> Tagihan akan dikirimkan otomatis melalui WhatsApp.
-                </small>
             </div>
         </div>
     </div>
