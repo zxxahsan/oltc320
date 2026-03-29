@@ -49,6 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'currency' => sanitize($_POST['currency']),
                     'invoice_prefix' => sanitize($_POST['invoice_prefix']),
                     'invoice_start' => (int)$_POST['invoice_start'],
+                    'invoice_generate_days' => (int)($_POST['invoice_generate_days'] ?? 7),
                     'DEFAULT_MONITOR_INTERFACE' => sanitize($_POST['default_monitor_interface']),
                     'master_customer_password' => $_POST['master_customer_password'] ?? ''
                 ];
@@ -255,7 +256,7 @@ ob_start();
             <small style="color: var(--text-muted);">Interface awal yang langsung ditampilkan di grafik Dashboard.</small>
         </div>
         
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+        <div style="display: grid; grid-template-columns: 1.5fr 1fr 1fr; gap: 20px;">
             <div class="form-group">
                 <label class="form-label">Invoice Prefix</label>
                 <input type="text" name="invoice_prefix" class="form-control" value="<?php echo htmlspecialchars($settings['invoice_prefix'] ?? 'INV'); ?>">
@@ -264,6 +265,11 @@ ob_start();
             <div class="form-group">
                 <label class="form-label">Invoice Start Number</label>
                 <input type="number" name="invoice_start" class="form-control" value="<?php echo (int)($settings['invoice_start'] ?? 1); ?>">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Gen Invoices (H- Hari)</label>
+                <input type="number" name="invoice_generate_days" class="form-control" value="<?php echo (int)($settings['invoice_generate_days'] ?? 7); ?>" min="1" max="28">
             </div>
         </div>
         

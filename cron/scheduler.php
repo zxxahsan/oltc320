@@ -267,86 +267,93 @@ function runAutoIsolir($pdo)
 }
 
 /**
- * Run auto invoice generation (Scheduled 7 days before due_date)
+ * Run auto invoice generation with configurable lead time (H- days)
  */
 function runAutoInvoice($pdo)
 {
     echo "Running auto invoice generation...\n";
 
+    // Get lead time from settings (default to 7 days)
+    $leadDays = (int)getSettingValue('invoice_generate_days', 7);
+    if ($leadDays < 1) $leadDays = 1;
+
     $generatedCount = 0;
     $today = date('Y-m-d');
-    $targetDueDate = date('Y-m-d', strtotime('+7 days')); // Invoices due in exactly 7 days from now
+    $todayTs = strtotime($today);
 
     // Get all active and isolated customers
     $customers = fetchAll("SELECT * FROM customers WHERE status IN ('active', 'isolated')");
 
-    echo "Found " . count($customers) . " active/isolated customers\n";
+    echo "Found " . count($customers) . " active/isolated customers (Lead time: H-{$leadDays})\n";
 
     foreach ($customers as $customer) {
         $billingDay = (int)($customer['due_date'] ?? 1);
         if ($billingDay === 0) $billingDay = 1;
 
-        // Calculate the due date for the *next* invoice based on the customer's billing day
-        // This logic ensures we always look for the next upcoming invoice period.
-        $currentMonth = date('n');
-        $currentYear = date('Y');
+        // Determine the relevant billing month
+        $currentMonth = (int)date('n');
+        $currentYear = (int)date('Y');
 
-        $potentialDueDateThisMonth = date('Y-m-d', mktime(0, 0, 0, $currentMonth, $billingDay, $currentYear));
-        $potentialDueDateNextMonth = date('Y-m-d', mktime(0, 0, 0, $currentMonth + 1, $billingDay, $currentYear));
+        // Check current month and next month potential due dates
+        $datesToCheck = [
+            date('Y-m-d', mktime(0, 0, 0, $currentMonth, $billingDay, $currentYear)),
+            date('Y-m-d', mktime(0, 0, 0, $currentMonth + 1, $billingDay, $currentYear))
+        ];
 
-        $invoiceDueDate = '';
-        if ($potentialDueDateThisMonth >= $today) {
-            // If the billing day for this month is in the future or today, consider it.
-            $invoiceDueDate = $potentialDueDateThisMonth;
-        } else {
-            // Otherwise, the invoice should be for the next month.
-            $invoiceDueDate = $potentialDueDateNextMonth;
-        }
-
-        // Check if this calculated invoiceDueDate is exactly 7 days from today
-        if ($invoiceDueDate === $targetDueDate) {
-            $targetMonth = date('Y-m', strtotime($invoiceDueDate));
+        foreach ($datesToCheck as $invoiceDueDate) {
+            $dueDateTs = strtotime($invoiceDueDate);
             
-            // Check if invoice already exists for this exact target month and customer
-            $existingInvoice = fetchOne("
-                SELECT id FROM invoices 
-                WHERE customer_id = ? 
-                AND DATE_FORMAT(due_date, '%Y-%m') = ?",
-                [$customer['id'], $targetMonth]
-            );
+            // Calculate when we should START generating this invoice
+            $genDateStart = date('Y-m-d', strtotime("-{$leadDays} days", $dueDateTs));
+            $genDateStartTs = strtotime($genDateStart);
 
-            if (!$existingInvoice) {
-                $package = fetchOne("SELECT * FROM packages WHERE id = ?", [$customer['package_id']]);
-
-                if ($package) {
-                    $invoiceData = [
-                        'invoice_number' => generateInvoiceNumber(),
-                        'customer_id' => $customer['id'],
-                        'amount' => $package['price'],
-                        'status' => 'unpaid',
-                        'due_date' => $invoiceDueDate,
-                        'created_at' => date('Y-m-d H:i:s')
-                    ];
-
-                    insert('invoices', $invoiceData);
-                    $generatedCount++;
-                    echo "  ✓ Generated invoice for: {$customer['name']} (Due: {$invoiceData['due_date']})\n";
+            // Logic: If Today is >= Generation Start Date AND Today is < Due Date
+            if ($todayTs >= $genDateStartTs && $todayTs < $dueDateTs) {
+                $targetMonth = date('Y-m', $dueDateTs);
                 
-                    // Dispatch via WhatsApp Gateway
-                    if (!empty($customer['phone'])) {
-                        require_once __DIR__ . '/../includes/whatsapp.php';
-                        $message = buildWhatsAppMessage('invoice_created', getUniversalWaVariables($customer, $invoiceData));
-                        if (!empty($message)) sendWhatsApp($customer['phone'], $message);
+                // Check if invoice already exists for this target month and customer
+                $existingInvoice = fetchOne("
+                    SELECT id FROM invoices 
+                    WHERE customer_id = ? 
+                    AND DATE_FORMAT(due_date, '%Y-%m') = ?",
+                    [$customer['id'], $targetMonth]
+                );
+
+                if (!$existingInvoice) {
+                    $package = fetchOne("SELECT * FROM packages WHERE id = ?", [$customer['package_id']]);
+
+                    if ($package) {
+                        $invoiceData = [
+                            'invoice_number' => generateInvoiceNumber(),
+                            'customer_id' => $customer['id'],
+                            'amount' => $package['price'],
+                            'status' => 'unpaid',
+                            'due_date' => $invoiceDueDate,
+                            'created_at' => date('Y-m-d H:i:s')
+                        ];
+
+                        insert('invoices', $invoiceData);
+                        $generatedCount++;
+                        echo "  ✓ Generated invoice for: {$customer['name']} (Due: {$invoiceData['due_date']})\n";
+                    
+                        // Dispatch via WhatsApp Gateway
+                        if (!empty($customer['phone'])) {
+                            require_once __DIR__ . '/../includes/whatsapp.php';
+                            $message = buildWhatsAppMessage('invoice_created', getUniversalWaVariables($customer, $invoiceData));
+                            if (!empty($message)) sendWhatsApp($customer['phone'], $message);
+                        }
                     }
                 }
+                break;
             }
         }
     }
 
     echo "Generated {$generatedCount} new invoices.\n";
 
-    // Log activity
-    logActivity('AUTO_INVOICE', "Auto-generated {$generatedCount} invoices for " . date('F Y'));
+    if ($generatedCount > 0) {
+        logActivity('AUTO_INVOICE', "Auto-generated {$generatedCount} invoices using H-{$leadDays} lead time.");
+    }
 }
 
 /**
