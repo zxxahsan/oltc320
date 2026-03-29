@@ -52,11 +52,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if ($_POST['action'] === 'save_vcr_settings') {
         $vcr_login_url = sanitize($_POST['vcr_login_url'] ?? '');
         $vcr_admin_num = sanitize($_POST['vcr_admin_num'] ?? '');
+        $vcr_hotspot_name = sanitize($_POST['vcr_hotspot_name'] ?? '');
+        $vcr_default_template = sanitize($_POST['vcr_default_template'] ?? '');
         
         // Save to settings table
         $settingsToSave = [
             'vcr_login_url' => $vcr_login_url,
-            'vcr_admin_num' => $vcr_admin_num
+            'vcr_admin_num' => $vcr_admin_num,
+            'vcr_hotspot_name' => $vcr_hotspot_name,
+            'vcr_default_template' => $vcr_default_template
         ];
         
         foreach ($settingsToSave as $key => $value) {
@@ -224,16 +228,34 @@ ob_start();
                     <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
                     <input type="hidden" name="action" value="save_vcr_settings">
                     <div class="form-group">
+                        <label>Nama Hotspot</label>
+                        <input type="text" name="vcr_hotspot_name" class="form-control" 
+                            value="<?php echo htmlspecialchars(getSetting('vcr_hotspot_name', APP_NAME)); ?>" placeholder="Contoh: MARWAN WIFI">
+                        <small style="color: var(--text-muted);">Gunakan variabel <code>{{hotspotname}}</code>.</small>
+                    </div>
+                    <div class="form-group">
                         <label>Login URL (DNS Name)</label>
                         <input type="text" name="vcr_login_url" class="form-control" 
                             value="<?php echo htmlspecialchars(getSetting('vcr_login_url', 'http://hotspot.net')); ?>" placeholder="http://hotspot.net">
-                        <small style="color: var(--text-muted);">Gunakan variabel <code>{{login_url}}</code> di dalam template.</small>
+                        <small style="color: var(--text-muted);">Gunakan variabel <code>{{login_url}}</code>.</small>
                     </div>
                     <div class="form-group">
                         <label>Nomor Admin (WhatsApp/Telp)</label>
                         <input type="text" name="vcr_admin_num" class="form-control" 
                             value="<?php echo htmlspecialchars(getSetting('vcr_admin_num', '0812-3456-7890')); ?>" placeholder="0812... ">
-                        <small style="color: var(--text-muted);">Gunakan variabel <code>{{admin_num}}</code> di dalam template.</small>
+                        <small style="color: var(--text-muted);">Gunakan variabel <code>{{admin_num}}</code>.</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Template Cetak Sales (Default)</label>
+                        <select name="vcr_default_template" class="form-control">
+                            <option value="">-- Gunakan Layout Standar --</option>
+                            <?php foreach ($templateList as $t): ?>
+                                <option value="<?php echo htmlspecialchars($t); ?>" <?php echo getSetting('vcr_default_template') === $t ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($t); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <small style="color: var(--text-muted);">Template yang otomatis digunakan oleh Sales portal.</small>
                     </div>
                     <button type="submit" class="btn btn-primary btn-sm" style="width: 100%;">
                         <i class="fas fa-save"></i> Simpan Settings
@@ -308,7 +330,7 @@ ob_start();
             '{{password}}': 'SECRET123',
             '{{price}}': 'Rp 5.000',
             '{{validity}}': '24 Jam',
-            '{{hotspotname}}': 'Gembok WiFi',
+            '{{hotspotname}}': '<?php echo getSetting('vcr_hotspot_name', APP_NAME); ?>',
             '{{dnsname}}': 'hotspot.net',
             '{{login_url}}': '<?php echo getSetting('vcr_login_url', 'http://hotspot.net'); ?>',
             '{{admin_num}}': '<?php echo getSetting('vcr_admin_num', '0812-3456-7890'); ?>',

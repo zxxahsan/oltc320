@@ -151,7 +151,7 @@
                         voucherHtml = voucherHtml.replace(/\{\{profile\}\}/g, voucher.profile);
                         voucherHtml = voucherHtml.replace(/\{\{price\}\}/g, voucher.price);
                         voucherHtml = voucherHtml.replace(/\{\{validity\}\}/g, voucher.validity);
-                        voucherHtml = voucherHtml.replace(/\{\{hotspotname\}\}/g, voucher.hotspotname || 'Gembok WiFi');
+                        voucherHtml = voucherHtml.replace(/\{\{hotspotname\}\}/g, '<?php echo getSetting('vcr_hotspot_name', APP_NAME); ?>');
                         voucherHtml = voucherHtml.replace(/\{\{dnsname\}\}/g, voucher.dnsname || 'hotspot.net');
                         voucherHtml = voucherHtml.replace(/\{\{num\}\}/g, index + 1);
                         voucherHtml = voucherHtml.replace(/\{\{login_url\}\}/g, '<?php echo getSetting('vcr_login_url', 'http://hotspot.net'); ?>');

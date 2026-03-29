@@ -124,10 +124,48 @@ $appName = APP_NAME;
 
     <div class="page-container">
         <div class="voucher-grid">
-            <?php foreach ($vouchers as $v): ?>
+            <?php 
+            $defaultTemplate = getSetting('vcr_default_template');
+            $templatePath = $defaultTemplate ? '../templates/vouchers/' . $defaultTemplate : '';
+            $templateContent = ($templatePath && file_exists($templatePath)) ? file_get_contents($templatePath) : '';
+            
+            $hotspotName = getSetting('vcr_hotspot_name', APP_NAME);
+            $loginUrl = getSetting('vcr_login_url', 'http://hotspot.net');
+            $adminNum = getSetting('vcr_admin_num', '0812-3456-7890');
+
+            foreach ($vouchers as $index => $v): 
+                if ($templateContent):
+                    // Use Template
+                    $html = $templateContent;
+                    $replacements = [
+                        '{{username}}' => $v['username'],
+                        '{{password}}' => $v['password'],
+                        '{{profile}}' => $v['profile'],
+                        '{{price}}' => $v['price'],
+                        '{{validity}}' => $v['validity'] ?? '-',
+                        '{{hotspotname}}' => $hotspotName,
+                        '{{login_url}}' => $loginUrl,
+                        '{{admin_num}}' => $adminNum,
+                        '{{dnsname}}' => 'hotspot.net',
+                        '{{num}}' => $index + 1
+                    ];
+                    
+                    foreach ($replacements as $key => $val) {
+                        $html = str_replace($key, $val, $html);
+                    }
+                    
+                    // Add dummy QR code if placeholder exists
+                    if (strpos($html, '{{qrcode}}') !== false) {
+                        $html = str_replace('{{qrcode}}', '<div style="width:30px;height:30px;background:#000;color:#fff;display:flex;align-items:center;justify-content:center;font-size:6px;border:1px solid #fff;">QR</div>', $html);
+                    }
+                    
+                    echo '<div class="voucher-item-wrapper" style="page-break-inside: avoid;">' . $html . '</div>';
+                else:
+                    // Use Legacy Hardcoded Layout
+            ?>
             <div class="voucher-card">
                 <div class="voucher-header">
-                    <?php echo $appName; ?><br>
+                    <?php echo $hotspotName; ?><br>
                     <?php echo $v['profile']; ?>
                 </div>
                 <div class="voucher-body">
@@ -144,11 +182,14 @@ $appName = APP_NAME;
                     </div>
                 </div>
                 <div class="voucher-footer">
-                    Login: <?php echo getSetting('vcr_login_url', 'http://hotspot.net'); ?><br>
-                    <i>CS: <?php echo getSetting('vcr_admin_num', '0812-3456-7890'); ?></i>
+                    Login: <?php echo $loginUrl; ?><br>
+                    <i>CS: <?php echo $adminNum; ?></i>
                 </div>
             </div>
-            <?php endforeach; ?>
+            <?php 
+                endif;
+            endforeach; 
+            ?>
         </div>
     </div>
 </body>
