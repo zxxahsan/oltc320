@@ -226,7 +226,7 @@ function runAutoIsolir($pdo)
         FROM customers c
         INNER JOIN invoices i ON c.id = i.customer_id
         WHERE i.status = 'unpaid'
-        AND i.due_date <= CURDATE()
+        AND i.due_date < CURDATE()
         AND c.status = 'active'
     ");
 
