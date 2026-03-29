@@ -1,4 +1,4 @@
-# 🚀 Panduan Instalasi Gembok (Ubuntu Server Container)
+# 🚀 Panduan Instalasi NET (Ubuntu Server Container)
 
 Panduan ini disusun khusus untuk instalasi di **MikroTik Container (ROS 7)** atau **Ubuntu Server Minimal** yang tidak memiliki `systemd`. Ikuti langkah-langkah di bawah ini secara berurutan.
 
@@ -32,9 +32,9 @@ Karena di Container `systemctl` tidak aktif, gunakan perintah ini:
 ## 💾 Langkah 2: Setup Database
 Copy & Paste baris per baris ke Terminal:
 ```bash
-mysql -u root -e "CREATE DATABASE gembok_db;"
-mysql -u root -e "CREATE USER 'gembok_user'@'localhost' IDENTIFIED BY 'passwordKuat123';"
-mysql -u root -e "GRANT ALL PRIVILEGES ON gembok_db.* TO 'gembok_user'@'localhost';"
+mysql -u root -e "CREATE DATABASE net_db;"
+mysql -u root -e "CREATE USER 'net_user'@'localhost' IDENTIFIED BY 'passwordKuat123';"
+mysql -u root -e "GRANT ALL PRIVILEGES ON net_db.* TO 'net_user'@'localhost';"
 mysql -u root -e "FLUSH PRIVILEGES;"
 ```
 
@@ -85,7 +85,7 @@ Jalankan perintah ini untuk mengambil aplikasi:
 ```bash
 cd /var/www/html
 rm -rf *
-git clone https://github.com/zxxahsan/gembokcontainer.git .
+git clone https://github.com/[USERNAME]/[REPO_NAME].git .
 chown -R www-data:www-data /var/www/html
 chmod -R 755 /var/www/html
 ```
@@ -97,8 +97,8 @@ chmod -R 755 /var/www/html
 2. Anda akan melihat **Installer Wizard**.
 3. Masukkan data database sesuai Langkah 2:
    - **DB Host:** `localhost`
-   - **DB Name:** `gembok_db`
-   - **DB User:** `gembok_user`
+   - **DB Name:** `net_db`
+   - **DB User:** `net_user`
    - **DB Pass:** `passwordKuat123`
 4. Selesaikan instalasi sampai muncul tombol **Masuk ke Admin**.
 
@@ -108,7 +108,7 @@ chmod -R 755 /var/www/html
 Agar Isolir Otomatis dan Notifikasi berjalan, gunakan Scheduler dari RouterOS Anda (Sangat Disarankan):
 
 1. Buka **WinBox** -> **System** -> **Scheduler**.
-2. Buat jadwal baru (Name: `Gembok_Cron`, Interval: `00:01:00`).
+2. Buat jadwal baru (Name: `NET_Cron`, Interval: `00:01:00`).
 3. Isi script berikut (Ganti `[IP_CONTAINER]` dengan IP Ubuntu Anda):
    ```routeros
    /tool fetch url="http://[IP_CONTAINER]/cron/scheduler.php" keep-result=no;
