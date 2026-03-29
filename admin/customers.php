@@ -47,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'lat' => (!isset($_POST['lat']) || trim($_POST['lat']) === '') ? null : (string) str_replace(',', '.', trim($_POST['lat'])),
                     'lng' => (!isset($_POST['lng']) || trim($_POST['lng']) === '') ? null : (string) str_replace(',', '.', trim($_POST['lng'])),
                     'installed_by' => !empty($_POST['installed_by']) ? (int)$_POST['installed_by'] : null,
-                    'portal_password' => !empty($_POST['portal_password']) ? sanitize($_POST['portal_password']) : '1234',
+                    'portal_password' => generateRandomString(4, 'numeric'),
                     'created_at' => date('Y-m-d H:i:s')
                 ];
                 
@@ -423,17 +423,6 @@ ob_start();
                         <option value="<?php echo $r['id']; ?>"><?php echo htmlspecialchars($r['name']); ?></option>
                     <?php endforeach; ?>
                 </select>
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">Password Portal Pelanggan</label>
-                <div style="position: relative;">
-                    <input type="password" name="portal_password" id="add_portal_password" class="form-control" value="1234" required>
-                    <button type="button" onclick="togglePasswordVisibility('add_portal_password')" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-muted); cursor: pointer;">
-                        <i class="fas fa-eye" id="eye_add_portal_password"></i>
-                    </button>
-                </div>
-                <small style="color: var(--text-muted);">Digunakan pelanggan untuk login ke portal</small>
             </div>
 
             <div class="form-group" style="grid-column: 1 / -1;">

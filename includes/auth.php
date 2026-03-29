@@ -185,7 +185,7 @@ function customerHasPortalPassword($customerId) {
 
 // Generate portal password for customer
 function generateCustomerPortalPassword($customerId) {
-    $password = generateRandomString(8);
+    $password = generateRandomString(4, 'numeric');
     setCustomerPortalPassword($customerId, $password);
     return $password;
 }
