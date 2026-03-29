@@ -48,8 +48,10 @@ $totalUnpaid = $totalUnpaidQuery['total'] ?? 0;
 
 // Calculate Next Invoice Generation Schedule
 $leadDays = (int)getSetting('invoice_generate_days', 7);
-$billingDay = (int)($customer['due_date'] ?? 1);
-if ($billingDay == 0) $billingDay = 1;
+// The billing day is stored in 'isolation_date' in this application
+$billingDay = (int)($customer['isolation_date'] ?? 20);
+if ($billingDay <= 0) $billingDay = 1;
+if ($billingDay > 28) $billingDay = 28; // Cap at 28 to avoid FEB leap year issues
 
 $today = date('Y-m-d');
 $todayTs = strtotime($today);

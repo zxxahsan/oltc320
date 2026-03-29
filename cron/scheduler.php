@@ -287,8 +287,10 @@ function runAutoInvoice($pdo)
     echo "Found " . count($customers) . " active/isolated customers (Lead time: H-{$leadDays})\n";
 
     foreach ($customers as $customer) {
-        $billingDay = (int)($customer['due_date'] ?? 1);
-        if ($billingDay === 0) $billingDay = 1;
+        // The billing day is stored in 'isolation_date' in this application
+        $billingDay = (int)($customer['isolation_date'] ?? 20);
+        if ($billingDay <= 0) $billingDay = 1;
+        if ($billingDay > 28) $billingDay = 28; // Cap at 28 to avoid FEB leap year issues
 
         // Determine the relevant billing month
         $currentMonth = (int)date('n');
@@ -307,8 +309,11 @@ function runAutoInvoice($pdo)
             $genDateStart = date('Y-m-d', strtotime("-{$leadDays} days", $dueDateTs));
             $genDateStartTs = strtotime($genDateStart);
 
-            // Logic: If Today is >= Generation Start Date AND Today is < Due Date
-            if ($todayTs >= $genDateStartTs && $todayTs < $dueDateTs) {
+            // LOGIC IMPROVEMENT: 
+            // We generate the invoice if Today is >= Generation Start Date.
+            // We removed the restrictive "Today < Due Date" check to ensure that 
+            // if a cron run is missed during the window, it's still generated as soon as possible.
+            if ($todayTs >= $genDateStartTs) {
                 $targetMonth = date('Y-m', $dueDateTs);
                 
                 // Check if invoice already exists for this target month and customer
