@@ -819,7 +819,9 @@ if (isset($_GET['switch_router'])) {
             border-top: 1px solid var(--border-color);
             z-index: 2000;
             padding: 10px 0;
-            justify-content: space-around;
+            justify-content: flex-start;
+            padding-left: 20px;
+            gap: 30px;
             align-items: center;
             box-shadow: 0 -5px 20px rgba(0,0,0,0.5);
         }
