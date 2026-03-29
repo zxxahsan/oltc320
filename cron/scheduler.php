@@ -50,10 +50,15 @@ function runScheduler() {
         ];
 
         foreach ($criticalTasks as $task) {
-            $hasTask = fetchOne("SELECT id FROM cron_schedules WHERE task_type = ?", [$task['task_type']]);
+            $hasTask = fetchOne("SELECT id, is_active FROM cron_schedules WHERE task_type = ?", [$task['task_type']]);
             if (!$hasTask) {
+                // If missing, create it
                 $pdo->prepare("INSERT IGNORE INTO cron_schedules (name, task_type, schedule_days, schedule_time, is_active) VALUES (?, ?, 'every_minute', '00:00', 1)")
                     ->execute([$task['name'], $task['task_type']]);
+            } elseif ($hasTask['is_active'] == 0) {
+                // If exists but disabled, force it to be ACTIVE (1)
+                $pdo->prepare("UPDATE cron_schedules SET is_active = 1 WHERE task_type = ?")
+                    ->execute([$task['task_type']]);
             }
         }
         // Self-heal: Ensure critical missing columns exist in case table was restored from a highly legacy schema
@@ -276,7 +281,7 @@ function runAutoInvoice($pdo)
     echo "Running auto invoice generation...\n";
 
     // Get lead time from settings (default to 7 days)
-    $leadDays = (int)getSettingValue('invoice_generate_days', 7);
+    $leadDays = (int)getSetting('invoice_generate_days', 7);
     if ($leadDays < 1) $leadDays = 1;
 
     $generatedCount = 0;
