@@ -558,8 +558,8 @@ ob_start();
                 <th>Paket & Router</th>
                 <th>Status</th>
                 <th>PPPoE</th>
-                <th>Jatuh Tempo</th>
                 <th>Invoice Terbit</th>
+                <th>Jatuh Tempo</th>
                 <th>Aksi</th>
             </tr>
         </thead>
@@ -596,17 +596,21 @@ ob_start();
                             <?php echo htmlspecialchars($c['pppoe_username']); ?>
                         </code>
                     </td>
-                    <td data-label="Jatuh Tempo">
-                        <span class="badge badge-info">Tgl <?php echo $c['isolation_date']; ?></span>
-                    </td>
                     <td data-label="Invoice Terbit">
-                        <span class="badge badge-secondary" style="background: rgba(0,255,136,0.1); color: var(--neon-green); border: 1px solid rgba(0,255,136,0.3); font-size: 0.8rem; padding: 4px 8px;">
-                            <?php 
-                                $genDay = $c['isolation_date'] - $leadDays;
-                                if ($genDay <= 0) $genDay += 30; 
-                                echo "Tgl " . $genDay;
-                            ?>
-                        </span>
+                        <?php 
+                            $billingDay = (int)$c['isolation_date'];
+                            $genDayNum = $billingDay - $leadDays;
+                            $m = (int)date('n');
+                            $y = (int)date('Y');
+                            $genDate = date('Y-m-d', mktime(0, 0, 0, $m, $genDayNum, $y));
+                            echo '<span class="badge badge-secondary" style="background: rgba(0,255,136,0.1); color: var(--neon-green); border: 1px solid rgba(0,255,136,0.3); font-size: 0.8rem; padding: 4px 8px;">' . formatDayMonthIndo($genDate) . '</span>';
+                        ?>
+                    </td>
+                    <td data-label="Jatuh Tempo">
+                        <?php 
+                            $dueDate = date('Y-m-d', mktime(0, 0, 0, $m, $billingDay, $y));
+                            echo '<span class="badge badge-info">' . formatDayMonthIndo($dueDate) . '</span>';
+                        ?>
                     </td>
                     <td data-label="Aksi">
                         <a href="pay_process.php?id=<?php echo $c['id']; ?>" class="btn btn-success btn-sm" title="Bayar Tagihan">
