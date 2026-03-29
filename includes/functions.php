@@ -1358,12 +1358,27 @@ function parseMikhmonOnLogin($script) {
     $data = ['validity' => '-', 'price' => 0];
     if (empty($script)) return $data;
     
-    // Example: ... ; set validity=1d; set price=5000; ...
-    if (preg_match('/validity=([^;|\s]+)/', $script, $matches)) {
+    // 1. Handle Comma-Separated Mikhmon v3 format (e.g. ,up,5000,1d,5000,,disable)
+    if (strpos($script, ',') !== false) {
+        $parts = explode(',', $script);
+        // Indices: [1]=mode, [2]=price, [3]=validity
+        if (isset($parts[2]) && is_numeric($parts[2])) {
+            $data['price'] = (int)$parts[2];
+        }
+        if (isset($parts[3]) && !empty($parts[3])) {
+            $data['validity'] = $parts[3];
+        }
+        if ($data['price'] > 0 || ($data['validity'] !== '-' && !empty($data['validity']))) {
+            return $data;
+        }
+    }
+
+    // 2. Handle Key=Value format (e.g. set validity=1d; set price=5000;)
+    if (preg_match('/validity=([^;|\s,]+)/', $script, $matches)) {
         $data['validity'] = trim($matches[1], '"\'');
     }
-    if (preg_match('/price=([^;|\s]+)/', $script, $matches)) {
-        $data['price'] = trim($matches[1], '"\'');
+    if (preg_match('/price=([^;|\s,]+)/', $script, $matches)) {
+        $data['price'] = (int)trim($matches[1], '"\'');
     }
     return $data;
 }

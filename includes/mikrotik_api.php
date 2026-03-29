@@ -1491,50 +1491,6 @@ function generateHotspotExpiryScript($mode, $price = 0, $validity = '', $selling
     return $script . '; ' . $metadata;
 }
 
-// Parse Mikhmon v3 on-login script to extract price, validity, selling price, lock user
-// Based on Mikhmon v3 source: process/getvalidprice.php
-function parseMikhmonOnLogin($onLoginScript)
-{
-    $data = [
-        'price' => 0,
-        'validity' => '-',
-        'selling_price' => 0,
-        'datalimit' => '',
-        'timelimit' => '',
-        'lock_user' => 'disable',
-        'mode' => 'none',
-    ];
-
-    if (empty($onLoginScript))
-        return $data;
-
-    $parts = explode(',', $onLoginScript);
-
-    // Mikhmon v3 indices: [1]=mode, [2]=price, [3]=validity, [4]=sellingPrice, [5]=datalimit, [6]=timelimit, [7]=lockUser
-    if (isset($parts[1]) && !empty($parts[1])) {
-        $data['mode'] = $parts[1];
-    }
-    if (isset($parts[2]) && is_numeric($parts[2])) {
-        $data['price'] = (int) $parts[2];
-    }
-    if (isset($parts[3]) && !empty($parts[3])) {
-        $data['validity'] = $parts[3];
-    }
-    if (isset($parts[4]) && is_numeric($parts[4])) {
-        $data['selling_price'] = (int) $parts[4];
-    }
-    if (isset($parts[5]) && !empty($parts[5])) {
-        $data['datalimit'] = $parts[5];
-    }
-    if (isset($parts[6]) && !empty($parts[6])) {
-        $data['timelimit'] = $parts[6];
-    }
-    if (isset($parts[7]) && !empty($parts[7])) {
-        $data['lock_user'] = $parts[7];
-    }
-
-    return $data;
-}
 
 // Get MikroTik System Resource (CPU, Memory, Uptime, Board Name, etc.)
 function mikrotikGetSystemResource()
