@@ -1832,13 +1832,14 @@ function mikrotikGetParentQueues()
 }
 
 // Record Hotspot Sale in Database
-function recordHotspotSale($username, $profile, $price, $sellingPrice, $prefix = '', $salesUserId = null)
+function recordHotspotSale($username, $profile, $price, $sellingPrice, $prefix = '', $salesUserId = null, $validity = null)
 {
     $data = [
         'username' => sanitize($username),
         'profile' => sanitize($profile),
         'price' => (float) $price,
         'selling_price' => (float) $sellingPrice,
+        'validity' => sanitize($validity),
         'prefix' => sanitize($prefix),
         'sales_user_id' => $salesUserId,
         'created_at' => date('Y-m-d H:i:s')

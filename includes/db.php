@@ -27,6 +27,12 @@ function getDB() {
                 
                 // Auto-Migration for new Voucher Sales Columns
                 try {
+                    $pdo->exec("ALTER TABLE sales_profile_prices ADD COLUMN validity VARCHAR(50) DEFAULT NULL AFTER selling_price");
+                } catch (\Exception $e) {}
+                try {
+                    $pdo->exec("ALTER TABLE hotspot_sales ADD COLUMN validity VARCHAR(50) DEFAULT NULL AFTER profile");
+                } catch (\Exception $e) {}
+                try {
                     $pdo->exec("ALTER TABLE hotspot_sales ADD COLUMN status ENUM('active','inactive') DEFAULT 'inactive', ADD COLUMN used_at DATETIME NULL");
                 } catch (\Exception $e) {}
                 

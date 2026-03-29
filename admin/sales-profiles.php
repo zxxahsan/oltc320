@@ -31,6 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $profileName = $_POST['profile_name'];
     $basePrice = (float)$_POST['base_price'];
     $sellingPrice = (float)$_POST['selling_price'];
+    $validity = sanitize($_POST['validity'] ?? '');
     $isActive = isset($_POST['is_active']) ? 1 : 0;
     
     // Check if exists
@@ -40,6 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         update('sales_profile_prices', [
             'base_price' => $basePrice,
             'selling_price' => $sellingPrice,
+            'validity' => $validity,
             'is_active' => $isActive
         ], 'id = ?', [$exists['id']]);
     } else {
@@ -48,6 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'profile_name' => $profileName,
             'base_price' => $basePrice,
             'selling_price' => $sellingPrice,
+            'validity' => $validity,
             'is_active' => $isActive
         ]);
     }
@@ -76,8 +79,9 @@ ob_start();
                     <tr>
                         <th>Profile MikroTik</th>
                         <th>Status</th>
-                        <th>Harga Modal (Setoran)</th>
-                        <th>Harga Jual (Konsumen)</th>
+                        <th>Harga Modal</th>
+                        <th>Harga Jual</th>
+                        <th>Masa Aktif</th>
                         <th>Aksi</th>
                     </tr>
                 </thead>
@@ -109,7 +113,10 @@ ob_start();
                             <input type="number" name="base_price" class="form-control" value="<?php echo $defaultBase; ?>" style="width: 150px;" form="<?php echo $formId; ?>">
                         </td>
                         <td>
-                            <input type="number" name="selling_price" class="form-control" value="<?php echo $defaultSelling; ?>" style="width: 150px;" form="<?php echo $formId; ?>">
+                            <input type="number" name="selling_price" class="form-control" value="<?php echo $defaultSelling; ?>" style="width: 120px;" form="<?php echo $formId; ?>">
+                        </td>
+                        <td>
+                            <input type="text" name="validity" class="form-control" value="<?php echo $assigned ? $assigned['validity'] : ($mikhmonData['validity'] ?? ''); ?>" placeholder="misal: 1d, 30d" style="width: 100px;" form="<?php echo $formId; ?>">
                         </td>
                         <td>
                             <form id="<?php echo $formId; ?>" method="POST">

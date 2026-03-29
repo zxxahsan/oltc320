@@ -42,7 +42,7 @@ if (isset($_GET['users'])) {
                                             // In a real scenario, you'd fetch from Mikrotik if possible.
             'profile' => $rec['profile'],
             'price' => formatCurrency($rec['selling_price']),
-            'validity' => '-' // Validity not stored in local sales table
+            'validity' => $rec['validity'] ?: '-'
         ];
     }
 }
