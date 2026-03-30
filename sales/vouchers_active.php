@@ -33,6 +33,8 @@ ob_start();
                                 <th>Tanggal Aktif</th>
                                 <th>Username</th>
                                 <th>Profile</th>
+                                <th>Validity</th>
+                                <th>Uptime</th>
                                 <th>Harga Jual</th>
                                 <th>Aksi</th>
                             </tr>
@@ -43,6 +45,8 @@ ob_start();
                                     <td><?php echo date('d/m/Y H:i', strtotime($v['used_at'])); ?></td>
                                     <td><strong style="color: var(--neon-cyan);"><?php echo htmlspecialchars($v['username']); ?></strong></td>
                                     <td><span class="badge badge-info"><?php echo htmlspecialchars($v['profile']); ?></span></td>
+                                    <td data-label="Validity"><?php echo htmlspecialchars($v['validity'] ?? '-'); ?></td>
+                                    <td data-label="Uptime"><?php echo htmlspecialchars($v['timelimit'] ?? '-'); ?></td>
                                     <td class="text-success"><?php echo formatCurrency($v['selling_price']); ?></td>
                                     <td>
                                         <a href="print_voucher.php?users=<?php echo urlencode($v['username']); ?>&back=active" target="_blank" class="btn btn-sm btn-secondary" title="Print Ulang">
@@ -52,7 +56,7 @@ ob_start();
                                 </tr>
                             <?php endforeach; ?>
                             <?php if (empty($activeVouchers)): ?>
-                                <tr><td colspan="5" class="text-center text-muted">Belum ada voucher yang digunakan pelanggan.</td></tr>
+                                <tr><td colspan="7" class="text-center text-muted">Belum ada voucher yang digunakan pelanggan.</td></tr>
                             <?php endif; ?>
                         </tbody>
                     </table>

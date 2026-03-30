@@ -278,8 +278,12 @@ ob_start();
                             <?php echo $v['username']; ?>
                         </div>
                         <div style="display: flex; justify-content: space-between; margin-top: 5px; font-size: 0.9rem; color: var(--text-secondary);">
-                            <span><?php echo $v['profile']; ?></span>
-                            <span><?php echo $v['price']; ?></span>
+                            <span><i class="fas fa-box"></i> <?php echo $v['profile']; ?></span>
+                            <span><i class="fas fa-tag"></i> <?php echo $v['price']; ?></span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-top: 5px; font-size: 0.8rem; color: var(--text-muted); border-top: 1px solid rgba(255,255,255,0.05); padding-top: 5px;">
+                            <span><i class="fas fa-clock"></i> <?php echo $v['timelimit']; ?></span>
+                            <span><i class="fas fa-calendar-alt"></i> <?php echo $v['validity']; ?></span>
                         </div>
                     </div>
                     <?php endforeach; ?>

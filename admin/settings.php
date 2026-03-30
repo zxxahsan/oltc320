@@ -133,9 +133,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             case 'save_payments':
                 $paymentSettings = [
-                    'PAYMENT_GATEWAY_ENABLED' => isset($_POST['payment_gateway_enabled']) ? '1' : '0',
-                    'MANUAL_TRANSFER_ENABLED' => isset($_POST['manual_transfer_enabled']) ? '1' : '0',
-                    'TRANSFER_BANK_INFO' => $_POST['transfer_bank_info'] ?? ''
+                    'ENABLE_TRIPAY_CUSTOMER' => isset($_POST['enable_tripay_customer']) ? '1' : '0',
+                    'ENABLE_MANUAL_CUSTOMER' => isset($_POST['enable_manual_customer']) ? '1' : '0',
+                    'ENABLE_TRIPAY_SALES' => isset($_POST['enable_tripay_sales']) ? '1' : '0',
+                    'ENABLE_MANUAL_SALES' => isset($_POST['enable_manual_sales']) ? '1' : '0',
+                    'MANUAL_PAYMENT_INFO' => sanitize($_POST['manual_payment_info'])
                 ];
                 
                 foreach ($paymentSettings as $key => $value) {
@@ -464,28 +466,43 @@ ob_start();
         <input type="hidden" name="action" value="save_payments">
         <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
         
-        <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
-            <input type="checkbox" name="payment_gateway_enabled" id="pg_enabled" value="1" 
-                <?php echo getSettingValue('PAYMENT_GATEWAY_ENABLED', '1') === '1' ? 'checked' : ''; ?>
-                style="width: 20px; height: 20px; cursor: pointer;">
-            <label for="pg_enabled" class="form-label" style="margin: 0; cursor: pointer;">
-                Aktifkan Payment Gateway (Otomatis via Tripay)
-            </label>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+            <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 10px;">
+                <label class="form-label" style="color: var(--neon-cyan);"><i class="fas fa-users"></i> Gateway Pelanggan</label>
+                <div class="form-group" style="margin-bottom: 10px;">
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                        <input type="checkbox" name="enable_tripay_customer" value="1" <?php echo (getSettingValue('ENABLE_TRIPAY_CUSTOMER', '1') === '1') ? 'checked' : ''; ?>>
+                        Tripay (Otomatis)
+                    </label>
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                        <input type="checkbox" name="enable_manual_customer" value="1" <?php echo (getSettingValue('ENABLE_MANUAL_CUSTOMER', '1') === '1') ? 'checked' : ''; ?>>
+                        Manual (Transfer Bank)
+                    </label>
+                </div>
+            </div>
+            <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 10px;">
+                <label class="form-label" style="color: var(--neon-cyan);"><i class="fas fa-user-tie"></i> Gateway Sales</label>
+                <div class="form-group" style="margin-bottom: 10px;">
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                        <input type="checkbox" name="enable_tripay_sales" value="1" <?php echo (getSettingValue('ENABLE_TRIPAY_SALES', '1') === '1') ? 'checked' : ''; ?>>
+                        Tripay (Otomatis)
+                    </label>
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                        <input type="checkbox" name="enable_manual_sales" value="1" <?php echo (getSettingValue('ENABLE_MANUAL_SALES', '1') === '1') ? 'checked' : ''; ?>>
+                        Manual (Transfer Bank)
+                    </label>
+                </div>
+            </div>
         </div>
 
-        <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-            <input type="checkbox" name="manual_transfer_enabled" id="mt_enabled" value="1" 
-                <?php echo getSettingValue('MANUAL_TRANSFER_ENABLED', '0') === '1' ? 'checked' : ''; ?>
-                style="width: 20px; height: 20px; cursor: pointer;">
-            <label for="mt_enabled" class="form-label" style="margin: 0; cursor: pointer;">
-                Aktifkan Transfer Manual (Upload Bukti Pembayaran)
-            </label>
-        </div>
-        
-        <div class="form-group" style="margin-left: 30px; margin-bottom: 20px; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; border-left: 3px solid var(--neon-cyan);">
-            <label class="form-label">Informasi Rekening Bank (Ditampilkan ke Pelanggan)</label>
-            <textarea name="transfer_bank_info" class="form-control" rows="4" placeholder="Misal:&#10;Bank BCA: 123456789 a/n Nama Anda&#10;DANA / OVO: 08123456789"><?php echo htmlspecialchars(getSettingValue('TRANSFER_BANK_INFO', '')); ?></textarea>
-            <small style="color: var(--text-muted); display: block; margin-top: 5px;">Hanya akan muncul jika pelanggan memilih tombol 'Transfer Manual'.</small>
+        <div class="form-group">
+            <label class="form-label">Informasi Rekening Manual</label>
+            <textarea name="manual_payment_info" class="form-control" rows="4" placeholder="Contoh: BCA 1234567890 a/n Admin"><?php echo htmlspecialchars(getSettingValue('MANUAL_PAYMENT_INFO', getSettingValue('TRANSFER_BANK_INFO'))); ?></textarea>
+            <small style="color: var(--text-muted);">Teks ini akan muncul saat user memilih metode pembayaran Manual.</small>
         </div>
         
         <button type="submit" class="btn btn-primary">

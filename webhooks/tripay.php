@@ -50,9 +50,17 @@ try {
     
     // Handle payment status
     if ($status === 'PAID') {
-        handlePaidInvoice($merchantRef, $data);
+        if (strpos($merchantRef, 'TOPUP-') === 0) {
+            handlePaidTopup($merchantRef, $data);
+        } else {
+            handlePaidInvoice($merchantRef, $data);
+        }
     } elseif ($status === 'EXPIRED' || $status === 'FAILED') {
-        handleFailedInvoice($merchantRef, $status);
+        if (strpos($merchantRef, 'TOPUP-') === 0) {
+            update('sales_topups', ['status' => 'cancelled', 'updated_at' => date('Y-m-d H:i:s')], 'id = ?', [str_replace('TOPUP-', '', $merchantRef)]);
+        } else {
+            handleFailedInvoice($merchantRef, $status);
+        }
     }
     
     echo json_encode(['success' => true, 'message' => 'Webhook processed']);
@@ -60,6 +68,34 @@ try {
 } catch (Exception $e) {
     logError("Tripay webhook error: " . $e->getMessage());
     echo json_encode(['success' => false, 'message' => 'Internal server error']);
+}
+
+function handlePaidTopup($merchantRef, $paymentData) {
+    $topupId = str_replace('TOPUP-', '', $merchantRef);
+    $topup = fetchOne("SELECT * FROM sales_topups WHERE id = ?", [$topupId]);
+    
+    if (!$topup) {
+        logError("Topup not found: {$merchantRef}");
+        return;
+    }
+    
+    if ($topup['status'] === 'paid') {
+        return; // Already processed
+    }
+    
+    // Update topup status
+    update('sales_topups', [
+        'status' => 'paid',
+        'payment_reference' => $paymentData['reference'] ?? '',
+        'updated_at' => date('Y-m-d H:i:s')
+    ], 'id = ?', [$topupId]);
+    
+    // Add balance to sales user
+    $pdo = getDB();
+    $stmt = $pdo->prepare("UPDATE sales_users SET deposit_balance = deposit_balance + ? WHERE id = ?");
+    $stmt->execute([$topup['amount'], $topup['sales_user_id']]);
+    
+    logActivity('SALES_TOPUP_PAID', "Sales ID: {$topup['sales_user_id']}, Amount: {$topup['amount']}");
 }
 
 function handlePaidInvoice($invoiceNumber, $paymentData) {

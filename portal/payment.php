@@ -25,9 +25,9 @@ if (!$invoice) {
 }
 
 // Gateway Settings
-$gatewayEnabled = getSetting('PAYMENT_GATEWAY_ENABLED', '1') === '1';
-$manualEnabled = getSetting('MANUAL_TRANSFER_ENABLED', '0') === '1';
-$bankInfo = getSetting('TRANSFER_BANK_INFO', '');
+$gatewayEnabled = getSetting('ENABLE_TRIPAY_CUSTOMER', '1') === '1';
+$manualEnabled = getSetting('ENABLE_MANUAL_CUSTOMER', '1') === '1';
+$bankInfo = getSetting('MANUAL_PAYMENT_INFO', '');
 $defaultGateway = 'tripay';
 
 require_once '../includes/payment.php';

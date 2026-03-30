@@ -6,10 +6,10 @@
 require_once __DIR__ . '/config.php';
 
 // Generate payment link based on gateway
-function generatePaymentLink($invoiceNumber, $amount, $customerName, $customerPhone, $dueDate, $gateway = 'tripay', $paymentMethod = '') {
+function generatePaymentLink($reference, $amount, $customerName, $customerPhone, $dueDate, $gateway = 'tripay', $paymentMethod = '') {
     // Only Tripay is supported now
     if ($gateway === 'tripay') {
-        return generateTripayPaymentLink($invoiceNumber, $amount, $customerName, $customerPhone, $dueDate, $paymentMethod);
+        return generateTripayPaymentLink($reference, $amount, $customerName, $customerPhone, $dueDate, $paymentMethod);
     }
     
     return [
@@ -20,7 +20,7 @@ function generatePaymentLink($invoiceNumber, $amount, $customerName, $customerPh
 }
 
 // Tripay Payment Link Generator
-function generateTripayPaymentLink($invoiceNumber, $amount, $customerName, $customerPhone, $dueDate, $paymentMethod = '') {
+function generateTripayPaymentLink($merchantRef, $amount, $customerName, $customerPhone, $dueDate, $paymentMethod = '') {
     if (empty(TRIPAY_API_KEY) || empty(TRIPAY_MERCHANT_CODE)) {
         return [
             'success' => false,
@@ -29,8 +29,7 @@ function generateTripayPaymentLink($invoiceNumber, $amount, $customerName, $cust
         ];
     }
     
-    $merchantRef = $invoiceNumber;
-    $paymentLink = "https://tripay.co.id/checkout?merchant_code=" . TRIPAY_MERCHANT_CODE . "&amount={$amount}&merchant_ref={$merchantRef}&customer_name=" . urlencode($customerName) . "&customer_phone=" . urlencode($customerPhone);
+    $paymentLink = "https://tripay.co.id/checkout?merchant_code=" . TRIPAY_MERCHANT_CODE . "&amount={$amount}&merchant_ref=" . urlencode($merchantRef) . "&customer_name=" . urlencode($customerName) . "&customer_phone=" . urlencode($customerPhone);
     
     if (!empty($paymentMethod)) {
         $paymentLink .= "&payment_method={$paymentMethod}";

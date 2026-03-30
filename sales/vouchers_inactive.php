@@ -33,6 +33,8 @@ ob_start();
                                 <th>Tanggal Generate</th>
                                 <th>Username</th>
                                 <th>Profile</th>
+                                <th>Validity</th>
+                                <th>Uptime</th>
                                 <th>Modal</th>
                                 <th>Aksi</th>
                             </tr>
@@ -43,6 +45,8 @@ ob_start();
                                     <td><?php echo date('d/m/Y H:i', strtotime($v['created_at'])); ?></td>
                                     <td><strong><?php echo htmlspecialchars($v['username']); ?></strong></td>
                                     <td><span class="badge badge-secondary"><?php echo htmlspecialchars($v['profile']); ?></span></td>
+                                    <td data-label="Validity"><?php echo htmlspecialchars($v['validity'] ?? '-'); ?></td>
+                                    <td data-label="Uptime"><?php echo htmlspecialchars($v['timelimit'] ?? '-'); ?></td>
                                     <td class="text-warning"><?php echo formatCurrency($v['price']); ?></td>
                                     <td>
                                         <a href="print_voucher.php?users=<?php echo urlencode($v['username']); ?>" target="_blank" class="btn btn-sm btn-info">
@@ -52,7 +56,7 @@ ob_start();
                                 </tr>
                             <?php endforeach; ?>
                             <?php if (empty($inactiveVouchers)): ?>
-                                <tr><td colspan="5" class="text-center text-muted">Tidak ada voucher standby.</td></tr>
+                                <tr><td colspan="7" class="text-center text-muted">Tidak ada voucher standby.</td></tr>
                             <?php endif; ?>
                         </tbody>
                     </table>

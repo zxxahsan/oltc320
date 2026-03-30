@@ -45,11 +45,42 @@ function getDB() {
                     $pdo->exec("ALTER TABLE hotspot_sales ADD COLUMN router_id INT DEFAULT 0");
                 } catch (\Exception $e) {}
                 
-                // Auto-Migration for Manual Transfer Features
                 try {
                     $pdo->exec("ALTER TABLE invoices MODIFY COLUMN status ENUM('unpaid', 'paid', 'cancelled', 'pending') DEFAULT 'unpaid'");
                     $pdo->exec("ALTER TABLE invoices ADD COLUMN payment_proof VARCHAR(255) DEFAULT NULL");
                 } catch (\Exception $e) {}
+
+                // Sales Topups Table
+                try {
+                    $pdo->exec("CREATE TABLE IF NOT EXISTS sales_topups (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        sales_user_id INT NOT NULL,
+                        amount DECIMAL(15,2) NOT NULL,
+                        payment_method VARCHAR(20) NOT NULL,
+                        payment_reference VARCHAR(100) DEFAULT NULL,
+                        status ENUM('pending', 'paid', 'cancelled') DEFAULT 'pending',
+                        created_at DATETIME NOT NULL,
+                        updated_at DATETIME NOT NULL
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+                } catch (\Exception $e) {}
+
+                // Default Payment Settings
+                $defaultSettings = [
+                    'ENABLE_TRIPAY_CUSTOMER' => '1',
+                    'ENABLE_MANUAL_CUSTOMER' => '1',
+                    'ENABLE_TRIPAY_SALES' => '1',
+                    'ENABLE_MANUAL_SALES' => '1',
+                    'MANUAL_PAYMENT_INFO' => 'Bank BCA: 1234567890 a/n Admin\nBank Mandiri: 0987654321 a/n Admin'
+                ];
+                foreach ($defaultSettings as $key => $val) {
+                    try {
+                        $check = $pdo->prepare("SELECT id FROM settings WHERE setting_key = ?");
+                        $check->execute([$key]);
+                        if (!$check->fetch()) {
+                            $pdo->prepare("INSERT INTO settings (setting_key, setting_value) VALUES (?, ?)")->execute([$key, $val]);
+                        }
+                    } catch (\Exception $e) {}
+                }
         } catch (PDOException $e) {
             $logFile = __DIR__ . '/../logs/db_error.log';
             $message = "[" . date('Y-m-d H:i:s') . "] Connection Error: " . $e->getMessage() . "\n";

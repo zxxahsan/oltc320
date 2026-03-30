@@ -512,7 +512,13 @@ ob_start();
                         <?php elseif ($inv['status'] === 'cancelled'): ?>
                             <span class="badge badge-secondary">Batal</span>
                         <?php elseif ($inv['status'] === 'pending'): ?>
-                            <span class="badge badge-warning" style="background: rgba(255,165,0,0.1); border: 1px solid orange; color: orange;">Verifikasi</span>
+                            <span class="badge badge-warning" style="background: rgba(255,165,0,0.2); color: #ffa500; border: 1px solid #ffa500;">Pending Approval</span><br>
+                            <?php if ($inv['payment_proof']): ?>
+                                <button type="button" class="btn btn-secondary btn-sm" style="margin-top: 5px; padding: 2px 8px; font-size: 0.75rem;" 
+                                    onclick="viewProof('<?php echo '../uploads/' . $inv['payment_proof']; ?>')">
+                                    <i class="fas fa-image"></i> Lihat Bukti
+                                </button>
+                            <?php endif; ?>
                         <?php else: ?>
                             <span class="badge badge-warning">Belum Bayar</span>
                             <?php if (strtotime($inv['due_date']) < time()): ?>
@@ -552,17 +558,12 @@ ob_start();
                                     </button>
                                 </form>
                             <?php elseif ($inv['status'] === 'pending'): ?>
-                                <button class="btn btn-secondary btn-sm" title="Lihat Bukti Transfer" style="background: var(--neon-cyan); border-color: var(--neon-cyan); color: #000;"
-                                    onclick="window.open('../uploads/<?php echo htmlspecialchars($inv['payment_proof']); ?>', '_blank')">
-                                    <i class="fas fa-image"></i>
-                                </button>
-                                
                                 <form method="POST" style="display: inline;" onsubmit="return confirm('Setujui pembayaran ini dan buka isolir pelanggan?');">
                                     <input type="hidden" name="action" value="approve_manual">
                                     <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
                                     <input type="hidden" name="invoice_id" value="<?php echo $inv['id']; ?>">
                                     <button type="submit" class="btn btn-primary btn-sm" title="Approve Pembayaran" style="background: #10b981; border-color: #10b981;">
-                                        <i class="fas fa-check-circle"></i>
+                                        <i class="fas fa-check-circle"></i> Approve
                                     </button>
                                 </form>
                                 
@@ -571,7 +572,7 @@ ob_start();
                                     <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
                                     <input type="hidden" name="invoice_id" value="<?php echo $inv['id']; ?>">
                                     <button type="submit" class="btn btn-danger btn-sm" title="Tolak Pembayaran" style="background: #ef4444; border-color: #ef4444;">
-                                        <i class="fas fa-times-circle"></i>
+                                        <i class="fas fa-times-circle"></i> Tolak
                                     </button>
                                 </form>
                             <?php endif; ?>
@@ -826,6 +827,31 @@ document.addEventListener('keydown', function(e) {
         closeDeleteAllModal();
     }
 });
+
+// Proof Modal functions
+function viewProof(url) {
+    const modal = document.createElement('div');
+    modal.id = 'proofPreviewModal';
+    modal.style = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 9999; display: flex; align-items: center; justify-content: center; flex-direction: column; padding: 20px;';
+    
+    const content = `
+        <div style="position: relative; max-width: 90%; max-height: 80vh;">
+            <img src="${url}" style="max-width: 100%; max-height: 80vh; border: 2px solid var(--neon-cyan); border-radius: 8px;" onerror="this.onerror=null; this.parentElement.innerHTML='<div style=\'color:white; padding:50px; text-align:center;\'><i class=\'fas fa-file-pdf fa-5x\'></i><br><br>File PDF tidak dapat dipratinjau.<br><a href=\'${url}\' target=\'_blank\' class=\'btn btn-primary\' style=\'margin-top:20px; text-decoration:none;\'>Download / Buka PDF</a></div>';">
+            <button onclick="document.getElementById('proofPreviewModal').remove()" style="position: absolute; top: -40px; right: -40px; background: none; border: none; color: white; font-size: 2rem; cursor: pointer;">&times;</button>
+        </div>
+        <div style="margin-top: 20px;">
+            <a href="${url}" target="_blank" class="btn btn-secondary"><i class="fas fa-external-link-alt"></i> Buka Original</a>
+            <button class="btn btn-primary" onclick="document.getElementById('proofPreviewModal').remove()"><i class="fas fa-times"></i> Tutup</button>
+        </div>
+    `;
+    
+    modal.innerHTML = content;
+    document.body.appendChild(modal);
+    
+    modal.onclick = function(e) {
+        if (e.target === modal) modal.remove();
+    };
+}
 </script>
 
 <?php
