@@ -72,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $filename = 'inv_' . $invoiceId . '_' . time() . '.' . $ext;
                 $uploadPath = $uploadDir . $filename;
                 
-                if (move_uploaded_file($file['tmp_name'], $uploadPath)) {
+                if (compressImage($file['tmp_name'], $uploadPath, 60)) {
                     update('invoices', [
                         'payment_method' => 'manual',
                         'payment_proof' => 'receipts/' . $filename,

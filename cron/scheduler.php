@@ -46,7 +46,8 @@ function runScheduler() {
             ['name' => 'Auto Invoice', 'task_type' => 'auto_invoice'],
             ['name' => 'Auto Isolir', 'task_type' => 'auto_isolir'],
             ['name' => 'System Heartbeat', 'task_type' => 'system_ping'],
-            ['name' => 'Hotspot Expiry Monitor', 'task_type' => 'hotspot_expiry']
+            ['name' => 'Hotspot Expiry Monitor', 'task_type' => 'hotspot_expiry'],
+            ['name' => 'Data Cleanup', 'task_type' => 'data_cleanup']
         ];
 
         foreach ($criticalTasks as $task) {
@@ -140,6 +141,11 @@ function runScheduler() {
                         echo "Running hotspot expiry monitor...\n";
                         $count = mikrotikMonitorHotspotExpiry();
                         echo "  ✓ Checked and cleaned $count expired hotspot users.\n";
+                        break;
+                    
+                    case 'data_cleanup':
+                        echo "Running automated data cleanup...\n";
+                        runDataCleanup($pdo);
                         break;
 
                     default:
@@ -557,6 +563,51 @@ function runSystemPing($pdo)
             }
         }
     }
+}
+
+/**
+ * Handle data cleanup: voucher history and storage optimization
+ */
+function runDataCleanup($pdo)
+{
+    echo "  Starting history cleanup...\n";
+    
+    // 1. Cleanup Global Vouchers (30 days after use)
+    try {
+        $deletedVouchers = $pdo->exec("DELETE FROM vouchers WHERE status = 'used' AND used_at < DATE_SUB(NOW(), INTERVAL 30 DAY)");
+        if ($deletedVouchers > 0) echo "  ✓ Purged $deletedVouchers old used vouchers from global pool.\n";
+    } catch (Throwable $e) { echo "  ✗ Global pool cleanup skipped (Table may not exist).\n"; }
+    
+    // 2. Cleanup Sales History (14 days after expiry)
+    $activeSales = fetchAll("SELECT id, used_at, validity FROM hotspot_sales WHERE status = 'active' AND used_at IS NOT NULL AND used_at < DATE_SUB(NOW(), INTERVAL 14 DAY)");
+    
+    $deletedSalesCount = 0;
+    foreach ($activeSales as $sale) {
+        $validityStr = $sale['validity'];
+        $daysToAdd = 0;
+        
+        if (preg_match('/(\d+)d/i', $validityStr, $matches)) {
+            $daysToAdd = (int)$matches[1];
+        } elseif (preg_match('/(\d+)h/i', $validityStr, $matches)) {
+            $daysToAdd = (int)$matches[1] / 24;
+        } elseif (preg_match('/(\d+)w/i', $validityStr, $matches)) {
+            $daysToAdd = (int)$matches[1] * 7;
+        }
+        
+        $expiryTimestamp = strtotime($sale['used_at'] . " + " . ceil($daysToAdd) . " days");
+        $purgeThreshTimestamp = strtotime("+14 days", $expiryTimestamp);
+        
+        if (time() > $purgeThreshTimestamp) {
+            $pdo->prepare("DELETE FROM hotspot_sales WHERE id = ?")->execute([$sale['id']]);
+            $deletedSalesCount++;
+        }
+    }
+    
+    // Also purge very old inactive/unused sales history (60 days)
+    $pdo->exec("DELETE FROM hotspot_sales WHERE status = 'inactive' AND created_at < DATE_SUB(NOW(), INTERVAL 60 DAY)");
+    
+    if ($deletedSalesCount > 0) echo "  ✓ Purged $deletedSalesCount old expired vouchers from Sales Panels.\n";
+    echo "  Data cleanup completed.\n";
 }
 
 echo "\n";

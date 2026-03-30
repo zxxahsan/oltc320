@@ -1410,3 +1410,41 @@ function formatBytes($bytes, $precision = 2)
     $bytes /= pow(1024, $pow);
     return round($bytes, $precision) . ' ' . $units[$pow];
 }
+
+/**
+ * Compress and save an uploaded image
+ * @param string $source Path to source file
+ * @param string $destination Path to destination file
+ * @param int $quality Compression quality (1-100)
+ * @return bool Success status
+ */
+function compressImage($source, $destination, $quality = 60)
+{
+    $info = getimagesize($source);
+    if ($info['mime'] == 'image/jpeg') {
+        $image = imagecreatefromjpeg($source);
+        // Fix orientation if EXIF data exists
+        if (function_exists('exif_read_data')) {
+            $exif = @exif_read_data($source);
+            if ($exif && isset($exif['Orientation'])) {
+                switch ($exif['Orientation']) {
+                    case 3: $image = imagerotate($image, 180, 0); break;
+                    case 6: $image = imagerotate($image, -90, 0); break;
+                    case 8: $image = imagerotate($image, 90, 0); break;
+                }
+            }
+        }
+        imagejpeg($image, $destination, $quality);
+    } elseif ($info['mime'] == 'image/png') {
+        $image = imagecreatefrompng($source);
+        // PNG quality is 0-9 (0 = no compression, 9 = max)
+        // Convert 1-100 to 0-9
+        $png_quality = floor((100 - $quality) / 10);
+        imagepng($image, $destination, $png_quality);
+    } else {
+        return move_uploaded_file($source, $destination);
+    }
+    
+    imagedestroy($image);
+    return true;
+}

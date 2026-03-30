@@ -95,7 +95,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (!is_dir($uploadDir)) mkdir($uploadDir, 0777, true);
 
                 $fileName = 'topup_' . $id . '_' . time() . '.' . $ext;
-                if (move_uploaded_file($file['tmp_name'], $uploadDir . $fileName)) {
+                if (compressImage($file['tmp_name'], $uploadDir . $fileName, 60)) {
                     update('sales_topups', [
                         'payment_proof' => 'uploads/proofs/' . $fileName,
                         'updated_at' => date('Y-m-d H:i:s')
