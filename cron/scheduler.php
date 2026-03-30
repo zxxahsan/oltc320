@@ -68,12 +68,10 @@ function runScheduler() {
 
         try {
             // Self-heal: Force critical jobs to check continuously instead of daily
-            $pdo->exec("UPDATE cron_schedules SET schedule_days = 'every_minute' WHERE task_type IN ('auto_isolir', 'auto_invoice')");
-            // Set hotspot_expiry to 20 minutes as requested by user
-            $pdo->exec("UPDATE cron_schedules SET schedule_days = 'every_20_minutes' WHERE task_type = 'hotspot_expiry'");
+            $pdo->exec("UPDATE cron_schedules SET schedule_days = 'every_minute' WHERE task_type IN ('auto_isolir', 'auto_invoice', 'hotspot_expiry')");
             
             // Self-heal: If any every_minute job is stuck more than 5 minutes in the future (due to old daily caching), pull it back to NOW
-            $pdo->exec("UPDATE cron_schedules SET next_run = NULL WHERE schedule_days IN ('every_minute', 'every_20_minutes') AND next_run > DATE_ADD(NOW(), INTERVAL 20 MINUTE)");
+            $pdo->exec("UPDATE cron_schedules SET next_run = NULL WHERE schedule_days = 'every_minute' AND next_run > DATE_ADD(NOW(), INTERVAL 5 MINUTE)");
             
             // Anti-stall: Forcibly clear any dead locks from previously crashed executions
             $pdo->exec("UPDATE cron_schedules SET last_status = 'failed' WHERE last_status = 'running' AND (last_run IS NULL OR last_run < DATE_SUB(NOW(), INTERVAL 5 MINUTE))");
