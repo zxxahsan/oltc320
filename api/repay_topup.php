@@ -24,7 +24,9 @@ if ($topup && $topup['status'] === 'pending' && $topup['payment_method'] === 'tr
         $topup['amount'],
         $sales['name'],
         $sales['phone'] ?? '08123456789',
-        date('Y-m-d H:i:s', strtotime('+1 day'))
+        date('Y-m-d H:i:s', strtotime('+1 day')),
+        $topup['payment_method_code'] ?? '',
+        "Top Up Saldo"
     );
     
     if ($res['success']) {

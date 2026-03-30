@@ -115,7 +115,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $invoice['customer_phone'],
                 $invoice['due_date'],
                 $defaultGateway,
-                $selectedPaymentMethod
+                $selectedPaymentMethod,
+                "Tagihan Bulan Berjalan"
             );
             
             if ($result['success']) {

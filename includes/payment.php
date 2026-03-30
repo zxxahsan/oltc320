@@ -6,10 +6,10 @@
 require_once 'config.php';
 
 // Generate payment link based on gateway
-function generatePaymentLink($reference, $amount, $customerName, $customerPhone, $dueDate, $gateway = 'tripay', $paymentMethod = '') {
+function generatePaymentLink($reference, $amount, $customerName, $customerPhone, $dueDate, $gateway = 'tripay', $paymentMethod = '', $itemName = 'Pembayaran Layanan') {
     // Only Tripay is supported now
     if ($gateway === 'tripay') {
-        return generateTripayPaymentLink($reference, $amount, $customerName, $customerPhone, $dueDate, $paymentMethod);
+        return generateTripayPaymentLink($reference, $amount, $customerName, $customerPhone, $dueDate, $paymentMethod, $itemName);
     }
     
     return [
@@ -20,7 +20,7 @@ function generatePaymentLink($reference, $amount, $customerName, $customerPhone,
 }
 
 // Tripay Payment Link Generator (Closed Payment API)
-function generateTripayPaymentLink($merchantRef, $amount, $customerName, $customerPhone, $dueDate, $paymentMethod = '') {
+function generateTripayPaymentLink($merchantRef, $amount, $customerName, $customerPhone, $dueDate, $paymentMethod = '', $itemName = 'Pembayaran Layanan') {
     $apiKey       = getSetting('TRIPAY_API_KEY');
     $privateKey   = getSetting('TRIPAY_PRIVATE_KEY');
     $merchantCode = getSetting('TRIPAY_MERCHANT_CODE');
@@ -63,7 +63,7 @@ function generateTripayPaymentLink($merchantRef, $amount, $customerName, $custom
         'order_items'    => [
             [
                 'sku'         => 'BILL',
-                'name'        => 'Pembayaran Layanan',
+                'name'        => $itemName,
                 'price'       => $amountInt,
                 'quantity'    => 1,
                 'product_url' => APP_URL,
