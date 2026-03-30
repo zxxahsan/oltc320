@@ -54,51 +54,6 @@ if (isset($_GET['switch_router'])) {
 
     <style>
         :root {
-            /* Status Dot */
-            .status-dot {
-                height: 10px;
-                width: 10px;
-                background-color: #bbb;
-                border-radius: 50%;
-                display: inline-block;
-                margin-right: 5px;
-            }
-            .status-online {
-                background-color: var(--neon-green);
-                box-shadow: 0 0 8px var(--neon-green);
-                animation: pulse-green 2s infinite;
-            }
-            @keyframes pulse-green {
-                0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 255, 136, 0.7); }
-                70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(0, 255, 136, 0); }
-                100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 255, 136, 0); }
-            }
-
-            /* Floating Theme Toggle */
-            .floating-theme-toggle {
-                position: fixed;
-                top: 25px; 
-                right: 20px;
-                z-index: 1050;
-                background: var(--gradient-primary);
-                width: 45px;
-                height: 45px;
-                border-radius: 12px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                box-shadow: 0 4px 15px rgba(0, 245, 255, 0.4);
-                cursor: pointer;
-                border: none;
-                transition: transform 0.3s;
-                color: #fff;
-                font-size: 1.1rem;
-            }
-            .floating-theme-toggle:hover {
-                transform: scale(1.1);
-                box-shadow: 0 6px 20px rgba(0, 245, 255, 0.6);
-            }
-
             /* Dark Neon Theme (Default) */
             --bg-primary: #0a0a0f;
             --bg-secondary: #12121a;
@@ -913,6 +868,12 @@ if (isset($_GET['switch_router'])) {
                     <span>Topup Saldo</span>
                 </a>
 
+                <a href="<?php echo APP_URL; ?>/sales/topup-history.php"
+                    class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'topup-history.php' ? 'active' : ''; ?>">
+                    <i class="fas fa-history"></i>
+                    <span>Riwayat Topup</span>
+                </a>
+
                 <a href="<?php echo APP_URL; ?>/sales/profile.php"
                     class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'profile.php' ? 'active' : ''; ?>">
                     <i class="fas fa-user-cog"></i>
@@ -932,7 +893,7 @@ if (isset($_GET['switch_router'])) {
                 <i class="fas fa-ticket-alt"></i>
                 <span>Voucher</span>
             </a>
-            <a href="<?php echo APP_URL; ?>/sales/topup.php" class="bottom-nav-item <?php echo basename($_SERVER['PHP_SELF']) === 'topup.php' ? 'active' : ''; ?>">
+            <a href="<?php echo APP_URL; ?>/sales/topup.php" class="bottom-nav-item <?php echo (basename($_SERVER['PHP_SELF']) === 'topup.php' || basename($_SERVER['PHP_SELF']) === 'topup-history.php') ? 'active' : ''; ?>">
                 <i class="fas fa-wallet"></i>
                 <span>Topup</span>
             </a>
@@ -955,9 +916,20 @@ if (isset($_GET['switch_router'])) {
                     <h1 style="margin: 0; font-size: 1.3rem;"><?php echo htmlspecialchars($pageTitle); ?></h1>
                 </div>
                 <div class="header-actions">
+                    <!-- Theme Toggle -->
+                    <button class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle Light/Dark Mode">
+                        <i class="fas fa-moon" id="themeIcon"></i>
+                    </button>
                     <span style="color: var(--text-secondary);">
                         <i class="fas fa-user-circle"></i>
                         <?php echo htmlspecialchars($_SESSION['sales']['name'] ?? 'Sales'); ?>
+                    </span>
+                    <span class="badge badge-success" style="margin-left: 10px; background: var(--neon-green); color: #000;">
+                        <?php 
+                        // Refresh balance
+                        $me = getSalesUser($_SESSION['sales']['id']);
+                        echo formatCurrency($me['deposit_balance']); 
+                        ?>
                     </span>
                 </div>
             </div>
@@ -988,11 +960,6 @@ if (isset($_GET['switch_router'])) {
         <!-- Page Content -->
         <?php echo $content; ?>
     </div>
-
-    <!-- Floating Theme Toggle -->
-    <button class="floating-theme-toggle" onclick="toggleTheme()" title="Ganti Tema">
-        <i class="fas fa-moon" id="themeIcon"></i>
-    </button>
 
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/simple-datatables@latest/dist/umd/simple-datatables.min.js"></script>

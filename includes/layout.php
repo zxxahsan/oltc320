@@ -1057,6 +1057,11 @@ if (isset($_GET['switch_router'])) {
                         style="padding-left: 45px; font-size: 0.9rem;">
                         <i class="fas fa-history"></i> <span>Riwayat Transaksi</span>
                     </a>
+                    <a href="<?php echo APP_URL; ?>/admin/sales-topups.php"
+                        class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'sales-topups.php' ? 'active' : ''; ?>"
+                        style="padding-left: 45px; font-size: 0.9rem;">
+                        <i class="fas fa-wallet"></i> <span>Persetujuan Topup</span>
+                    </a>
                 </div>
 
                 <div class="menu-item <?php echo (basename($_SERVER['PHP_SELF']) === 'mikrotik.php') ? 'active' : ''; ?>"
@@ -1185,7 +1190,7 @@ if (isset($_GET['switch_router'])) {
                 <a href="<?php echo APP_URL; ?>/admin/cron_logs.php"
                     class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'cron_logs.php' ? 'active' : ''; ?>">
                     <i class="fas fa-microchip"></i>
-                    <span>MikroTik Scheduler</span>
+                    <span>Log Cronjob</span>
                 </a>
 
                 <div style="margin-top: 20px; border-top: 1px solid var(--border-color);"></div>

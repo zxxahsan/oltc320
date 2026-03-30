@@ -62,6 +62,11 @@ ob_start();
                         <span>Laporan Sales</span>
                     </a>
 
+                    <a href="sales-topups.php" class="menu-grid-item">
+                        <i class="fas fa-wallet"></i>
+                        <span>Persetujuan Topup</span>
+                    </a>
+
                     <a href="sales-history.php" class="menu-grid-item">
                         <i class="fas fa-history"></i>
                         <span>Riwayat Transaksi</span>

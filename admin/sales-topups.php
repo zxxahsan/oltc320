@@ -9,6 +9,56 @@ requireAdminLogin();
 $pageTitle = 'Manajemen Topup Sales';
 
 // Handle Actions
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    $action = $_POST['action'];
+    $id = (int)$_POST['id'];
+    
+    $topup = fetchOne("SELECT * FROM sales_topups WHERE id = ?", [$id]);
+    
+    if ($topup && $topup['status'] === 'pending') {
+        if ($action === 'revisi_approve') {
+            $amount = (float)$_POST['amount'];
+            if ($amount <= 0) {
+                setFlash('error', 'Jumlah harus lebih dari 0');
+            } else {
+                try {
+                    beginTransaction();
+                    
+                    // Update topup status and amount
+                    update('sales_topups', [
+                        'amount' => $amount,
+                        'status' => 'paid',
+                        'updated_at' => date('Y-m-d H:i:s')
+                    ], 'id = ?', [$id]);
+                    
+                    // Add balance to sales user
+                    $pdo = getDB();
+                    $stmt = $pdo->prepare("UPDATE sales_users SET deposit_balance = deposit_balance + ? WHERE id = ?");
+                    $stmt->execute([$amount, $topup['sales_user_id']]);
+                    
+                    // Record Transaction
+                    insert('sales_transactions', [
+                        'sales_user_id' => $topup['sales_user_id'],
+                        'type' => 'deposit',
+                        'amount' => $amount,
+                        'description' => 'Topup (Revisi Admin): ID ' . $id,
+                        'created_at' => date('Y-m-d H:i:s')
+                    ]);
+                    
+                    logActivity('ADMIN_REVISI_APPROVE_TOPUP', "Topup ID: {$id}, Amount: {$amount}, Prev: {$topup['amount']}");
+                    
+                    commit();
+                    setFlash('success', 'Topup berhasil direvisi dan disetujui');
+                } catch (Exception $e) {
+                    rollback();
+                    setFlash('error', 'Gagal memproses: ' . $e->getMessage());
+                }
+            }
+        }
+    }
+    redirect('sales-topups.php');
+}
+
 if (isset($_GET['action']) && isset($_GET['id'])) {
     $id = (int)$_GET['id'];
     $action = $_GET['action'];
@@ -17,23 +67,24 @@ if (isset($_GET['action']) && isset($_GET['id'])) {
     
     if ($topup && $topup['status'] === 'pending') {
         if ($action === 'approve') {
-            // Transactional update
+            // ... existing approve logic ...
             try {
                 beginTransaction();
-                
-                // Update topup status
-                update('sales_topups', [
-                    'status' => 'paid',
-                    'updated_at' => date('Y-m-d H:i:s')
-                ], 'id = ?', [$id]);
-                
-                // Add balance
+                update('sales_topups', ['status' => 'paid', 'updated_at' => date('Y-m-d H:i:s')], 'id = ?', [$id]);
                 $pdo = getDB();
                 $stmt = $pdo->prepare("UPDATE sales_users SET deposit_balance = deposit_balance + ? WHERE id = ?");
                 $stmt->execute([$topup['amount'], $topup['sales_user_id']]);
                 
+                // Also record in transactions
+                insert('sales_transactions', [
+                    'sales_user_id' => $topup['sales_user_id'],
+                    'type' => 'deposit',
+                    'amount' => $topup['amount'],
+                    'description' => 'Topup (Approve Admin): ID ' . $id,
+                    'created_at' => date('Y-m-d H:i:s')
+                ]);
+
                 logActivity('ADMIN_APPROVE_TOPUP', "Topup ID: {$id}, Sales ID: {$topup['sales_user_id']}, Amount: {$topup['amount']}");
-                
                 commit();
                 setFlash('success', 'Topup berhasil disetujui');
             } catch (Exception $e) {
@@ -41,10 +92,7 @@ if (isset($_GET['action']) && isset($_GET['id'])) {
                 setFlash('error', 'Gagal memproses topup: ' . $e->getMessage());
             }
         } elseif ($action === 'cancel') {
-            update('sales_topups', [
-                'status' => 'cancelled',
-                'updated_at' => date('Y-m-d H:i:s')
-            ], 'id = ?', [$id]);
+            update('sales_topups', ['status' => 'cancelled', 'updated_at' => date('Y-m-d H:i:s')], 'id = ?', [$id]);
             setFlash('success', 'Permintaan topup berhasil dibatalkan');
         }
     }
@@ -111,25 +159,22 @@ ob_start();
                         <?php endif; ?>
                     </td>
                     <td data-label="Aksi">
-                        <?php if ($t['status'] === 'pending' && $t['payment_method'] === 'manual'): ?>
+                        <?php if ($t['status'] === 'pending'): ?>
                             <div style="display: flex; gap: 5px;">
                                 <a href="?action=approve&id=<?php echo $t['id']; ?>" 
                                    class="btn btn-sm btn-success" 
-                                   onclick="return confirm('Setujui topup manual ini?')">
+                                   onclick="return confirm('Setujui topup ini?')">
                                     <i class="fas fa-check"></i> Approve
                                 </a>
+                                <button type="button" class="btn btn-sm btn-info" onclick='showEditModal(<?php echo json_encode($t); ?>)'>
+                                    <i class="fas fa-edit"></i> Edit
+                                </button>
                                 <a href="?action=cancel&id=<?php echo $t['id']; ?>" 
                                    class="btn btn-sm btn-danger"
                                    onclick="return confirm('Batalkan permintaan ini?')">
-                                    <i class="fas fa-times"></i> Tolak
+                                    <i class="fas fa-times"></i> Batalkan
                                 </a>
                             </div>
-                        <?php elseif ($t['status'] === 'pending' && $t['payment_method'] === 'tripay'): ?>
-                             <a href="?action=cancel&id=<?php echo $t['id']; ?>" 
-                                   class="btn btn-sm btn-danger"
-                                   onclick="return confirm('Batalkan permintaan ini?')">
-                                    <i class="fas fa-times"></i> Batalkan
-                             </a>
                         <?php else: ?>
                             -
                         <?php endif; ?>
@@ -141,14 +186,53 @@ ob_start();
     </div>
 </div>
 
+<!-- Edit Modal -->
+<div id="editModal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;">
+    <div class="modal-content" style="background: var(--bg-card); margin: 10% auto; padding: 20px; width: 90%; max-width: 400px; border-radius: 10px; border: 1px solid var(--border-color);">
+        <h3>Revisi & Setujui Topup</h3>
+        <p>Sales: <strong id="edit_sales_name"></strong></p>
+        <form method="POST">
+            <input type="hidden" name="action" value="revisi_approve">
+            <input type="hidden" name="id" id="edit_id">
+            <div class="form-group">
+                <label>Jumlah Revisi (Rp)</label>
+                <input type="number" name="amount" id="edit_amount" class="form-control" required min="1">
+                <small class="text-muted">Ubah jika jumlah yang ditransfer berbeda.</small>
+            </div>
+            <div style="text-align: right; margin-top: 20px;">
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">Batal</button>
+                <button type="submit" class="btn btn-success">Sesuai & Approve</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
+function showEditModal(data) {
+    document.getElementById('edit_id').value = data.id;
+    document.getElementById('edit_sales_name').textContent = data.sales_name;
+    document.getElementById('edit_amount').value = data.amount;
+    document.getElementById('editModal').style.display = 'block';
+}
+
+function closeModal() {
+    document.getElementById('editModal').style.display = 'none';
+}
+
 document.addEventListener('DOMContentLoaded', function() {
-    const dataTable = new simpleDatatables.DataTable("#topupsTable", {
+    new simpleDatatables.DataTable("#topupsTable", {
         searchable: true,
         fixedHeight: false,
         perPage: 10
     });
 });
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    if (event.target == document.getElementById('editModal')) {
+        closeModal();
+    }
+}
 </script>
 
 <?php
