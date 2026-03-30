@@ -58,7 +58,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     );
                     
                     if ($res['success']) {
-                        header("Location: " . $res['link']);
+                        // Use the new robust redirector to fix ShopeePay/Dana deep-link issues
+                        $redirectUrl = APP_URL . "/payment_redirect.php?url=" . urlencode($res['link']);
+                        header("Location: " . $redirectUrl);
                         exit;
                     } else {
                         setFlash('error', 'Gagal membuat link pembayaran: ' . $res['message']);
@@ -111,12 +113,34 @@ $history = fetchAll("SELECT * FROM sales_topups WHERE sales_user_id = ? ORDER BY
 ob_start();
 ?>
 
+<?php
+$sales = getSalesUser($salesId);
+?>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: 25px;">
+    <!-- Sales Context Card -->
+    <div class="card" style="flex: 1; min-width: 300px; background: linear-gradient(135deg, rgba(191,0,255,0.1) 0%, rgba(0,245,255,0.05) 100%); border: 1px solid rgba(0, 245, 255, 0.2);">
+        <div class="card-body" style="display: flex; align-items: center; gap: 20px;">
+            <div style="width: 60px; height: 60px; background: var(--neon-purple); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; color: #fff; box-shadow: 0 0 15px rgba(191, 0, 255, 0.5);">
+                <i class="fas fa-user-tie"></i>
+            </div>
+            <div>
+                <div style="font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">Topup Saldo Atas Nama:</div>
+                <h2 style="margin: 5px 0; color: var(--text-primary); font-size: 1.4rem;"><?php echo htmlspecialchars($sales['name']); ?></h2>
+                <div style="display: flex; gap: 15px; font-size: 0.9rem;">
+                    <span><i class="fas fa-wallet" style="color: var(--neon-cyan);"></i> Saldo: <strong style="color: var(--neon-cyan);"><?php echo formatCurrency($sales['balance']); ?></strong></span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div style="display: flex; flex-wrap: wrap; gap: 25px; align-items: flex-start;">
     <!-- Topup Form -->
     <div style="flex: 1; min-width: 320px;">
         <div class="card">
             <div class="card-header">
-                <h3 class="card-title"><i class="fas fa-plus-circle"></i> Isi Saldo</h3>
+                <h3 class="card-title"><i class="fas fa-plus-circle"></i> Buat Permintaan Topup</h3>
             </div>
             
             <?php if (!$enableTripay && !$enableManual): ?>
@@ -125,67 +149,83 @@ ob_start();
                     Maaf, layanan topup sedang dinonaktifkan oleh Admin.
                 </div>
             <?php else: ?>
-                <form method="POST">
+                <form method="POST" id="topupForm">
                     <div class="form-group">
-                        <label class="form-label">Jumlah Topup (IDR)</label>
-                        <input type="number" name="amount" class="form-control" placeholder="Minimal 50000" min="50000" required>
-                        <small style="color: var(--text-muted);">Minimal Rp 50.000</small>
+                        <label class="form-label">Nominal Topup (IDR)</label>
+                        <input type="number" name="amount" class="form-control" placeholder="Contoh: 100000" min="50000" required style="font-size: 1.2rem; font-weight: 700; height: 50px;">
+                        <small style="color: var(--text-muted);">Minimal pengisian Rp 50.000</small>
                     </div>
                     
                     <div class="form-group">
                         <label class="form-label">Metode Pembayaran</label>
-                        <div style="display: grid; gap: 10px;">
-                            <div id="tripay-selection" style="display: <?php echo $enableTripay ? 'block' : 'none'; ?>; border: 1px solid var(--border-color); border-radius: 10px; padding: 15px; background: rgba(0,0,0,0.2);">
-                                <label class="form-label">Pilih Channel Tripay (Otomatis)</label>
-                                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; margin-top: 10px;">
-                                    <?php if ($channelError): ?>
-                                        <div style="grid-column: 1/-1; text-align: center; color: #ff6b6b; font-size: 0.8rem; padding: 10px; border: 1px solid rgba(255,0,0,0.2); border-radius: 8px;">
-                                            <i class="fas fa-exclamation-triangle"></i> <?php echo htmlspecialchars($channelError); ?>
-                                        </div>
-                                    <?php elseif (empty($paymentMethods)): ?>
-                                        <div style="grid-column: 1/-1; text-align: center; color: var(--text-muted); font-size: 0.8rem; padding: 10px;">
-                                            <i class="fas fa-info-circle"></i> Tidak ada channel pembayaran aktif.
-                                        </div>
-                                    <?php else: ?>
-                                        <?php foreach ($paymentMethods as $m): ?>
-                                            <label class="tripay-option" style="border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; text-align: center; cursor: pointer; transition: all 0.3s; display: block; position: relative;" onclick="selectTripayMethod(this)">
-                                                <input type="radio" name="tripay_method" value="<?php echo $m['code']; ?>" style="opacity: 0; position: absolute; width:1px; height:1px;" required>
-                                                <img src="<?php echo $m['icon_url']; ?>" alt="<?php echo $m['name']; ?>" style="height: 25px; margin-bottom: 5px;">
-                                                <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                                                    <?php echo $m['name']; ?>
-                                                </div>
-                                            </label>
-                                        <?php endforeach; ?>
-                                    <?php endif; ?>
-                                </div>
-                                <input type="hidden" name="method" value="tripay">
-                            </div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px;">
                             
-                            <?php if ($enableManual): ?>
-                            <label style="display: flex; align-items: center; gap: 12px; padding: 15px; background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); border-radius: 10px; cursor: pointer; transition: all 0.3s;" class="method-option">
-                                <input type="radio" name="method" value="manual" <?php echo !$enableTripay ? 'checked' : ''; ?> style="width: 18px; height: 18px;">
-                                <div style="flex: 1;">
-                                    <div style="font-weight: 600; color: var(--neon-purple);">Manual (Transfer Bank)</div>
-                                    <small style="color: var(--text-muted);">Konfirmasi manual oleh Admin</small>
+                            <?php if ($enableTripay): ?>
+                            <div class="selection-card" onclick="selectPaymentGroup('tripay')" id="card-tripay" style="border: 1px solid var(--border-color); border-radius: 12px; padding: 15px; text-align: center; cursor: pointer; transition: all 0.3s; background: var(--bg-input);">
+                                <input type="radio" name="method" value="tripay" id="radio-tripay" style="display: none;" <?php echo $enableTripay ? 'checked' : ''; ?>>
+                                <div style="font-size: 1.5rem; color: var(--neon-cyan); margin-bottom: 8px;">
+                                    <i class="fas fa-bolt"></i>
                                 </div>
-                                <i class="fas fa-university" style="color: var(--neon-purple);"></i>
-                            </label>
+                                <div style="font-weight: 600; font-size: 0.9rem;">Otomatis</div>
+                                <small style="font-size: 0.65rem; color: var(--text-muted);">Tripay Gateway</small>
+                            </div>
+                            <?php endif; ?>
+
+                            <?php if ($enableManual): ?>
+                            <div class="selection-card" onclick="selectPaymentGroup('manual')" id="card-manual" style="border: 1px solid var(--border-color); border-radius: 12px; padding: 15px; text-align: center; cursor: pointer; transition: all 0.3s; background: var(--bg-input);">
+                                <input type="radio" name="method" value="manual" id="radio-manual" style="display: none;" <?php echo !$enableTripay ? 'checked' : ''; ?>>
+                                <div style="font-size: 1.5rem; color: var(--neon-purple); margin-bottom: 8px;">
+                                    <i class="fas fa-university"></i>
+                                </div>
+                                <div style="font-weight: 600; font-size: 0.9rem;">Manual</div>
+                                <small style="font-size: 0.65rem; color: var(--text-muted);">Transfer Bank</small>
+                            </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <!-- Tripay Channels Subset -->
+                    <div id="tripay-selection" style="display: none; margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 20px;">
+                        <label class="form-label" style="font-size: 0.8rem; color: var(--text-muted);"><i class="fas fa-chevron-right"></i> Pilih Bank / Dompet Digital:</label>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; margin-top: 10px;">
+                            <?php if ($channelError): ?>
+                                <div style="grid-column: 1/-1; text-align: center; color: #ff6b6b; font-size: 0.8rem; padding: 10px; border: 1px solid rgba(255,0,0,0.2); border-radius: 8px;">
+                                    <i class="fas fa-exclamation-triangle"></i> <?php echo htmlspecialchars($channelError); ?>
+                                </div>
+                            <?php elseif (empty($paymentMethods)): ?>
+                                <div style="grid-column: 1/-1; text-align: center; color: var(--text-muted); font-size: 0.8rem; padding: 10px;">
+                                    <i class="fas fa-info-circle"></i> Tidak ada channel aktif.
+                                </div>
+                            <?php else: ?>
+                                <?php foreach ($paymentMethods as $m): ?>
+                                    <label class="tripay-option-card" style="border: 1px solid var(--border-color); border-radius: 10px; padding: 12px; text-align: center; cursor: pointer; transition: all 0.3s; display: block; position: relative; background: rgba(255,255,255,0.02);" onclick="selectTripayMethod(this)">
+                                        <input type="radio" name="tripay_method" value="<?php echo $m['code']; ?>" style="opacity: 0; position: absolute; width:1px; height:1px;" required>
+                                        <img src="<?php echo $m['icon_url']; ?>" alt="<?php echo $m['name']; ?>" style="height: 20px; filter: grayscale(0.2); transition: all 0.3s;">
+                                        <div style="font-size: 0.7rem; font-weight: 500; color: var(--text-secondary); margin-top: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                            <?php echo $m['name']; ?>
+                                        </div>
+                                    </label>
+                                <?php endforeach; ?>
                             <?php endif; ?>
                         </div>
                     </div>
                     
                     <?php if ($enableManual): ?>
-                    <div id="manual-info" style="display: none; background: rgba(191,0,255,0.05); border: 1px solid var(--neon-purple); padding: 15px; border-radius: 10px; margin-bottom: 20px;">
-                        <div style="font-weight: 600; color: var(--neon-purple); margin-bottom: 8px;">
-                            <i class="fas fa-info-circle"></i> Instruksi Pembayaran:
+                    <div id="manual-info" style="display: none; background: rgba(191,0,255,0.05); border: 1px solid rgba(191, 0, 255, 0.3); padding: 15px; border-radius: 12px; margin-top: 20px;">
+                        <div style="font-weight: 600; color: var(--neon-purple); margin-bottom: 8px; font-size: 0.9rem;">
+                            <i class="fas fa-university"></i> Rekening Tujuan:
                         </div>
-                        <div style="white-space: pre-wrap; font-size: 0.9rem; color: var(--text-secondary);"><?php echo htmlspecialchars($manualInfo); ?></div>
+                        <div style="white-space: pre-wrap; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6;"><?php echo htmlspecialchars($manualInfo); ?></div>
+                        <div style="margin-top: 12px; font-size: 0.75rem; color: var(--text-muted);">* Setelah transfer, silakan lampirkan bukti pada tabel riwayat di bawah.</div>
                     </div>
                     <?php endif; ?>
                     
-                    <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 15px; font-size: 1rem;">
-                        <i class="fas fa-paper-plane"></i> Lanjutkan Pembayaran
+                    <button type="submit" id="submitBtn" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 15px; font-size: 1rem; margin-top: 25px; box-shadow: 0 4px 15px rgba(0, 245, 255, 0.2);">
+                        <i class="fas fa-check-circle"></i> Konfirmasi & Bayar
                     </button>
+                    <div id="processing" style="display: none; text-align: center; margin-top: 15px; color: var(--neon-cyan); font-size: 0.9rem;">
+                        <i class="fas fa-spinner fa-spin"></i> Menghubungkan ke Gateway...
+                    </div>
                 </form>
             <?php endif; ?>
         </div>
@@ -296,27 +336,56 @@ ob_start();
 </div>
 
 <style>
-.method-option:has(input:checked) {
+.selection-card.active {
     border-color: var(--neon-cyan) !important;
     background: rgba(0, 245, 255, 0.1) !important;
+    box-shadow: 0 0 15px rgba(0, 245, 255, 0.2);
+    transform: translateY(-2px);
 }
-.tripay-option:has(input:checked) {
+.tripay-option-card.active {
     border-color: var(--neon-cyan) !important;
-    background: rgba(0, 245, 255, 0.05) !important;
-    box-shadow: 0 0 10px rgba(0, 245, 255, 0.2);
+    background: rgba(0, 245, 255, 0.08) !important;
+    box-shadow: 0 0 10px rgba(0, 245, 255, 0.15);
+}
+.tripay-option-card.active img {
+    filter: grayscale(0) !important;
+    transform: scale(1.1);
 }
 </style>
 
 <script>
+function selectPaymentGroup(group) {
+    document.querySelectorAll('input[name="method"]').forEach(input => {
+        input.checked = (input.value === group);
+    });
+    
+    document.querySelectorAll('.selection-card').forEach(card => {
+        card.classList.remove('active');
+    });
+    document.getElementById('card-' + group).classList.add('active');
+    
+    const manualInfo = document.getElementById('manual-info');
+    const tripaySelection = document.getElementById('tripay-selection');
+    
+    if (group === 'manual') {
+        if (manualInfo) manualInfo.style.display = 'block';
+        if (tripaySelection) tripaySelection.style.display = 'none';
+        document.querySelectorAll('input[name="tripay_method"]').forEach(input => input.required = false);
+    } else {
+        if (manualInfo) manualInfo.style.display = 'none';
+        if (tripaySelection) tripaySelection.style.display = 'block';
+        document.querySelectorAll('input[name="tripay_method"]').forEach(input => input.required = true);
+    }
+}
+
 function selectTripayMethod(el) {
     document.querySelectorAll('input[name="tripay_method"]').forEach(input => { input.checked = false; });
     el.querySelector('input').checked = true;
-    document.querySelectorAll('.tripay-option').forEach(item => { 
-        item.style.borderColor = 'var(--border-color)';
-        item.style.background = 'transparent';
+    
+    document.querySelectorAll('.tripay-option-card').forEach(item => { 
+        item.classList.remove('active');
     });
-    el.style.borderColor = 'var(--neon-cyan)';
-    el.style.background = 'rgba(0, 245, 255, 0.05)';
+    el.classList.add('active');
 }
 
 function openUploadModal(id) {
@@ -337,6 +406,14 @@ function closeViewModal() {
     document.getElementById('viewModal').style.display = 'none';
 }
 
+// Form Submission handling
+document.getElementById('topupForm')?.addEventListener('submit', function() {
+    const submitBtn = document.getElementById('submitBtn');
+    const processing = document.getElementById('processing');
+    if (submitBtn) submitBtn.style.display = 'none';
+    if (processing) processing.style.display = 'block';
+});
+
 // Close modals when clicking outside
 window.onclick = function(event) {
     if (event.target == document.getElementById('uploadModal')) closeModal();
@@ -344,24 +421,9 @@ window.onclick = function(event) {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    const manualRadio = document.querySelector('input[value="manual"]');
-    const tripayRadio = document.querySelector('input[value="tripay"]');
-    const manualInfo = document.getElementById('manual-info');
-    
-    function updateInfo() {
-        if (manualRadio && manualRadio.checked) {
-            manualInfo.style.display = 'block';
-            if (document.getElementById('tripay-selection')) document.getElementById('tripay-selection').style.display = 'none';
-        } else if (manualInfo) {
-            manualInfo.style.display = 'none';
-            if (document.getElementById('tripay-selection')) document.getElementById('tripay-selection').style.display = 'block';
-        }
-    }
-    
-    if (manualRadio) manualRadio.addEventListener('change', updateInfo);
-    if (tripayRadio) tripayRadio.addEventListener('change', updateInfo);
-    
-    updateInfo();
+    // Initialize default selection
+    const defaultGroup = document.querySelector('input[name="method"]:checked')?.value || 'tripay';
+    selectPaymentGroup(defaultGroup);
 });
 </script>
 

@@ -122,8 +122,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $paymentLink = $result['link'];
                 update('invoices', ['payment_method' => $defaultGateway], 'id = ?', [$invoiceId]);
                 
-                // AUTOMATIC REDIRECT
-                header("Location: " . $paymentLink);
+                // Use the new robust redirector to fix ShopeePay/Dana deep-link issues
+                $redirectUrl = APP_URL . "/payment_redirect.php?url=" . urlencode($paymentLink);
+                header("Location: " . $redirectUrl);
                 exit;
             } else {
                 setFlash('error', $result['message'] ?? 'Gagal generate payment link');

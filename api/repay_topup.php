@@ -28,7 +28,8 @@ if ($topup && $topup['status'] === 'pending' && $topup['payment_method'] === 'tr
     );
     
     if ($res['success']) {
-        header("Location: " . $res['link']);
+        $redirectUrl = APP_URL . "/payment_redirect.php?url=" . urlencode($res['link']);
+        header("Location: " . $redirectUrl);
         exit;
     } else {
         setFlash('error', 'Gagal membuat link pembayaran: ' . $res['message']);
