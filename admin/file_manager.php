@@ -65,7 +65,7 @@ $files = [];
 $dirHandle = opendir($targetDir);
 if ($dirHandle) {
     while (($file = readdir($dirHandle)) !== false) {
-        if ($file !== '.' && $file !== '..') {
+        if ($file !== '.' && $file !== '..' && $file[0] !== '.') {
             $path = $targetDir . $file;
             $files[] = [
                 'name' => $file,
