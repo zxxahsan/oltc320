@@ -103,7 +103,9 @@ function generateTripayPaymentLink($merchantRef, $amount, $customerName, $custom
     if ($res && isset($res->success) && $res->success) {
         return [
             'success' => true,
-            'link'    => $res->data->checkout_url
+            'link'    => $res->data->checkout_url,
+            'qr_url'  => $res->data->qr_url ?? '',
+            'pay_url' => $res->data->pay_url ?? ''
         ];
     } else {
         return [

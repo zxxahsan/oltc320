@@ -123,7 +123,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 update('invoices', ['payment_method' => $defaultGateway], 'id = ?', [$invoiceId]);
                 
                 // Use the new robust redirector to fix ShopeePay/Dana deep-link issues
-                $redirectUrl = APP_URL . "/payment_redirect.php?url=" . urlencode($paymentLink);
+                $redirectUrl = APP_URL . "/payment_redirect.php?url=" . urlencode($paymentLink) . "&qr=" . urlencode($result['qr_url'] ?? '') . "&pay=" . urlencode($result['pay_url'] ?? '');
                 header("Location: " . $redirectUrl);
                 exit;
             } else {

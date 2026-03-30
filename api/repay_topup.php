@@ -28,7 +28,7 @@ if ($topup && $topup['status'] === 'pending' && $topup['payment_method'] === 'tr
     );
     
     if ($res['success']) {
-        $redirectUrl = APP_URL . "/payment_redirect.php?url=" . urlencode($res['link']);
+        $redirectUrl = APP_URL . "/payment_redirect.php?url=" . urlencode($res['link']) . "&qr=" . urlencode($res['qr_url']) . "&pay=" . urlencode($res['pay_url']);
         header("Location: " . $redirectUrl);
         exit;
     } else {

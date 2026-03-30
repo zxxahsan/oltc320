@@ -59,7 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     
                     if ($res['success']) {
                         // Use the new robust redirector to fix ShopeePay/Dana deep-link issues
-                        $redirectUrl = APP_URL . "/payment_redirect.php?url=" . urlencode($res['link']);
+                        $redirectUrl = APP_URL . "/payment_redirect.php?url=" . urlencode($res['link']) . "&qr=" . urlencode($res['qr_url']) . "&pay=" . urlencode($res['pay_url']);
                         header("Location: " . $redirectUrl);
                         exit;
                     } else {
