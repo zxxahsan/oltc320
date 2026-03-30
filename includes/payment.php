@@ -21,17 +21,17 @@ function generatePaymentLink($reference, $amount, $customerName, $customerPhone,
 
 // Tripay Payment Link Generator (Closed Payment API)
 function generateTripayPaymentLink($merchantRef, $amount, $customerName, $customerPhone, $dueDate, $paymentMethod = '') {
-    if (empty(TRIPAY_API_KEY) || empty(TRIPAY_MERCHANT_CODE) || empty(TRIPAY_PRIVATE_KEY)) {
+    $apiKey       = getSetting('TRIPAY_API_KEY');
+    $privateKey   = getSetting('TRIPAY_PRIVATE_KEY');
+    $merchantCode = getSetting('TRIPAY_MERCHANT_CODE');
+
+    if (empty($apiKey) || empty($merchantCode) || empty($privateKey)) {
         return [
             'success' => false,
-            'message' => 'Tripay API/Merchant/Private Key belum dikonfigurasi',
+            'message' => 'Tripay API/Merchant/Private Key belum dikonfigurasi di Pengaturan Admin',
             'link' => null
         ];
     }
-    
-    $apiKey       = TRIPAY_API_KEY;
-    $privateKey   = TRIPAY_PRIVATE_KEY;
-    $merchantCode = TRIPAY_MERCHANT_CODE;
     
     // Default to QRIS if method is not specified, but for 'Portal' effect, we use a generic method if possible.
     // In Tripay Closed Payment, you MUST specify a method. If not specified, we can't create it.
@@ -128,8 +128,9 @@ function sendPaymentReminder($invoiceNumber, $amount, $customerName, $customerPh
 
 // Get payment status from Tripay
 function getTripayPaymentStatus($merchantRef) {
-    if (empty(TRIPAY_API_KEY)) {
-        return ['success' => false, 'message' => 'API Key not configured'];
+    $apiKey = getSetting('TRIPAY_API_KEY');
+    if (empty($apiKey)) {
+        return ['success' => false, 'message' => 'Tripay API Key belum dikonfigurasi'];
     }
     
     $url = "https://tripay.co.id/transaction/detail?merchant_ref={$merchantRef}";
