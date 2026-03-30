@@ -105,9 +105,9 @@ $history = fetchAll("SELECT * FROM sales_topups WHERE sales_user_id = ? ORDER BY
 ob_start();
 ?>
 
-<div style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 25px;">
+<div style="display: flex; flex-wrap: wrap; gap: 25px; align-items: flex-start;">
     <!-- Topup Form -->
-    <div>
+    <div style="flex: 1; min-width: 320px;">
         <div class="card">
             <div class="card-header">
                 <h3 class="card-title"><i class="fas fa-plus-circle"></i> Isi Saldo</h3>
@@ -171,7 +171,7 @@ ob_start();
     </div>
     
     <!-- Topup History -->
-    <div>
+    <div style="flex: 1.5; min-width: 350px;">
         <div class="card">
             <div class="card-header">
                 <h3 class="card-title"><i class="fas fa-history"></i> Riwayat Topup Terakhir</h3>
@@ -239,8 +239,6 @@ ob_start();
             </div>
         </div>
     </div>
-</div>
-
 </div>
 
 <!-- Upload Modal -->
