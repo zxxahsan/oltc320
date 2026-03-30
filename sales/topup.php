@@ -13,6 +13,8 @@ $salesId = $_SESSION['sales']['id'];
 $enableTripay = getSetting('ENABLE_TRIPAY_SALES', '1') === '1';
 $enableManual = getSetting('ENABLE_MANUAL_SALES', '1') === '1';
 $manualInfo = getSetting('MANUAL_PAYMENT_INFO', '');
+require_once '../includes/payment.php';
+$paymentMethods = getTripayChannels();
 
 // Handle Form Submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -20,6 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['amount'])) {
         $amount = (float)$_POST['amount'];
         $method = $_POST['method'] ?? 'manual';
+        $tripayMethod = $_POST['tripay_method'] ?? '';
         
         if ($amount < 50000) {
             setFlash('error', 'Minimal topup adalah Rp 50.000');
@@ -48,7 +51,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $amount,
                         $sales['name'],
                         $sales['phone'] ?? '08123456789',
-                        date('Y-m-d H:i:s', strtotime('+1 day'))
+                        date('Y-m-d H:i:s', strtotime('+1 day')),
+                        $tripayMethod
                     );
                     
                     if ($res['success']) {
@@ -129,16 +133,27 @@ ob_start();
                     <div class="form-group">
                         <label class="form-label">Metode Pembayaran</label>
                         <div style="display: grid; gap: 10px;">
-                            <?php if ($enableTripay): ?>
-                            <label style="display: flex; align-items: center; gap: 12px; padding: 15px; background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); border-radius: 10px; cursor: pointer; transition: all 0.3s;" class="method-option">
-                                <input type="radio" name="method" value="tripay" checked style="width: 18px; height: 18px;">
-                                <div style="flex: 1;">
-                                    <div style="font-weight: 600; color: var(--neon-cyan);">Otomatis (Tripay)</div>
-                                    <small style="color: var(--text-muted);">QRIS, VA, Bank Transfer (Instan)</small>
+                            <div id="tripay-selection" style="display: <?php echo $enableTripay ? 'block' : 'none'; ?>; border: 1px solid var(--border-color); border-radius: 10px; padding: 15px; background: rgba(0,0,0,0.2);">
+                                <label class="form-label">Pilih Channel Tripay (Otomatis)</label>
+                                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; margin-top: 10px;">
+                                    <?php if (empty($paymentMethods)): ?>
+                                        <div style="grid-column: 1/-1; text-align: center; color: var(--text-muted); font-size: 0.8rem;">
+                                            Gagal mengambil channel dari Tripay.
+                                        </div>
+                                    <?php else: ?>
+                                        <?php foreach ($paymentMethods as $m): ?>
+                                            <label class="tripay-option" style="border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; text-align: center; cursor: pointer; transition: all 0.3s; display: block;">
+                                                <input type="radio" name="tripay_method" value="<?php echo $m['code']; ?>" style="display: none;">
+                                                <img src="<?php echo $m['icon_url']; ?>" alt="<?php echo $m['name']; ?>" style="height: 25px; margin-bottom: 5px;">
+                                                <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                                    <?php echo $m['name']; ?>
+                                                </div>
+                                            </label>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
                                 </div>
-                                <i class="fas fa-bolt" style="color: var(--neon-cyan);"></i>
-                            </label>
-                            <?php endif; ?>
+                                <input type="hidden" name="method" value="tripay">
+                            </div>
                             
                             <?php if ($enableManual): ?>
                             <label style="display: flex; align-items: center; gap: 12px; padding: 15px; background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); border-radius: 10px; cursor: pointer; transition: all 0.3s;" class="method-option">
@@ -279,6 +294,11 @@ ob_start();
     border-color: var(--neon-cyan) !important;
     background: rgba(0, 245, 255, 0.1) !important;
 }
+.tripay-option:has(input:checked) {
+    border-color: var(--neon-cyan) !important;
+    background: rgba(0, 245, 255, 0.05) !important;
+    box-shadow: 0 0 10px rgba(0, 245, 255, 0.2);
+}
 </style>
 
 <script>
@@ -314,8 +334,10 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateInfo() {
         if (manualRadio && manualRadio.checked) {
             manualInfo.style.display = 'block';
+            if (document.getElementById('tripay-selection')) document.getElementById('tripay-selection').style.display = 'none';
         } else if (manualInfo) {
             manualInfo.style.display = 'none';
+            if (document.getElementById('tripay-selection')) document.getElementById('tripay-selection').style.display = 'block';
         }
     }
     

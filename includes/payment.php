@@ -162,3 +162,42 @@ function getTripayPaymentStatus($merchantRef) {
     
     return ['success' => true, 'data' => json_decode($response, true)];
 }
+
+// Get active payment channels from Tripay
+function getTripayChannels() {
+    $apiKey = getSetting('TRIPAY_API_KEY');
+    if (empty($apiKey)) return [];
+
+    // Simple session cache to avoid redundant API hits
+    if (isset($_SESSION['tripay_channels_cache']) && (time() - $_SESSION['tripay_channels_time']) < 3600) {
+        return $_SESSION['tripay_channels_cache'];
+    }
+
+    $isSandbox = getSetting('TRIPAY_SANDBOX', '0') === '1';
+    $url = $isSandbox ? 'https://tripay.co.id/api-sandbox/merchant/payment-channels' : 'https://tripay.co.id/api/merchant/payment-channels';
+
+    $ch = curl_init();
+    curl_setopt_array($ch, [
+        CURLOPT_URL => $url,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $apiKey],
+        CURLOPT_SSL_VERIFYPEER => false,
+        CURLOPT_TIMEOUT => 10
+    ]);
+
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($httpCode === 200) {
+        $res = json_decode($response, true);
+        if ($res && isset($res['success']) && $res['success']) {
+            $channels = $res['data'] ?? [];
+            $_SESSION['tripay_channels_cache'] = $channels;
+            $_SESSION['tripay_channels_time'] = time();
+            return $channels;
+        }
+    }
+
+    return [];
+}

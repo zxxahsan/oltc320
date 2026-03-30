@@ -32,20 +32,8 @@ $defaultGateway = 'tripay';
 
 require_once '../includes/payment.php';
 
-// Hardcoded Tripay Payment Methods
-$paymentMethods = [
-    ['code' => 'QRIS', 'name' => 'QRIS', 'icon' => 'fa-qrcode', 'color' => '#00f5ff'],
-    ['code' => 'VIRTUAL_ACCOUNT_BCA', 'name' => 'BCA Virtual Account', 'icon' => 'fa-building', 'color' => '#667eea'],
-    ['code' => 'VIRTUAL_ACCOUNT_BRI', 'name' => 'BRI Virtual Account', 'icon' => 'fa-building', 'color' => '#667eea'],
-    ['code' => 'VIRTUAL_ACCOUNT_MANDIRI', 'name' => 'Mandiri Virtual Account', 'icon' => 'fa-building', 'color' => '#667eea'],
-    ['code' => 'VIRTUAL_ACCOUNT_BNI', 'name' => 'BNI Virtual Account', 'icon' => 'fa-building', 'color' => '#667eea'],
-    ['code' => 'EWALLET_OVO', 'name' => 'OVO', 'icon' => 'fa-wallet', 'color' => '#bf00ff'],
-    ['code' => 'EWALLET_DANA', 'name' => 'DANA', 'icon' => 'fa-wallet', 'color' => '#bf00ff'],
-    ['code' => 'EWALLET_LINKAJA', 'name' => 'LinkAja', 'icon' => 'fa-wallet', 'color' => '#bf00ff'],
-    ['code' => 'EWALLET_SHOPEEPAY', 'name' => 'ShopeePay', 'icon' => 'fa-wallet', 'color' => '#bf00ff'],
-    ['code' => 'ALFAMART', 'name' => 'Alfamart', 'icon' => 'fa-store', 'color' => '#00ff00'],
-    ['code' => 'INDOMARET', 'name' => 'Indomaret', 'icon' => 'fa-store', 'color' => '#ff0000']
-];
+// Get dynamic channels
+$paymentMethods = getTripayChannels();
 
 $paymentLink = null;
 
@@ -190,19 +178,25 @@ ob_start();
                         <div class="form-group">
                             <label class="form-label">Pilih Channel Pembayaran</label>
                             <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px; margin-bottom: 20px;">
-                                <?php foreach ($paymentMethods as $method): ?>
-                                    <div class="payment-method-option" 
-                                         style="border: 2px solid var(--border-color); border-radius: 8px; padding: 15px; cursor: pointer; transition: all 0.3s; text-align: center;"
-                                         onclick="selectPaymentMethod('<?php echo $method['code']; ?>')">
-                                        <input type="radio" name="payment_method" value="<?php echo $method['code']; ?>" id="method_<?php echo $method['code']; ?>" style="display: none;">
-                                        <div style="color: <?php echo $method['color']; ?>; font-size: 1.5rem; margin-bottom: 8px;">
-                                            <i class="fas <?php echo $method['icon']; ?>"></i>
-                                        </div>
-                                        <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary);">
-                                            <?php echo $method['name']; ?>
-                                        </div>
+                                <?php if (empty($paymentMethods)): ?>
+                                    <div class="alert alert-error" style="grid-column: 1/-1;">
+                                        Gagal mengambil channel pembayaran dari Tripay. Silakan hubungi admin.
                                     </div>
-                                <?php endforeach; ?>
+                                <?php else: ?>
+                                    <?php foreach ($paymentMethods as $method): ?>
+                                        <div class="payment-method-option" 
+                                             style="border: 2px solid var(--border-color); border-radius: 8px; padding: 15px; cursor: pointer; transition: all 0.3s; text-align: center;"
+                                             onclick="selectPaymentMethod('<?php echo $method['code']; ?>')">
+                                            <input type="radio" name="payment_method" value="<?php echo $method['code']; ?>" id="method_<?php echo $method['code']; ?>" style="display: none;">
+                                            <div style="margin-bottom: 8px;">
+                                                <img src="<?php echo $method['icon_url']; ?>" alt="<?php echo $method['name']; ?>" style="height: 30px; filter: drop-shadow(0 0 5px rgba(255,255,255,0.2));">
+                                            </div>
+                                            <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary);">
+                                                <?php echo $method['name']; ?>
+                                            </div>
+                                        </div>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
                             </div>
                         </div>
                         <button type="submit" class="btn btn-primary" style="width: 100%;">
