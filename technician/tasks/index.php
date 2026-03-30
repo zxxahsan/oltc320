@@ -6,6 +6,7 @@ $pageTitle = 'Daftar Tugas';
 $tech = $_SESSION['technician'];
 
 $type = $_GET['type'] ?? 'ticket'; // ticket | install
+$search = $_GET['search'] ?? '';
 
 if ($type === 'ticket') {
     // Get Tickets
@@ -17,6 +18,13 @@ if ($type === 'ticket') {
         $where .= " AND status IN ('pending', 'in_progress')";
     } elseif ($status === 'resolved') {
         $where .= " AND status = 'resolved'";
+    }
+
+    if ($search) {
+        $where .= " AND (c.name LIKE ? OR t.id LIKE ? OR t.description LIKE ?)";
+        $params[] = "%$search%";
+        $params[] = "%$search%";
+        $params[] = "%$search%";
     }
 
     $tickets = fetchAll("
@@ -38,6 +46,12 @@ if ($type === 'ticket') {
         $where .= " AND status = 'active'";
     } else {
         $where .= " AND status IN ('registered', 'active')";
+    }
+
+    if ($search) {
+        $where .= " AND (name LIKE ? OR address LIKE ?)";
+        $params[] = "%$search%";
+        $params[] = "%$search%";
     }
 
     $installs = fetchAll("
@@ -70,6 +84,39 @@ if ($type === 'ticket') {
             background: var(--bg-dark);
             color: var(--text-primary);
             padding-bottom: 80px;
+        }
+
+        .search-container {
+            padding: 15px 20px 5px;
+        }
+
+        .search-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .search-input {
+            width: 100%;
+            background: var(--bg-card);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 25px;
+            padding: 12px 20px 12px 45px;
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            outline: none;
+            transition: 0.3s;
+        }
+
+        .search-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(0, 245, 255, 0.1);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 18px;
+            color: var(--text-secondary);
         }
         
         .header {
@@ -226,8 +273,16 @@ if ($type === 'ticket') {
 </head>
 <body>
     <div class="header">
-        <a href="../dashboard.php" class="back-btn"><i class="fas fa-arrow-left"></i></a>
         <h2>Daftar Tugas</h2>
+    </div>
+
+    <div class="search-container">
+        <form action="" method="GET" class="search-wrapper">
+            <input type="hidden" name="type" value="<?php echo $type; ?>">
+            <input type="hidden" name="status" value="<?php echo $status; ?>">
+            <i class="fas fa-search search-icon"></i>
+            <input type="text" name="search" class="search-input" placeholder="Cari Pelanggan / ID..." value="<?php echo htmlspecialchars($search); ?>">
+        </form>
     </div>
 
     <div class="type-tabs">
@@ -252,7 +307,7 @@ if ($type === 'ticket') {
             <?php if (empty($tickets)): ?>
                 <div class="empty-state">
                     <i class="fas fa-clipboard-check"></i>
-                    <p>Tidak ada tiket gangguan saat ini.</p>
+                    <p><?php echo $search ? 'Tidak ada tugas yang cocok dengan pencarian Anda.' : 'Tidak ada tiket gangguan saat ini.'; ?></p>
                 </div>
             <?php else: ?>
                 <?php foreach ($tickets as $t): ?>
@@ -285,7 +340,7 @@ if ($type === 'ticket') {
             <?php if (empty($installs)): ?>
                 <div class="empty-state">
                     <i class="fas fa-check-circle"></i>
-                    <p>Tidak ada jadwal pasang baru.</p>
+                    <p><?php echo $search ? 'Tidak ada jadwal pasang yang cocok dengan pencarian Anda.' : 'Tidak ada jadwal pasang baru.'; ?></p>
                 </div>
             <?php else: ?>
                 <?php foreach ($installs as $i): ?>

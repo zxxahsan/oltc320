@@ -11,6 +11,9 @@ $pageTitle = 'Laporan Gangguan';
 // Get technicians
 $technicians = fetchAll("SELECT * FROM technician_users WHERE status = 'active' ORDER BY name ASC");
 
+// Get search query
+$search = $_GET['search'] ?? '';
+
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Verify CSRF token
@@ -21,6 +24,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if (isset($_POST['action'])) {
         switch ($_POST['action']) {
+            case 'bulk_delete':
+                if (!empty($_POST['ticket_ids']) && is_array($_POST['ticket_ids'])) {
+                    $ids = array_map('intval', $_POST['ticket_ids']);
+                    $placeholders = implode(',', array_fill(0, count($ids), '?'));
+                    if (delete('trouble_tickets', "id IN ($placeholders)", $ids)) {
+                        setFlash('success', count($ids) . ' laporan berhasil dihapus.');
+                        logActivity('BULK_DELETE_TICKETS', "Ids: " . implode(',', $ids));
+                    }
+                }
+                redirect('trouble.php');
+                break;
+                
             case 'add':
                 $customerId = (int)$_POST['customer_id'];
                 $description = sanitize($_POST['description']);
@@ -189,13 +204,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Get tickets with customer info
+// Get tickets with customer info and search filter
+$where = "1=1";
+$params = [];
+if ($search) {
+    $where .= " AND (c.name LIKE ? OR c.pppoe_username LIKE ? OR t.description LIKE ? OR t.id LIKE ?)";
+    $params = ["%$search%", "%$search%", "%$search%", "%$search%"];
+}
+
 $tickets = fetchAll("
     SELECT t.*, c.name as customer_name, c.phone as customer_phone, c.pppoe_username,
            p.name as package_name
     FROM trouble_tickets t 
     LEFT JOIN customers c ON t.customer_id = c.id
     LEFT JOIN packages p ON c.package_id = p.id
+    WHERE $where
     ORDER BY 
         CASE t.priority 
             WHEN 'high' THEN 1 
@@ -203,12 +226,12 @@ $tickets = fetchAll("
             WHEN 'low' THEN 3 
         END,
         t.created_at DESC
-");
+", $params);
 
 // Get active customers for dropdown
 $customers = fetchAll("SELECT id, name, pppoe_username FROM customers WHERE status = 'active' ORDER BY name");
 
-// Calculate stats
+// Calculate stats (based on current filtered view)
 $totalTickets = count($tickets);
 $pendingTickets = count(array_filter($tickets, fn($t) => $t['status'] === 'pending'));
 $inProgressTickets = count(array_filter($tickets, fn($t) => $t['status'] === 'in_progress'));
@@ -316,16 +339,34 @@ ob_start();
 
 <!-- Tickets Table -->
 <div class="card">
-    <div class="card-header">
-        <h3 class="card-title"><i class="fas fa-exclamation-triangle"></i> Daftar Laporan</h3>
-        <input type="text" id="searchTicket" class="form-control" placeholder="Cari laporan..." style="width: 250px;">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+        <h3 class="card-title" style="margin: 0;"><i class="fas fa-exclamation-triangle"></i> Daftar Laporan</h3>
+        
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <form action="" method="GET" style="display: flex; gap: 5px;">
+                <input type="text" name="search" class="form-control" placeholder="Cari Pelanggan/ID/Ket..." value="<?php echo htmlspecialchars($search); ?>" style="width: 220px;">
+                <button type="submit" class="btn btn-primary" style="padding: 8px 15px;"><i class="fas fa-search"></i></button>
+                <?php if ($search): ?>
+                    <a href="trouble.php" class="btn btn-secondary" style="padding: 8px 15px;"><i class="fas fa-times"></i></a>
+                <?php endif; ?>
+            </form>
+            
+            <button type="button" onclick="confirmBulkDelete()" class="btn btn-danger" id="btnBulkDelete" style="display: none;">
+                <i class="fas fa-trash"></i> Hapus Terpilih (<span id="selectedCount">0</span>)
+            </button>
+        </div>
     </div>
     
-    <table class="data-table" id="ticketTable">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Pelanggan</th>
+    <form id="bulkActionForm" method="POST">
+        <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+        <input type="hidden" name="action" value="bulk_delete">
+        
+        <table class="data-table" id="ticketTable">
+            <thead>
+                <tr>
+                    <th style="width: 40px; text-align: center;"><input type="checkbox" id="selectAll"></th>
+                    <th>ID</th>
+                    <th>Pelanggan</th>
                 <th>Masalah</th>
                 <th>Status</th>
                 <th>Prioritas</th>
@@ -336,14 +377,15 @@ ob_start();
         <tbody>
             <?php if (empty($tickets)): ?>
                 <tr>
-                    <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 30px;" data-label="Data">
+                    <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 30px;" data-label="Data">
                         <i class="fas fa-check-circle" style="font-size: 2rem; margin-bottom: 10px; display: block; color: var(--neon-green);"></i>
-                        Tidak ada laporan gangguan
+                        Tidak ada laporan gangguan <?php echo $search ? 'yang cocok dengan pencarian' : ''; ?>
                     </td>
                 </tr>
             <?php else: ?>
                 <?php foreach ($tickets as $ticket): ?>
-                <tr>
+                <tr id="ticket-row-<?php echo $ticket['id']; ?>">
+                    <td style="text-align: center;"><input type="checkbox" name="ticket_ids[]" value="<?php echo $ticket['id']; ?>" class="ticket-checkbox"></td>
                     <td data-label="ID">#<?php echo $ticket['id']; ?></td>
                     <td data-label="Pelanggan">
                         <strong><?php echo htmlspecialchars($ticket['customer_name'] ?? 'N/A'); ?></strong><br>
@@ -408,6 +450,7 @@ ob_start();
             <?php endif; ?>
         </tbody>
     </table>
+    </form>
 </div>
 
 <!-- View Ticket Modal -->
@@ -513,16 +556,42 @@ ob_start();
 </div>
 
 <script>
-// Search functionality
-document.getElementById('searchTicket').addEventListener('input', function(e) {
-    const search = e.target.value.toLowerCase();
-    const rows = document.querySelectorAll('#ticketTable tbody tr');
-    
-    rows.forEach(row => {
-        const text = row.textContent.toLowerCase();
-        row.style.display = text.includes(search) ? '' : 'none';
+// Bulk Delete functionality
+const selectAll = document.getElementById('selectAll');
+const checkboxes = document.querySelectorAll('.ticket-checkbox');
+const btnBulkDelete = document.getElementById('btnBulkDelete');
+const selectedCount = document.getElementById('selectedCount');
+const bulkActionForm = document.getElementById('bulkActionForm');
+
+if (selectAll) {
+    selectAll.addEventListener('change', function() {
+        checkboxes.forEach(cb => {
+            cb.checked = this.checked;
+        });
+        updateBulkDeleteButton();
     });
+}
+
+checkboxes.forEach(cb => {
+    cb.addEventListener('change', updateBulkDeleteButton);
 });
+
+function updateBulkDeleteButton() {
+    const checkedCount = document.querySelectorAll('.ticket-checkbox:checked').length;
+    selectedCount.textContent = checkedCount;
+    btnBulkDelete.style.display = checkedCount > 0 ? 'inline-block' : 'none';
+    
+    if (selectAll) {
+        selectAll.checked = checkedCount === checkboxes.length && checkboxes.length > 0;
+    }
+}
+
+function confirmBulkDelete() {
+    const count = document.querySelectorAll('.ticket-checkbox:checked').length;
+    if (confirm(`Apakah Anda yakin ingin menghapus ${count} laporan terpilih? Tindakan ini tidak dapat dibatalkan.`)) {
+        bulkActionForm.submit();
+    }
+}
 
 // View ticket details
 function viewTicket(ticket) {
