@@ -148,6 +148,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         ];
                         
                         $processor = "Admin";
+                        if ($technicianId) {
+                            $procTech = fetchOne("SELECT name FROM technician_users WHERE id = ?", [$technicianId]);
+                            if ($procTech) $processor = "Admin (Teknisi: *{$procTech['name']}*)";
+                        }
                         
                         $message = "Halo *{$customer['name']}*,\n\n";
                         $message .= "Laporan gangguan Anda (#{$ticketId}) telah diperbarui oleh *{$processor}*:\n\n";
