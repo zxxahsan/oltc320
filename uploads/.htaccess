@@ -1,0 +1,26 @@
+# Gembok Uploads Lockdown - v1.0
+# Deny execution of scripts in this directory
+
+<FilesMatch "\.(php|php5|php7|php8|phtml|pl|py|cgi|asp|js)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Disable PHP engine if possible (for Apache)
+<IfModule mod_php.c>
+    php_flag engine off
+</IfModule>
+<IfModule mod_php5.c>
+    php_flag engine off
+</IfModule>
+<IfModule mod_php7.c>
+    php_flag engine off
+</IfModule>
+
+# Prevent directory indexing
+Options -Indexes
