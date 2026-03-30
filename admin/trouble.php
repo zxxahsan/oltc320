@@ -108,9 +108,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $ticketId = (int)$_POST['ticket_id'];
                 $status = sanitize($_POST['status']);
                 $notes = sanitize($_POST['notes'] ?? '');
-                $technicianId = !empty($_POST['technician_id']) ? (int)$_POST['technician_id'] : null;
                 
+                // Get existing ticket first
                 $ticket = fetchOne("SELECT * FROM trouble_tickets WHERE id = ?", [$ticketId]);
+                
+                // Determine technician_id: if not explicitly sent/changed to empty, keep current
+                if (isset($_POST['technician_id'])) {
+                    $technicianId = !empty($_POST['technician_id']) ? (int)$_POST['technician_id'] : null;
+                } else {
+                    $technicianId = $ticket['technician_id'] ?? null;
+                }
                 
                 if ($ticket) {
                     $updateData = [
@@ -214,17 +221,23 @@ if ($search) {
 
 $tickets = fetchAll("
     SELECT t.*, c.name as customer_name, c.phone as customer_phone, c.pppoe_username,
-           p.name as package_name
+           p.name as package_name, tech.name as technician_name
     FROM trouble_tickets t 
     LEFT JOIN customers c ON t.customer_id = c.id
     LEFT JOIN packages p ON c.package_id = p.id
+    LEFT JOIN technician_users tech ON t.technician_id = tech.id
     WHERE $where
     ORDER BY 
+        CASE 
+            WHEN t.status IN ('pending', 'in_progress') THEN 1
+            ELSE 2
+        END ASC,
         CASE t.priority 
             WHEN 'high' THEN 1 
             WHEN 'medium' THEN 2 
             WHEN 'low' THEN 3 
-        END,
+        END ASC,
+        t.resolved_at DESC,
         t.created_at DESC
 ", $params);
 
@@ -486,6 +499,10 @@ ob_start();
                     <p id="view_notes" style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px;">-</p>
                 </div>
                 <div>
+                    <strong>Teknisi Bertugas:</strong>
+                    <p id="view_technician" style="color: var(--neon-cyan);">-</p>
+                </div>
+                <div>
                     <strong>Foto Bukti Penyelesaian:</strong>
                     <div id="view_photos" style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px;">
                         <span style="color: var(--text-secondary); font-size: 0.9em;">Belum ada foto</span>
@@ -614,6 +631,7 @@ function viewTicket(ticket) {
     
     document.getElementById('view_description').textContent = ticket.description || '-';
     document.getElementById('view_notes').textContent = ticket.notes || 'Belum ada catatan';
+    document.getElementById('view_technician').textContent = ticket.technician_name || 'Belum ditugaskan';
     document.getElementById('view_created').textContent = ticket.created_at || '-';
     document.getElementById('view_resolved').textContent = ticket.resolved_at || '-';
     

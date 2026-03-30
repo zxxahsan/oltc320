@@ -17,7 +17,7 @@ if ($type === 'ticket') {
     if ($status === 'pending') {
         $where .= " AND status IN ('pending', 'in_progress')";
     } elseif ($status === 'resolved') {
-        $where .= " AND status = 'resolved'";
+        $where .= " AND (status = 'resolved' OR status = 'Resolved')";
     }
 
     if ($search) {
@@ -32,7 +32,13 @@ if ($type === 'ticket') {
         FROM trouble_tickets t 
         LEFT JOIN customers c ON t.customer_id = c.id 
         WHERE $where 
-        ORDER BY FIELD(t.status, 'in_progress', 'pending', 'resolved'), t.created_at DESC
+        ORDER BY 
+            CASE 
+                WHEN t.status IN ('pending', 'in_progress') THEN 1
+                ELSE 2
+            END ASC,
+            t.resolved_at DESC, 
+            t.created_at DESC
     ", $params);
 } else {
     // Get Installations
