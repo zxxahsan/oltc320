@@ -66,10 +66,13 @@ function generateTripayPaymentLink($merchantRef, $amount, $customerName, $custom
         'signature'    => $signature
     ];
 
+    $isSandbox = getSetting('TRIPAY_SANDBOX', '0') === '1';
+    $apiUrl = $isSandbox ? 'https://tripay.co.id/api-sandbox/transaction/create' : 'https://tripay.co.id/api/transaction/create';
+
     $curl = curl_init();
     curl_setopt_array($curl, [
         CURLOPT_FRESH_CONNECT  => true,
-        CURLOPT_URL            => 'https://tripay.co.id/api/transaction/create',
+        CURLOPT_URL            => $apiUrl,
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_HEADER         => false,
         CURLOPT_HTTPHEADER     => ['Authorization: Bearer ' . $apiKey],
@@ -133,7 +136,9 @@ function getTripayPaymentStatus($merchantRef) {
         return ['success' => false, 'message' => 'Tripay API Key belum dikonfigurasi'];
     }
     
-    $url = "https://tripay.co.id/transaction/detail?merchant_ref={$merchantRef}";
+    $isSandbox = getSetting('TRIPAY_SANDBOX', '0') === '1';
+    $baseUrl = $isSandbox ? 'https://tripay.co.id/api-sandbox/' : 'https://tripay.co.id/api/';
+    $url = $baseUrl . "transaction/detail?merchant_ref={$merchantRef}";
     
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);

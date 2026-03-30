@@ -104,6 +104,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'ENABLE_MANUAL_CUSTOMER' => isset($_POST['enable_manual_customer']) ? '1' : '0',
                     'ENABLE_TRIPAY_SALES' => isset($_POST['enable_tripay_sales']) ? '1' : '0',
                     'ENABLE_MANUAL_SALES' => isset($_POST['enable_manual_sales']) ? '1' : '0',
+                    'TRIPAY_SANDBOX' => isset($_POST['tripay_sandbox']) ? '1' : '0',
                     'MANUAL_PAYMENT_INFO' => sanitize($_POST['manual_payment_info'])
                 ];
                 
@@ -365,6 +366,14 @@ ob_start();
             <div class="settings-item">
                 <label class="form-label">Tripay Merchant Code</label>
                 <input type="text" name="tripay_merchant_code" class="form-control" value="<?php echo htmlspecialchars($settings['TRIPAY_MERCHANT_CODE'] ?? ''); ?>" placeholder="Masukkan Merchant Code">
+            </div>
+            
+            <div class="settings-item">
+                <label class="form-label">Mode Sandbox</label>
+                <label style="display: flex; align-items: center; gap: 12px; cursor: pointer; margin-top: 10px;">
+                    <input type="checkbox" name="tripay_sandbox" value="1" <?php echo (getSetting('TRIPAY_SANDBOX', '0') === '1') ? 'checked' : ''; ?>>
+                    Aktifkan Sandbox (Gunakan jika Key Anda adalah Key Sandbox)
+                </label>
             </div>
         </div>
 
