@@ -14,7 +14,9 @@ $enableTripay = getSetting('ENABLE_TRIPAY_SALES', '1') === '1';
 $enableManual = getSetting('ENABLE_MANUAL_SALES', '1') === '1';
 $manualInfo = getSetting('MANUAL_PAYMENT_INFO', '');
 require_once '../includes/payment.php';
-$paymentMethods = getTripayChannels();
+$channelResult = getTripayChannels();
+$paymentMethods = ($channelResult['success'] ?? false) ? $channelResult['data'] : [];
+$channelError = !($channelResult['success'] ?? false) ? ($channelResult['message'] ?? 'Unable to fetch channels') : null;
 
 // Handle Form Submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -136,14 +138,18 @@ ob_start();
                             <div id="tripay-selection" style="display: <?php echo $enableTripay ? 'block' : 'none'; ?>; border: 1px solid var(--border-color); border-radius: 10px; padding: 15px; background: rgba(0,0,0,0.2);">
                                 <label class="form-label">Pilih Channel Tripay (Otomatis)</label>
                                 <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; margin-top: 10px;">
-                                    <?php if (empty($paymentMethods)): ?>
-                                        <div style="grid-column: 1/-1; text-align: center; color: var(--text-muted); font-size: 0.8rem;">
-                                            Gagal mengambil channel dari Tripay.
+                                    <?php if ($channelError): ?>
+                                        <div style="grid-column: 1/-1; text-align: center; color: #ff6b6b; font-size: 0.8rem; padding: 10px; border: 1px solid rgba(255,0,0,0.2); border-radius: 8px;">
+                                            <i class="fas fa-exclamation-triangle"></i> <?php echo htmlspecialchars($channelError); ?>
+                                        </div>
+                                    <?php elseif (empty($paymentMethods)): ?>
+                                        <div style="grid-column: 1/-1; text-align: center; color: var(--text-muted); font-size: 0.8rem; padding: 10px;">
+                                            <i class="fas fa-info-circle"></i> Tidak ada channel pembayaran aktif.
                                         </div>
                                     <?php else: ?>
                                         <?php foreach ($paymentMethods as $m): ?>
                                             <label class="tripay-option" style="border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; text-align: center; cursor: pointer; transition: all 0.3s; display: block;">
-                                                <input type="radio" name="tripay_method" value="<?php echo $m['code']; ?>" style="display: none;">
+                                                <input type="radio" name="tripay_method" value="<?php echo $m['code']; ?>" style="display: none;" required>
                                                 <img src="<?php echo $m['icon_url']; ?>" alt="<?php echo $m['name']; ?>" style="height: 25px; margin-bottom: 5px;">
                                                 <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                                                     <?php echo $m['name']; ?>

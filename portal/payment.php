@@ -33,7 +33,9 @@ $defaultGateway = 'tripay';
 require_once '../includes/payment.php';
 
 // Get dynamic channels
-$paymentMethods = getTripayChannels();
+$channelResult = getTripayChannels();
+$paymentMethods = ($channelResult['success'] ?? false) ? $channelResult['data'] : [];
+$channelError = !($channelResult['success'] ?? false) ? ($channelResult['message'] ?? 'Unable to fetch channels') : null;
 
 $paymentLink = null;
 
@@ -178,9 +180,13 @@ ob_start();
                         <div class="form-group">
                             <label class="form-label">Pilih Channel Pembayaran</label>
                             <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px; margin-bottom: 20px;">
-                                <?php if (empty($paymentMethods)): ?>
-                                    <div class="alert alert-error" style="grid-column: 1/-1;">
-                                        Gagal mengambil channel pembayaran dari Tripay. Silakan hubungi admin.
+                                <?php if ($channelError): ?>
+                                    <div class="alert alert-error" style="grid-column: 1/-1; background: rgba(255,0,0,0.1); border: 1px solid #ff0000; padding: 15px; border-radius: 8px; color: #ff6b6b; font-size: 0.9rem; margin-bottom: 10px;">
+                                        <i class="fas fa-exclamation-circle"></i> <?php echo htmlspecialchars($channelError); ?>
+                                    </div>
+                                <?php elseif (empty($paymentMethods)): ?>
+                                    <div class="alert alert-warning" style="grid-column: 1/-1; background: rgba(255,165,0,0.1); border: 1px solid orange; padding: 15px; border-radius: 8px; color: orange; font-size: 0.9rem;">
+                                        <i class="fas fa-info-circle"></i> Tidak ada channel pembayaran aktif yang ditemukan di Tripay.
                                     </div>
                                 <?php else: ?>
                                     <?php foreach ($paymentMethods as $method): ?>

@@ -188,6 +188,7 @@ function getTripayChannels() {
 
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
     curl_close($ch);
 
     if ($httpCode === 200) {
@@ -196,9 +197,12 @@ function getTripayChannels() {
             $channels = $res['data'] ?? [];
             $_SESSION['tripay_channels_cache'] = $channels;
             $_SESSION['tripay_channels_time'] = time();
-            return $channels;
+            return ['success' => true, 'data' => $channels];
+        } else {
+            return ['success' => false, 'message' => $res['message'] ?? 'Tripay Error: Gagal memproses data channel'];
         }
     }
 
-    return [];
+    $errorMsg = !empty($curlError) ? $curlError : "HTTP Code: $httpCode";
+    return ['success' => false, 'message' => "Gagal terhubung ke Tripay ($errorMsg). Pastikan API Key & Merchant Code benar."];
 }
