@@ -145,7 +145,7 @@ function runScheduler() {
 
                 $status = 'success';
 
-            } catch (Exception $e) {
+            } catch (Throwable $e) {
                 echo "Error: " . $e->getMessage() . "\n";
                 $status = 'failed';
             }

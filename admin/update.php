@@ -85,9 +85,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         $projectRoot = realpath(dirname(__DIR__));
         sendLog(10, "[*] Target Direktori: " . $projectRoot);
-        sendLog(20, "[*] Mengeksekusi: git fetch & reset --hard (Force Update)...");
-        
         // Use fetch + reset --hard to always safely overwrite any local changes
+        // Setting HOME environment variable is critical for git to work from some web servers
+        putenv('HOME=' . $projectRoot);
+        putenv('GIT_TERMINAL_PROMPT=0'); // Don't hang on credential prompts
+        
         $cmd = 'cd ' . escapeshellarg($projectRoot) . ' && git fetch --all 2>&1 && git reset --hard origin/main 2>&1';
         exec($cmd, $output, $returnVar);
         
