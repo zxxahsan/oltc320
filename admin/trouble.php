@@ -111,39 +111,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     
                     update('trouble_tickets', $updateData, 'id = ?', [$ticketId]);
                     
-                    // Check if technician changed or status updated, send WA
-                    if ($technicianId) {
-                        $notifyTech = false;
-                        if ($ticket['technician_id'] != $technicianId) {
-                            $notifyTech = true; // New tech assigned
-                        } elseif ($status != $ticket['status']) {
-                            $notifyTech = true; // Status changed, let tech know
-                        }
-                        
-                        if ($notifyTech) {
-                            $tech = fetchOne("SELECT phone, name FROM technician_users WHERE id = ?", [$technicianId]);
-                            if ($tech && !empty($tech['phone'])) {
-                                $customerDetails = fetchOne("SELECT name, phone, address, lat, lng FROM customers WHERE id = ?", [$ticket['customer_id']]);
-                                require_once '../includes/whatsapp.php';
-                                $msg = "🚨 *UPDATE TUGAS GANGGUAN*\n\n";
-                                $msg .= "Ticket: #{$ticketId}\n";
-                                $msg .= "Status: " . strtoupper($status) . "\n";
-                                $msg .= "Pelanggan: " . ($customerDetails['name'] ?? 'N/A') . "\n";
-                                
-                                $gmapsLink = "Tidak ada kordinat map.";
-                                if (!empty($customerDetails['lat']) && !empty($customerDetails['lng'])) {
-                                    $gmapsLink = "https://www.google.com/maps?q={$customerDetails['lat']},{$customerDetails['lng']}";
-                                }
-
-                                $msg .= "Kontak (WA): " . ($customerDetails['phone'] ?? '-') . "\n";
-                                $msg .= "Alamat: " . ($customerDetails['address'] ?? '-') . "\n";
-                                $msg .= "Lokasi Map: {$gmapsLink}\n";
-                                $msg .= "Masalah: {$ticket['description']}\n";
-                                $msg .= "Catatan Admin: " . ($notes ?: '-') . "\n\n";
-                                $msg .= "Detail Tugas: " . APP_URL . "/technician/tasks/view_ticket.php?id={$ticketId}\n\n";
-                                $msg .= "Mohon untuk segera ditindaklanjuti. Terima kasih.";
-                                sendWhatsAppMessage($tech['phone'], $msg);
+                    // Check if technician changed, only notify if NEW assignment
+                    if ($technicianId && $ticket['technician_id'] != $technicianId) {
+                        $tech = fetchOne("SELECT phone, name FROM technician_users WHERE id = ?", [$technicianId]);
+                        if ($tech && !empty($tech['phone'])) {
+                            $customerDetails = fetchOne("SELECT name, phone, address, lat, lng FROM customers WHERE id = ?", [$ticket['customer_id']]);
+                            require_once '../includes/whatsapp.php';
+                            $msg = "🚨 *PENUGASAN GANGGUAN BARU*\n\n";
+                            $msg .= "Ticket: #{$ticketId}\n";
+                            $msg .= "Status: " . strtoupper($status) . "\n";
+                            $msg .= "Pelanggan: " . ($customerDetails['name'] ?? 'N/A') . "\n";
+                            
+                            $gmapsLink = "Tidak ada kordinat map.";
+                            if (!empty($customerDetails['lat']) && !empty($customerDetails['lng'])) {
+                                $gmapsLink = "https://www.google.com/maps?q={$customerDetails['lat']},{$customerDetails['lng']}";
                             }
+
+                            $msg .= "Kontak (WA): " . ($customerDetails['phone'] ?? '-') . "\n";
+                            $msg .= "Alamat: " . ($customerDetails['address'] ?? '-') . "\n";
+                            $msg .= "Lokasi Map: {$gmapsLink}\n";
+                            $msg .= "Masalah: {$ticket['description']}\n";
+                            if ($notes) $msg .= "Catatan Admin: {$notes}\n";
+                            $msg .= "\nDetail Tugas: " . APP_URL . "/technician/tasks/view_ticket.php?id={$ticketId}\n\n";
+                            $msg .= "Mohon untuk segera ditindaklanjuti. Terima kasih.";
+                            sendWhatsAppMessage($tech['phone'], $msg);
                         }
                     }
 
@@ -157,10 +148,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         ];
                         
                         $processor = "Admin";
-                        if ($technicianId) {
-                            $procTech = fetchOne("SELECT name FROM technician_users WHERE id = ?", [$technicianId]);
-                            if ($procTech) $processor = "Teknisi *{$procTech['name']}*";
-                        }
                         
                         $message = "Halo *{$customer['name']}*,\n\n";
                         $message .= "Laporan gangguan Anda (#{$ticketId}) telah diperbarui oleh *{$processor}*:\n\n";
