@@ -69,11 +69,17 @@ function runScheduler() {
         try {
             // Self-heal: Force critical jobs to check continuously instead of daily
             $pdo->exec("UPDATE cron_schedules SET schedule_days = 'every_minute' WHERE task_type IN ('auto_isolir', 'auto_invoice')");
+            // Set hotspot_expiry to 20 minutes as requested by user
+            $pdo->exec("UPDATE cron_schedules SET schedule_days = 'every_20_minutes' WHERE task_type = 'hotspot_expiry'");
+            
             // Self-heal: If any every_minute job is stuck more than 5 minutes in the future (due to old daily caching), pull it back to NOW
-            $pdo->exec("UPDATE cron_schedules SET next_run = NULL WHERE schedule_days = 'every_minute' AND next_run > DATE_ADD(NOW(), INTERVAL 5 MINUTE)");
+            $pdo->exec("UPDATE cron_schedules SET next_run = NULL WHERE schedule_days IN ('every_minute', 'every_20_minutes') AND next_run > DATE_ADD(NOW(), INTERVAL 20 MINUTE)");
             
             // Anti-stall: Forcibly clear any dead locks from previously crashed executions
             $pdo->exec("UPDATE cron_schedules SET last_status = 'failed' WHERE last_status = 'running' AND (last_run IS NULL OR last_run < DATE_SUB(NOW(), INTERVAL 5 MINUTE))");
+
+            // Auto-Clean: Keep only the most recent 50 logs total to prevent DB bloat
+            $pdo->exec("DELETE FROM cron_logs WHERE id NOT IN (SELECT id FROM (SELECT id FROM cron_logs ORDER BY created_at DESC LIMIT 50) as latest)");
         } catch (Throwable $e) {}
 
         // Get all active schedules
@@ -182,6 +188,10 @@ function calculateNextRun($schedule)
 {
     if ($schedule['schedule_days'] === 'every_minute') {
         return date('Y-m-d H:i:s', strtotime('+1 minute'));
+    }
+    
+    if ($schedule['schedule_days'] === 'every_20_minutes') {
+        return date('Y-m-d H:i:s', strtotime('+20 minutes'));
     }
 
     $scheduleTime = explode(':', $schedule['schedule_time']);

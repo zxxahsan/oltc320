@@ -26,7 +26,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $method = $_POST['method'] ?? 'manual';
         $tripayMethod = $_POST['tripay_method'] ?? '';
         
-        if ($amount < 50000) {
+        // Restriction: Only ONE pending topup allowed
+        $pendingTopup = fetchOne("SELECT id FROM sales_topups WHERE sales_user_id = ? AND status = 'pending' LIMIT 1", [$salesId]);
+        
+        if ($pendingTopup) {
+            setFlash('error', 'Anda masih memiliki permintaan topup yang tertunda. Silakan selesaikan atau batalkan terlebih dahulu.');
+        } elseif ($amount < 50000) {
             setFlash('error', 'Minimal topup adalah Rp 50.000');
         } elseif ($method === 'tripay' && !$enableTripay) {
             setFlash('error', 'Metode Tripay sedang tidak tersedia');

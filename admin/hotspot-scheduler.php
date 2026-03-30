@@ -12,6 +12,9 @@ $pageTitle = 'System Schedulers';
 $schedulers = mikrotikGetSchedulers();
 $totalSchedulers = count($schedulers);
 
+// Add Auto-Refresh every 60 seconds
+$extraHead = '<meta http-equiv="refresh" content="60">';
+
 ob_start();
 ?>
 

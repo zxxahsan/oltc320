@@ -11,8 +11,11 @@ $pageDescription = 'Pantau eksekusi jadwal MikroTik secata detail';
 // Get pagination
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 if ($page < 1) $page = 1;
-$perPage = 50;
+$perPage = 20; // Changed from 50 to 20 as requested
 $offset = ($page - 1) * $perPage;
+
+// Add Auto-Refresh every 60 seconds
+$extraHead = '<meta http-equiv="refresh" content="60">';
 
 $hasSchedules = tableExists('cron_schedules');
 $hasLogs = tableExists('cron_logs');
