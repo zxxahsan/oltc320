@@ -67,6 +67,19 @@ function getDB() {
                     $pdo->exec("ALTER TABLE invoices ADD COLUMN payment_proof VARCHAR(255) DEFAULT NULL AFTER status");
                 } catch (\Exception $e) {}
 
+                // Persistent Login (Remember Me) Table
+                try {
+                    $pdo->exec("CREATE TABLE IF NOT EXISTS remember_tokens (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        user_type ENUM('admin', 'sales', 'technician', 'customer') NOT NULL,
+                        user_id INT NOT NULL,
+                        selector CHAR(12) NOT NULL,
+                        hashed_validator CHAR(64) NOT NULL,
+                        expires_at DATETIME NOT NULL,
+                        UNIQUE KEY (selector)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+                } catch (\Exception $e) {}
+
                 // Default Payment Settings
                 $defaultSettings = [
                     'ENABLE_TRIPAY_CUSTOMER' => '1',

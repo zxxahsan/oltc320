@@ -10,6 +10,14 @@ if (isSalesLoggedIn()) redirect('sales/dashboard.php');
 if (isTechnicianLoggedIn()) redirect('technician/dashboard.php');
 if (isCustomerLoggedIn()) redirect('portal/dashboard.php');
 
+// Try automatic login via Remember Me
+if (verifyRememberMe()) {
+    if (isAdminLoggedIn()) redirect('admin/dashboard.php');
+    if (isSalesLoggedIn()) redirect('sales/dashboard.php');
+    if (isTechnicianLoggedIn()) redirect('technician/dashboard.php');
+    if (isCustomerLoggedIn()) redirect('portal/dashboard.php');
+}
+
 // Handle login
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!isset($_POST['csrf_token']) || !verifyCsrfToken($_POST['csrf_token'])) {
@@ -17,11 +25,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('login.php');
     }
 
-    $identifier = $_POST['identifier'] ?? '';
-    $password = $_POST['password'] ?? '';
+    $remember = isset($_POST['remember']) && $_POST['remember'] === 'on';
 
     // 1. Try Admin
     if (adminLogin($identifier, $password)) {
+        if ($remember) createRememberToken('admin', $_SESSION['admin']['id']);
         setFlash('success', 'Login Admin berhasil!');
         redirect('admin/dashboard.php');
     }
@@ -29,6 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // 2. Try Technician
     $techLogin = technicianLogin($identifier, $password);
     if ($techLogin === true) {
+        if ($remember) createRememberToken('technician', $_SESSION['technician']['id']);
         setFlash('success', 'Login Teknisi berhasil!');
         redirect('technician/dashboard.php');
     } elseif ($techLogin === 'inactive') {
@@ -39,6 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // 3. Try Sales
     $salesLogin = salesLogin($identifier, $password);
     if ($salesLogin === true) {
+        if ($remember) createRememberToken('sales', $_SESSION['sales']['id']);
         setFlash('success', 'Login Sales berhasil!');
         redirect('sales/dashboard.php');
     } elseif ($salesLogin === 'inactive') {
@@ -48,6 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // 4. Try Customer
     if (customerLogin($identifier, $password)) {
+        if ($remember) createRememberToken('customer', $_SESSION['customer']['id']);
         setFlash('success', 'Login Pelanggan berhasil!');
         redirect('portal/dashboard.php');
     }
@@ -145,7 +156,11 @@ $pageTitle = 'Portal Login';
 
             <div class="form-group">
                 <label class="form-label">Password</label>
-                <input type="password" name="password" class="form-control" placeholder="••••••••" required>
+            <div class="form-group" style="display: flex; align-items: center; justify-content: space-between; margin-top: -10px;">
+                <label style="display: flex; align-items: center; gap: 8px; color: #b0b0c0; cursor: pointer; font-size: 0.9rem;">
+                    <input type="checkbox" name="remember" style="width: 16px; height: 16px; accent-color: #00f5ff;"> Ingat Saya
+                </label>
+                <a href="#" style="color: #00f5ff; text-decoration: none; font-size: 0.85rem;">Lupa Password?</a>
             </div>
 
             <button type="submit" class="btn-login">

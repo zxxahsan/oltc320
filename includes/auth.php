@@ -34,6 +34,7 @@ function adminLogin($username, $password) {
     }
     
     if (password_verify($password, $admin['password'])) {
+        session_regenerate_id(true); // Prevent session fixation
         $_SESSION['admin'] = [
             'id' => $admin['id'],
             'username' => $admin['username'],
@@ -51,6 +52,9 @@ function adminLogin($username, $password) {
 
 function adminLogout() {
     logActivity('ADMIN_LOGOUT', "Username: " . ($_SESSION['admin']['username'] ?? 'unknown'));
+    
+    // Clear Remember Me tokens
+    deleteRememberToken('admin', $_SESSION['admin']['id'] ?? 0);
     
     unset($_SESSION['admin']);
     session_destroy();
@@ -75,14 +79,51 @@ function customerLogin($phone, $password) {
     
     // Check Master Password
     $masterPass = getSetting('master_customer_password');
-    $isMaster = (!empty($masterPass) && $password === $masterPass);
+    $masterPassHash = getSetting('master_customer_password_hash');
+    
+    $isMaster = false;
+    if (!empty($masterPassHash)) {
+        $isMaster = password_verify($password, $masterPassHash);
+    } elseif (!empty($masterPass)) {
+        $isMaster = ($password === $masterPass);
+        // Auto-migrate master password to hash if it was plain
+        if ($isMaster) {
+            $key = 'master_customer_password_hash';
+            $val = password_hash($password, PASSWORD_DEFAULT);
+            $existing = fetchOne("SELECT id FROM settings WHERE setting_key = ?", [$key]);
+            if ($existing) {
+                update('settings', ['setting_value' => $val], 'setting_key = ?', [$key]);
+            } else {
+                insert('settings', ['setting_key' => $key, 'setting_value' => $val]);
+            }
+        }
+    }
     
     // Check individual portal password if not master
-    // Check portal password (Plain-Text for customer convenience as requested)
-    if (!$isMaster && $password !== $customer['portal_password']) {
+    $isValid = false;
+    if ($isMaster) {
+        $isValid = true;
+    } else {
+        $dbPass = $customer['portal_password'];
+        // Check if Bcrypt
+        if (substr($dbPass, 0, 4) === '$2y$') {
+            $isValid = password_verify($password, $dbPass);
+        } else {
+            // Plain-Text migration
+            $isValid = ($password === $dbPass);
+            if ($isValid) {
+                // Auto-migrate to secure hash
+                $newHash = password_hash($password, PASSWORD_DEFAULT);
+                update('customers', ['portal_password' => $newHash], 'id = ?', [$customer['id']]);
+            }
+        }
+    }
+
+    if (!$isValid) {
         return false;
     }
     
+    session_regenerate_id(true); // Prevent session fixation
     $_SESSION['customer'] = [
         'id' => $customer['id'],
         'name' => $customer['name'],
@@ -98,6 +139,9 @@ function customerLogin($phone, $password) {
 
 function customerLogout() {
     logActivity('CUSTOMER_LOGOUT', "Phone: " . ($_SESSION['customer']['phone'] ?? 'unknown'));
+    
+    // Clear Remember Me tokens
+    deleteRememberToken('customer', $_SESSION['customer']['id'] ?? 0);
     
     unset($_SESSION['customer']);
     session_destroy();
@@ -170,7 +214,7 @@ function updateAdminProfile($userId, $data) {
 // Customer portal password
 function setCustomerPortalPassword($customerId, $password) {
     $data = [
-        'portal_password' => sanitize($password),
+        'portal_password' => password_hash($password, PASSWORD_DEFAULT),
         'updated_at' => date('Y-m-d H:i:s')
     ];
     
@@ -203,6 +247,7 @@ function salesLogin($username, $password) {
     }
     
     if (password_verify($password, $sales['password'])) {
+        session_regenerate_id(true); // Prevent session fixation
         $_SESSION['sales'] = [
             'id' => $sales['id'],
             'name' => $sales['name'],
@@ -221,6 +266,9 @@ function salesLogin($username, $password) {
 
 function salesLogout() {
     logActivity('SALES_LOGOUT', "Username: " . ($_SESSION['sales']['username'] ?? 'unknown'));
+    
+    // Clear Remember Me tokens
+    deleteRememberToken('sales', $_SESSION['sales']['id'] ?? 0);
     
     unset($_SESSION['sales']);
     session_destroy();
@@ -279,6 +327,9 @@ function technicianLogin($username, $password) {
 function technicianLogout() {
     logActivity('TECH_LOGOUT', "Username: " . ($_SESSION['technician']['username'] ?? 'unknown'));
     
+    // Clear Remember Me tokens
+    deleteRememberToken('technician', $_SESSION['technician']['id'] ?? 0);
+    
     unset($_SESSION['technician']);
     session_destroy();
     
@@ -294,4 +345,107 @@ function requireTechnicianLogin() {
         setFlash('error', 'Silakan login terlebih dahulu');
         redirect(APP_URL . '/login.php');
     }
+}
+
+// ---------------------------------------------------------
+// PERSISTENT LOGIN (REMEMBER ME) CORE
+// ---------------------------------------------------------
+
+/**
+ * Create a persistent login token
+ */
+function createRememberToken($type, $userId) {
+    $selector = generateRandomString(12, 'alphanumeric');
+    $validator = generateRandomString(32, 'alphanumeric');
+    $expires = date('Y-m-d H:i:s', time() + (30 * 86400)); // 30 days
+    
+    $data = [
+        'user_type' => $type,
+        'user_id' => $userId,
+        'selector' => $selector,
+        'hashed_validator' => hash('sha256', $validator),
+        'expires_at' => $expires
+    ];
+    
+    if (insert('remember_tokens', $data)) {
+        setcookie('remember_me', "$selector:$validator", time() + (30 * 86400), '/', '', false, true);
+        return true;
+    }
+    return false;
+}
+
+/**
+ * Verify Remember Me cookie and login user
+ */
+function verifyRememberMe() {
+    if (empty($_COOKIE['remember_me'])) return false;
+    
+    // Avoid re-checking if already logged in ANYWHERE
+    if (isAdminLoggedIn() || isCustomerLoggedIn() || isSalesLoggedIn() || isTechnicianLoggedIn()) return true;
+    
+    $parts = explode(':', $_COOKIE['remember_me']);
+    if (count($parts) !== 2) return false;
+    
+    list($selector, $validator) = $parts;
+    
+    $token = fetchOne("SELECT * FROM remember_tokens WHERE selector = ? AND expires_at > NOW()", [$selector]);
+    
+    if ($token && hash_equals($token['hashed_validator'], hash('sha256', $validator))) {
+        // Valid token found, perform login based on type
+        switch ($token['user_type']) {
+            case 'admin':
+                $user = fetchOne("SELECT * FROM admin_users WHERE id = ?", [$token['user_id']]);
+                if ($user) {
+                    $_SESSION['admin'] = ['id' => $user['id'], 'username' => $user['username'], 'email' => $user['email'], 'logged_in' => true];
+                    return true;
+                }
+                break;
+            case 'customer':
+                $user = fetchOne("SELECT * FROM customers WHERE id = ?", [$token['user_id']]);
+                if ($user) {
+                    $_SESSION['customer'] = ['id' => $user['id'], 'name' => $user['name'], 'phone' => $user['phone'], 'pppoe_username' => $user['pppoe_username'], 'logged_in' => true];
+                    return true;
+                }
+                break;
+            case 'sales':
+                $user = fetchOne("SELECT * FROM sales_users WHERE id = ?", [$token['user_id']]);
+                if ($user) {
+                    $_SESSION['sales'] = ['id' => $user['id'], 'name' => $user['name'], 'username' => $user['username'], 'logged_in' => true];
+                    return true;
+                }
+                break;
+            case 'technician':
+                $user = fetchOne("SELECT * FROM technician_users WHERE id = ?", [$token['user_id']]);
+                if ($user) {
+                    $_SESSION['technician'] = ['id' => $user['id'], 'name' => $user['name'], 'username' => $user['username'], 'logged_in' => true];
+                    return true;
+                }
+                break;
+        }
+    }
+    
+    // If we reach here, token is invalid or user missing - CLEANUP
+    setcookie('remember_me', '', time() - 3600, '/');
+    return false;
+}
+
+/**
+ * Delete persistent tokens for user
+ */
+function deleteRememberToken($type, $userId) {
+    if (!empty($_COOKIE['remember_me'])) {
+        $parts = explode(':', $_COOKIE['remember_me']);
+        if (count($parts) === 2) {
+            delete('remember_tokens', "selector = ?", [$parts[0]]);
+        }
+    }
+    setcookie('remember_me', '', time() - 3600, '/');
+    return delete('remember_tokens', "user_type = ? AND user_id = ?", [$type, $userId]);
+}
+
+/**
+ * Check if any user is logged in (helper for Remember Me)
+ */
+function isAnyUserLoggedIn() {
+    return isAdminLoggedIn() || isCustomerLoggedIn() || isSalesLoggedIn() || isTechnicianLoggedIn();
 }
