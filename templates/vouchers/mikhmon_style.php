@@ -36,13 +36,17 @@
                 <div class="value">{{password}}</div>
             </div>
             <div class="field">
-                <label>Masa Aktif</label>
+                <label>Validity (Masa Aktif)</label>
                 <div class="value">{{validity}}</div>
+            </div>
+            <div class="field">
+                <label>Uptime Limit (Batas Waktu)</label>
+                <div class="value">{{timelimit}}</div>
             </div>
         </div>
         <div class="voucher-footer">
             <div class="price">{{price}}</div>
-            <div class="validity">Berlaku: {{validity}}</div>
+            <div class="validity">Aktif: {{validity}} | Limit: {{timelimit}}</div>
         </div>
     </div>
 </body>

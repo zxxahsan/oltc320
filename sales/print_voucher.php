@@ -147,6 +147,7 @@ $appName = APP_NAME;
                         '{{timelimit}}' => $v['timelimit'] ?? '-',
                         '{{limituptime}}' => $v['timelimit'] ?? '-',
                         '{{limit-uptime}}' => $v['timelimit'] ?? '-',
+                        '{{uptime_limit}}' => $v['timelimit'] ?? '-',
                         '{{hotspotname}}' => $hotspotName,
                         '{{login_url}}' => $loginUrl,
                         '{{admin_num}}' => $adminNum,

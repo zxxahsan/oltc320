@@ -151,6 +151,9 @@
                         voucherHtml = voucherHtml.replace(/\{\{profile\}\}/g, voucher.profile);
                         voucherHtml = voucherHtml.replace(/\{\{price\}\}/g, voucher.price);
                         voucherHtml = voucherHtml.replace(/\{\{validity\}\}/g, voucher.validity);
+                        voucherHtml = voucherHtml.replace(/\{\{timelimit\}\}/g, voucher.timelimit || '-');
+                        voucherHtml = voucherHtml.replace(/\{\{limituptime\}\}/g, voucher.timelimit || '-');
+                        voucherHtml = voucherHtml.replace(/\{\{uptime_limit\}\}/g, voucher.timelimit || '-');
                         voucherHtml = voucherHtml.replace(/\{\{hotspotname\}\}/g, '<?php echo getSetting('vcr_hotspot_name', APP_NAME); ?>');
                         voucherHtml = voucherHtml.replace(/\{\{dnsname\}\}/g, voucher.dnsname || 'hotspot.net');
                         voucherHtml = voucherHtml.replace(/\{\{num\}\}/g, index + 1);

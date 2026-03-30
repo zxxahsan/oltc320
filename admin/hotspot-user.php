@@ -547,6 +547,7 @@ ob_start();
             profile: v.profile,
             price: v.price,
             validity: v.validity,
+            timelimit: v.timelimit, // Added timelimit
             hotspotname: 'Gembok WiFi',
             dnsname: 'hotspot.net'
         }));
