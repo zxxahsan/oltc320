@@ -26,6 +26,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $remember = isset($_POST['remember']) && $_POST['remember'] === 'on';
+    $identifier = sanitize($_POST['identifier']);
+    $password = $_POST['password'];
 
     // 1. Try Admin
     if (adminLogin($identifier, $password)) {
@@ -156,6 +158,9 @@ $pageTitle = 'Portal Login';
 
             <div class="form-group">
                 <label class="form-label">Password</label>
+                <input type="password" name="password" class="form-control" placeholder="••••••••" required>
+            </div>
+
             <div class="form-group" style="display: flex; align-items: center; justify-content: space-between; margin-top: -10px;">
                 <label style="display: flex; align-items: center; gap: 8px; color: #b0b0c0; cursor: pointer; font-size: 0.9rem;">
                     <input type="checkbox" name="remember" style="width: 16px; height: 16px; accent-color: #00f5ff;"> Ingat Saya
