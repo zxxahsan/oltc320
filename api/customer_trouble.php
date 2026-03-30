@@ -91,11 +91,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             // WA: Broadcast to Technicians
             $gmapsLink = "Tidak ada kordinat map.";
-            if (!empty($customer['latitude']) && !empty($customer['longitude'])) {
-                $gmapsLink = "https://www.google.com/maps?q={$customer['latitude']},{$customer['longitude']}";
+            if (!empty($customer['lat']) && !empty($customer['lng'])) {
+                $gmapsLink = "https://www.google.com/maps?q={$customer['lat']},{$customer['lng']}";
             }
             
-            $msgTech = "🚨 *TUGAS GANGGUAN BARU (VIA PORTAL)*\n\n";
+            $msgTech = "🚨 *TUGAS GANGGUAN BARU (VIA PORTAL Pelanggan)*\n\n";
             $msgTech .= "Ticket: #{$ticketId}\n";
             $msgTech .= "Pelanggan: {$customer['name']}\n";
             $msgTech .= "Kontak (WA): {$customer['phone']}\n";
@@ -103,6 +103,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $msgTech .= "Lokasi Map: {$gmapsLink}\n";
             $msgTech .= "Masalah: {$description}\n";
             $msgTech .= "Prioritas: " . strtoupper($priority) . "\n\n";
+            $msgTech .= "Detail Tugas: " . APP_URL . "/technician/tasks/view_ticket.php?id={$ticketId}\n\n";
             $msgTech .= "Mohon segera dicek. Terima kasih.";
             
             $techs = $pdo->query("SELECT phone FROM technician_users WHERE status = 'active'")->fetchAll();

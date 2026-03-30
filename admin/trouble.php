@@ -63,9 +63,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $msg = "🚨 *TUGAS GANGGUAN BARU*\n\n";
                             $msg .= "Ticket: #{$ticketId}\n";
                             $msg .= "Pelanggan: " . ($customer['name'] ?? 'N/A') . "\n";
+                            
                             $gmapsLink = "Tidak ada kordinat map.";
-                            if (!empty($customer['latitude']) && !empty($customer['longitude'])) {
-                                $gmapsLink = "https://www.google.com/maps?q={$customer['latitude']},{$customer['longitude']}";
+                            if (!empty($customer['lat']) && !empty($customer['lng'])) {
+                                $gmapsLink = "https://www.google.com/maps?q={$customer['lat']},{$customer['lng']}";
                             }
 
                             $msg .= "Kontak (WA): " . ($customer['phone'] ?? '-') . "\n";
@@ -73,6 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $msg .= "Lokasi Map: {$gmapsLink}\n";
                             $msg .= "Masalah: {$description}\n";
                             $msg .= "Prioritas: " . strtoupper($priority) . "\n\n";
+                            $msg .= "Detail Tugas: " . APP_URL . "/technician/tasks/view_ticket.php?id={$ticketId}\n\n";
                             $msg .= "Mohon segera dicek. Terima kasih.";
                             
                             sendWhatsAppMessage($tech['phone'], $msg);
@@ -121,15 +123,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         if ($notifyTech) {
                             $tech = fetchOne("SELECT phone, name FROM technician_users WHERE id = ?", [$technicianId]);
                             if ($tech && !empty($tech['phone'])) {
-                                $customerDetails = fetchOne("SELECT name, phone, address FROM customers WHERE id = ?", [$ticket['customer_id']]);
+                                $customerDetails = fetchOne("SELECT name, phone, address, lat, lng FROM customers WHERE id = ?", [$ticket['customer_id']]);
                                 require_once '../includes/whatsapp.php';
                                 $msg = "🚨 *UPDATE TUGAS GANGGUAN*\n\n";
                                 $msg .= "Ticket: #{$ticketId}\n";
                                 $msg .= "Status: " . strtoupper($status) . "\n";
                                 $msg .= "Pelanggan: " . ($customerDetails['name'] ?? 'N/A') . "\n";
+                                
                                 $gmapsLink = "Tidak ada kordinat map.";
-                                if (!empty($customerDetails['latitude']) && !empty($customerDetails['longitude'])) {
-                                    $gmapsLink = "https://www.google.com/maps?q={$customerDetails['latitude']},{$customerDetails['longitude']}";
+                                if (!empty($customerDetails['lat']) && !empty($customerDetails['lng'])) {
+                                    $gmapsLink = "https://www.google.com/maps?q={$customerDetails['lat']},{$customerDetails['lng']}";
                                 }
 
                                 $msg .= "Kontak (WA): " . ($customerDetails['phone'] ?? '-') . "\n";
@@ -137,6 +140,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 $msg .= "Lokasi Map: {$gmapsLink}\n";
                                 $msg .= "Masalah: {$ticket['description']}\n";
                                 $msg .= "Catatan Admin: " . ($notes ?: '-') . "\n\n";
+                                $msg .= "Detail Tugas: " . APP_URL . "/technician/tasks/view_ticket.php?id={$ticketId}\n\n";
                                 $msg .= "Mohon untuk segera ditindaklanjuti. Terima kasih.";
                                 sendWhatsAppMessage($tech['phone'], $msg);
                             }
