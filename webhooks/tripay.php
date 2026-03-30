@@ -12,18 +12,19 @@ try {
     // Get raw POST data
     $json = file_get_contents('php://input');
     $callbackSignature = $_SERVER['HTTP_X_CALLBACK_SIGNATURE'] ?? '';
+    logActivity('TRIPAY_WEBHOOK', "Received webhook. Signature: $callbackSignature");
+
+    // Get Private Key from settings
+    $privateKey = getSetting('TRIPAY_PRIVATE_KEY');
     
-    logActivity('TRIPAY_WEBHOOK', "Received webhook");
-    
-    // Validate signature
-    if (empty(TRIPAY_PRIVATE_KEY)) {
-        logError('Tripay webhook: Private key not configured');
+    if (empty($privateKey)) {
+        logError('Tripay webhook: Private key not configured in settings');
         echo json_encode(['success' => false, 'message' => 'Private key not configured']);
         exit;
     }
     
     // Generate expected signature
-    $expectedSignature = hash_hmac('sha256', $json, TRIPAY_PRIVATE_KEY);
+    $expectedSignature = hash_hmac('sha256', $json, $privateKey);
     
     if (!hash_equals($expectedSignature, $callbackSignature)) {
         logError('Tripay webhook: Invalid signature');

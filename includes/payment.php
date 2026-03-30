@@ -45,17 +45,25 @@ function generateTripayPaymentLink($merchantRef, $amount, $customerName, $custom
     $amountInt = (int)$amount;
     $signature = hash_hmac('sha256', $merchantCode.$merchantRef.$amountInt, $privateKey);
 
+    // Clean phone number (Only digits and 62 prefix for E-Wallets eligibility)
+    $cleanPhone = preg_replace('/[^0-9]/', '', $customerPhone);
+    if (substr($cleanPhone, 0, 1) === '0') {
+        $cleanPhone = '62' . substr($cleanPhone, 1);
+    } elseif (empty($cleanPhone)) {
+        $cleanPhone = '628123456789'; // Last resort fallback
+    }
+
     $data = [
         'method'         => $method,
         'merchant_ref'   => $merchantRef,
         'amount'         => $amountInt,
         'customer_name'  => $customerName,
-        'customer_email' => 'customer@mail.com',
-        'customer_phone' => $customerPhone,
+        'customer_email' => 'customer@mail.com', // Tripay requires email
+        'customer_phone' => $cleanPhone,
         'order_items'    => [
             [
-                'sku'         => 'TOPUP',
-                'name'        => 'Topup Saldo',
+                'sku'         => 'BILL',
+                'name'        => 'Pembayaran Layanan',
                 'price'       => $amountInt,
                 'quantity'    => 1,
                 'product_url' => APP_URL,
