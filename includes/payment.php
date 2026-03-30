@@ -167,7 +167,9 @@ function getTripayPaymentStatus($merchantRef) {
 function getTripayChannels() {
     $apiKey = getSetting('TRIPAY_API_KEY');
     $merchantCode = getSetting('TRIPAY_MERCHANT_CODE');
-    if (empty($apiKey) || empty($merchantCode)) return [];
+    
+    if (empty($apiKey)) return ['success' => false, 'message' => 'API Key Tripay belum dikonfigurasi di Settings.'];
+    if (empty($merchantCode)) return ['success' => false, 'message' => 'Merchant Code Tripay belum dikonfigurasi di Settings.'];
 
     $isSandbox = getSetting('TRIPAY_SANDBOX', '0') === '1';
     $baseUrl = $isSandbox ? 'https://tripay.co.id/api-sandbox/merchant/payment-channel' : 'https://tripay.co.id/api/merchant/payment-channel';
@@ -182,7 +184,7 @@ function getTripayChannels() {
             'Accept: application/json'
         ],
         CURLOPT_SSL_VERIFYPEER => false,
-        CURLOPT_TIMEOUT => 15,
+        CURLOPT_TIMEOUT => 20,
         CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4
     ]);
 
@@ -195,14 +197,12 @@ function getTripayChannels() {
         $res = json_decode($response, true);
         if ($res && isset($res['success']) && $res['success']) {
             $channels = $res['data'] ?? [];
-            $_SESSION['tripay_channels_cache'] = $channels;
-            $_SESSION['tripay_channels_time'] = time();
             return ['success' => true, 'data' => $channels];
         } else {
-            return ['success' => false, 'message' => $res['message'] ?? 'Tripay Error: Gagal memproses data channel'];
+            return ['success' => false, 'message' => 'Tripay: ' . ($res['message'] ?? 'Unable to parse API response')];
         }
     }
 
-    $errorMsg = !empty($curlError) ? $curlError : "HTTP Code: $httpCode";
-    return ['success' => false, 'message' => "Gagal terhubung ke Tripay ($errorMsg). Pastikan API Key & Merchant Code benar."];
+    $errorMsg = !empty($curlError) ? $curlError : "HTTP $httpCode - $response";
+    return ['success' => false, 'message' => "Gagal terhubung ke Tripay. $errorMsg"];
 }
