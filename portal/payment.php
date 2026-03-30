@@ -108,6 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (empty($selectedPaymentMethod)) {
             setFlash('error', 'Silakan pilih metode pembayaran otomatis');
         } else {
+            $billingMonthYear = date('F Y', strtotime($invoice['due_date']));
             $result = generatePaymentLink(
                 $invoice['invoice_number'],
                 $invoice['amount'],
@@ -116,16 +117,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $invoice['due_date'],
                 $defaultGateway,
                 $selectedPaymentMethod,
-                "Tagihan Bulan Berjalan"
+                "Tagihan " . $billingMonthYear
             );
             
             if ($result['success']) {
                 $paymentLink = $result['link'];
                 update('invoices', ['payment_method' => $defaultGateway], 'id = ?', [$invoiceId]);
                 
-                // Use the new robust redirector to fix ShopeePay/Dana deep-link issues
-                $redirectUrl = APP_URL . "/payment_redirect.php?url=" . urlencode($paymentLink) . "&qr=" . urlencode($result['qr_url'] ?? '') . "&pay=" . urlencode($result['pay_url'] ?? '');
-                header("Location: " . $redirectUrl);
+                // Direct redirect as requested by user
+                header("Location: " . $paymentLink);
                 exit;
             } else {
                 setFlash('error', $result['message'] ?? 'Gagal generate payment link');
