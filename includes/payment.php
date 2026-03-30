@@ -170,7 +170,7 @@ function getTripayChannels() {
     if (empty($apiKey) || empty($merchantCode)) return [];
 
     $isSandbox = getSetting('TRIPAY_SANDBOX', '0') === '1';
-    $baseUrl = $isSandbox ? 'https://tripay.co.id/api-sandbox/merchant/payment-channels' : 'https://tripay.co.id/api/merchant/payment-channels';
+    $baseUrl = $isSandbox ? 'https://tripay.co.id/api-sandbox/merchant/payment-channel' : 'https://tripay.co.id/api/merchant/payment-channel';
     $url = $baseUrl . '?merchant_code=' . $merchantCode;
 
     $ch = curl_init();
