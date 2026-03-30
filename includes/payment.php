@@ -42,12 +42,13 @@ function generateTripayPaymentLink($merchantRef, $amount, $customerName, $custom
     // they should be able to see the list. Tripay Closed Payment requires a CODE (e.g., QRIS, BRIVA).
     $method = !empty($paymentMethod) ? $paymentMethod : 'QRIS';
 
-    $signature = hash_hmac('sha256', $merchantCode.$merchantRef.$amount, $privateKey);
+    $amountInt = (int)$amount;
+    $signature = hash_hmac('sha256', $merchantCode.$merchantRef.$amountInt, $privateKey);
 
     $data = [
         'method'         => $method,
         'merchant_ref'   => $merchantRef,
-        'amount'         => $amount,
+        'amount'         => $amountInt,
         'customer_name'  => $customerName,
         'customer_email' => 'customer@mail.com',
         'customer_phone' => $customerPhone,
@@ -55,14 +56,14 @@ function generateTripayPaymentLink($merchantRef, $amount, $customerName, $custom
             [
                 'sku'         => 'TOPUP',
                 'name'        => 'Topup Saldo',
-                'price'       => $amount,
+                'price'       => $amountInt,
                 'quantity'    => 1,
                 'product_url' => APP_URL,
                 'image_url'   => APP_URL . '/assets/img/logo.png',
             ]
         ],
         'return_url'   => APP_URL . '/sales/topup.php',
-        'expired_time' => strtotime($dueDate),
+        'expired_time' => (int)strtotime($dueDate),
         'signature'    => $signature
     ];
 
@@ -75,10 +76,13 @@ function generateTripayPaymentLink($merchantRef, $amount, $customerName, $custom
         CURLOPT_URL            => $apiUrl,
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_HEADER         => false,
-        CURLOPT_HTTPHEADER     => ['Authorization: Bearer ' . $apiKey],
+        CURLOPT_HTTPHEADER     => [
+            'Authorization: Bearer ' . $apiKey,
+            'Content-Type: application/json'
+        ],
         CURLOPT_FAILONERROR    => false,
         CURLOPT_POST           => true,
-        CURLOPT_POSTFIELDS     => http_build_query($data),
+        CURLOPT_POSTFIELDS     => json_encode($data),
         CURLOPT_IPRESOLVE      => CURL_IPRESOLVE_V4
     ]);
 
