@@ -265,7 +265,7 @@ ob_start();
             <div class="card-header">
                 <h3 class="card-title"><i class="fas fa-receipt"></i> Voucher Berhasil Dibuat</h3>
                 <div style="margin-left: auto; display: flex; gap: 10px;">
-                    <a href="print_voucher.php?users=<?php echo implode('|', array_column($vouchers, 'username')); ?>" target="_blank" class="btn btn-sm btn-success">
+                    <a href="print_voucher.php?users=<?php echo implode('|', array_column($vouchers, 'username')); ?>&back=vouchers" target="_blank" class="btn btn-sm btn-success">
                         <i class="fas fa-print"></i> Cetak Profesional
                     </a>
                 </div>

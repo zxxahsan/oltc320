@@ -45,7 +45,7 @@ ob_start();
                                     <td><span class="badge badge-info"><?php echo htmlspecialchars($v['profile']); ?></span></td>
                                     <td class="text-success"><?php echo formatCurrency($v['selling_price']); ?></td>
                                     <td>
-                                        <a href="print_voucher.php?users=<?php echo urlencode($v['username']); ?>" target="_blank" class="btn btn-sm btn-secondary" title="Print Ulang">
+                                        <a href="print_voucher.php?users=<?php echo urlencode($v['username']); ?>&back=active" target="_blank" class="btn btn-sm btn-secondary" title="Print Ulang">
                                             <i class="fas fa-print"></i>
                                         </a>
                                     </td>

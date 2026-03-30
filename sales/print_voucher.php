@@ -70,6 +70,14 @@ if (empty($vouchers)) {
 // unset($_SESSION['generated_vouchers']);
 
 $appName = APP_NAME;
+
+// Handle Dynamic Back URL
+$backUrl = 'vouchers.php';
+if (isset($_GET['back'])) {
+    if ($_GET['back'] === 'active') $backUrl = 'vouchers_active.php';
+    if ($_GET['back'] === 'history') $backUrl = 'history.php';
+    if ($_GET['back'] === 'vouchers') $backUrl = 'vouchers.php';
+}
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -132,7 +140,7 @@ $appName = APP_NAME;
 <body>
     <div class="no-print" style="text-align: center; margin-bottom: 20px;">
         <button onclick="window.print()" style="padding: 10px 20px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 5px;">Cetak Voucher</button>
-        <a href="vouchers.php" style="padding: 10px 20px; text-decoration: none; background: #6c757d; color: white; border-radius: 5px;">Kembali</a>
+        <a href="<?php echo $backUrl; ?>" style="padding: 10px 20px; text-decoration: none; background: #6c757d; color: white; border-radius: 5px;">Kembali</a>
     </div>
 
     <div class="page-container">
