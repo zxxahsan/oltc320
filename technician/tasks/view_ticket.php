@@ -55,7 +55,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if (!is_dir($targetDir)) @mkdir($targetDir, 0777, true);
                     $targetFile = $targetDir . $newName;
                     
+                    // Save base64 as temporary file first then compress
                     if (file_put_contents($targetFile, $data)) {
+                        // Reinforce with server-side compression for uniformity
+                        if (function_exists('compressImage')) {
+                            compressImage($targetFile, $targetFile, 60);
+                        }
                         $uploadedPhotos[] = "uploads/tickets/" . $newName;
                     }
                 }

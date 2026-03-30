@@ -130,6 +130,11 @@ ob_start();
                         <span>Update</span>
                     </a>
                     
+                    <a href="file_manager.php" class="menu-grid-item">
+                        <i class="fas fa-folder-open"></i>
+                        <span>Manajemen File</span>
+                    </a>
+                    
                     <a href="routers.php" class="menu-grid-item">
                         <i class="fas fa-network-wired"></i>
                         <span>Routers</span>
