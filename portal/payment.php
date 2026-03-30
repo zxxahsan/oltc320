@@ -191,9 +191,9 @@ ob_start();
                                 <?php else: ?>
                                     <?php foreach ($paymentMethods as $method): ?>
                                         <div class="payment-method-option" 
-                                             style="border: 2px solid var(--border-color); border-radius: 8px; padding: 15px; cursor: pointer; transition: all 0.3s; text-align: center;"
-                                             onclick="selectPaymentMethod('<?php echo $method['code']; ?>')">
-                                            <input type="radio" name="payment_method" value="<?php echo $method['code']; ?>" id="method_<?php echo $method['code']; ?>" style="display: none;">
+                                             style="border: 2px solid var(--border-color); border-radius: 8px; padding: 15px; cursor: pointer; transition: all 0.3s; text-align: center; position: relative;"
+                                             onclick="selectPaymentMethod(this, '<?php echo $method['code']; ?>')">
+                                            <input type="radio" name="payment_method" value="<?php echo $method['code']; ?>" id="method_<?php echo $method['code']; ?>" style="opacity: 0; position: absolute; width: 1px; height: 1px;" required>
                                             <div style="margin-bottom: 8px;">
                                                 <img src="<?php echo $method['icon_url']; ?>" alt="<?php echo $method['name']; ?>" style="height: 30px; filter: drop-shadow(0 0 5px rgba(255,255,255,0.2));">
                                             </div>
@@ -299,11 +299,11 @@ ob_start();
 </style>
 
 <script>
-function selectPaymentMethod(methodCode) {
+function selectPaymentMethod(el, methodCode) {
     document.querySelectorAll('input[name="payment_method"]').forEach(input => { input.checked = false; });
     document.getElementById('method_' + methodCode).checked = true;
-    document.querySelectorAll('.payment-method-option').forEach(el => { el.style.borderColor = 'var(--border-color)'; });
-    event.currentTarget.style.borderColor = 'var(--neon-cyan)';
+    document.querySelectorAll('.payment-method-option').forEach(item => { item.style.borderColor = 'var(--border-color)'; });
+    el.style.borderColor = 'var(--neon-cyan)';
 }
 
 function switchTab(tabName) {

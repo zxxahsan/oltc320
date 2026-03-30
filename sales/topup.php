@@ -148,8 +148,8 @@ ob_start();
                                         </div>
                                     <?php else: ?>
                                         <?php foreach ($paymentMethods as $m): ?>
-                                            <label class="tripay-option" style="border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; text-align: center; cursor: pointer; transition: all 0.3s; display: block;">
-                                                <input type="radio" name="tripay_method" value="<?php echo $m['code']; ?>" style="display: none;" required>
+                                            <label class="tripay-option" style="border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; text-align: center; cursor: pointer; transition: all 0.3s; display: block; position: relative;" onclick="selectTripayMethod(this)">
+                                                <input type="radio" name="tripay_method" value="<?php echo $m['code']; ?>" style="opacity: 0; position: absolute; width:1px; height:1px;" required>
                                                 <img src="<?php echo $m['icon_url']; ?>" alt="<?php echo $m['name']; ?>" style="height: 25px; margin-bottom: 5px;">
                                                 <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                                                     <?php echo $m['name']; ?>
@@ -308,6 +308,17 @@ ob_start();
 </style>
 
 <script>
+function selectTripayMethod(el) {
+    document.querySelectorAll('input[name="tripay_method"]').forEach(input => { input.checked = false; });
+    el.querySelector('input').checked = true;
+    document.querySelectorAll('.tripay-option').forEach(item => { 
+        item.style.borderColor = 'var(--border-color)';
+        item.style.background = 'transparent';
+    });
+    el.style.borderColor = 'var(--neon-cyan)';
+    el.style.background = 'rgba(0, 245, 255, 0.05)';
+}
+
 function openUploadModal(id) {
     document.getElementById('upload_id').value = id;
     document.getElementById('uploadModal').style.display = 'block';
