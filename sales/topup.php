@@ -10,9 +10,9 @@ $pageTitle = 'Topup Saldo';
 $salesId = $_SESSION['sales']['id'];
 
 // Get individual settings
-$enableTripay = getSettingValue('ENABLE_TRIPAY_SALES', '1') === '1';
-$enableManual = getSettingValue('ENABLE_MANUAL_SALES', '1') === '1';
-$manualInfo = getSettingValue('MANUAL_PAYMENT_INFO', '');
+$enableTripay = getSetting('ENABLE_TRIPAY_SALES', '1') === '1';
+$enableManual = getSetting('ENABLE_MANUAL_SALES', '1') === '1';
+$manualInfo = getSetting('MANUAL_PAYMENT_INFO', '');
 
 // Handle Form Submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['amount'])) {

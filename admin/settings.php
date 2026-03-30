@@ -15,22 +15,6 @@ foreach ($settingsData as $s) {
     $settings[$s['setting_key']] = $s['setting_value'];
 }
 
-// Helper function to get setting with fallback to config.php constant
-function getSettingValue($key, $default = '') {
-    global $settings;
-    
-    // First check database
-    if (isset($settings[$key]) && $settings[$key] !== '') {
-        return $settings[$key];
-    }
-    
-    // Fallback to config.php constant
-    if (defined($key)) {
-        return constant($key);
-    }
-    
-    return $default;
-}
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -294,24 +278,24 @@ ob_start();
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
             <div class="form-group">
                 <label class="form-label">MikroTik IP Address</label>
-                <input type="text" name="mikrotik_host" class="form-control" value="<?php echo htmlspecialchars(getSettingValue('MIKROTIK_HOST')); ?>" placeholder="192.168.1.1">
+                <input type="text" name="mikrotik_host" class="form-control" value="<?php echo htmlspecialchars(getSetting('MIKROTIK_HOST')); ?>" placeholder="192.168.1.1">
             </div>
             
             <div class="form-group">
                 <label class="form-label">Username</label>
-                <input type="text" name="mikrotik_user" class="form-control" value="<?php echo htmlspecialchars(getSettingValue('MIKROTIK_USER')); ?>" placeholder="admin">
+                <input type="text" name="mikrotik_user" class="form-control" value="<?php echo htmlspecialchars(getSetting('MIKROTIK_USER')); ?>" placeholder="admin">
             </div>
         </div>
         
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
             <div class="form-group">
                 <label class="form-label">Password</label>
-                <input type="password" name="mikrotik_pass" class="form-control" value="<?php echo htmlspecialchars(getSettingValue('MIKROTIK_PASS')); ?>" placeholder="Masukkan password">
+                <input type="password" name="mikrotik_pass" class="form-control" value="<?php echo htmlspecialchars(getSetting('MIKROTIK_PASS')); ?>" placeholder="Masukkan password">
             </div>
             
             <div class="form-group">
                 <label class="form-label">API Port</label>
-                <input type="number" name="mikrotik_port" class="form-control" value="<?php echo (int)getSettingValue('MIKROTIK_PORT', 8728); ?>">
+                <input type="number" name="mikrotik_port" class="form-control" value="<?php echo (int)getSetting('MIKROTIK_PORT', 8728); ?>">
             </div>
         </div>
         
@@ -333,7 +317,7 @@ ob_start();
         
         <div class="form-group">
             <label class="form-label">GenieACS URL</label>
-            <input type="text" name="genieacs_url" class="form-control" value="<?php echo htmlspecialchars(getSettingValue('GENIEACS_URL')); ?>" placeholder="http://192.168.1.1:7557">
+            <input type="text" name="genieacs_url" class="form-control" value="<?php echo htmlspecialchars(getSetting('GENIEACS_URL')); ?>" placeholder="http://192.168.1.1:7557">
             <small style="color: var(--text-muted);">URL lengkap termasuk port (default: 7557)</small>
             <?php if (defined('GENIEACS_URL') && GENIEACS_URL && !isset($settings['GENIEACS_URL'])): ?>
                 <small style="color: var(--neon-cyan);"><i class="fas fa-info-circle"></i> Nilai dari config.php (belum disimpan di database)</small>
@@ -343,12 +327,12 @@ ob_start();
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
             <div class="form-group">
                 <label class="form-label">Username (Opsional)</label>
-                <input type="text" name="genieacs_username" class="form-control" value="<?php echo htmlspecialchars(getSettingValue('GENIEACS_USERNAME')); ?>" placeholder="Username GenieACS">
+                <input type="text" name="genieacs_username" class="form-control" value="<?php echo htmlspecialchars(getSetting('GENIEACS_USERNAME')); ?>" placeholder="Username GenieACS">
             </div>
             
             <div class="form-group">
                 <label class="form-label">Password (Opsional)</label>
-                <input type="password" name="genieacs_password" class="form-control" value="<?php echo htmlspecialchars(getSettingValue('GENIEACS_PASSWORD')); ?>" placeholder="Password GenieACS">
+                <input type="password" name="genieacs_password" class="form-control" value="<?php echo htmlspecialchars(getSetting('GENIEACS_PASSWORD')); ?>" placeholder="Password GenieACS">
             </div>
         </div>
         

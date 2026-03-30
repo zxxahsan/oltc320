@@ -3,7 +3,7 @@
  * Web-accessible Cron Runner
  */
 
-require_once __DIR__ . '/../includes/auth.php'; // For getSettingValue and db access
+require_once __DIR__ . '/../includes/auth.php'; // For db access and functions
 
 // Get cron token from settings
 $settings = [];
