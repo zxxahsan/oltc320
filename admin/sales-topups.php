@@ -153,7 +153,15 @@ ob_start();
                         <?php if ($t['status'] === 'paid'): ?>
                             <span class="badge badge-success">SUKSES</span>
                         <?php elseif ($t['status'] === 'pending'): ?>
-                            <span class="badge badge-warning">PENDING</span>
+                            <div style="display: flex; flex-direction: column; gap: 5px; align-items: start;">
+                                <span class="badge badge-warning">PENDING</span>
+                                <?php if (!empty($t['payment_proof'])): ?>
+                                    <button class="btn btn-sm btn-info" style="font-size: 0.7rem; padding: 3px 6px;" 
+                                            onclick="viewProof('<?php echo APP_URL . '/' . $t['payment_proof']; ?>')">
+                                        <i class="fas fa-image"></i> Lihat Bukti
+                                    </button>
+                                <?php endif; ?>
+                            </div>
                         <?php else: ?>
                             <span class="badge badge-danger">DIBATALKAN</span>
                         <?php endif; ?>
@@ -205,6 +213,13 @@ ob_start();
             </div>
         </form>
     </div>
+    </div>
+</div>
+
+<!-- View Modal -->
+<div id="viewModal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1001; align-items: center; justify-content: center;">
+    <span style="position: absolute; top: 20px; right: 30px; font-size: 30px; color: #fff; cursor: pointer;" onclick="closeViewModal()">&times;</span>
+    <img id="img_preview" style="max-width: 90%; max-height: 90%; border-radius: 8px;">
 </div>
 
 <script>
@@ -215,8 +230,17 @@ function showEditModal(data) {
     document.getElementById('editModal').style.display = 'block';
 }
 
+function viewProof(url) {
+    document.getElementById('img_preview').src = url;
+    document.getElementById('viewModal').style.display = 'flex';
+}
+
 function closeModal() {
     document.getElementById('editModal').style.display = 'none';
+}
+
+function closeViewModal() {
+    document.getElementById('viewModal').style.display = 'none';
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -229,9 +253,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Close modal when clicking outside
 window.onclick = function(event) {
-    if (event.target == document.getElementById('editModal')) {
-        closeModal();
-    }
+    if (event.target == document.getElementById('editModal')) closeModal();
+    if (event.target == document.getElementById('viewModal')) closeViewModal();
 }
 </script>
 

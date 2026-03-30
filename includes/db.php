@@ -44,11 +44,6 @@ function getDB() {
                 try {
                     $pdo->exec("ALTER TABLE hotspot_sales ADD COLUMN router_id INT DEFAULT 0");
                 } catch (\Exception $e) {}
-                
-                try {
-                    $pdo->exec("ALTER TABLE invoices MODIFY COLUMN status ENUM('unpaid', 'paid', 'cancelled', 'pending') DEFAULT 'unpaid'");
-                    $pdo->exec("ALTER TABLE invoices ADD COLUMN payment_proof VARCHAR(255) DEFAULT NULL");
-                } catch (\Exception $e) {}
 
                 // Sales Topups Table
                 try {
@@ -62,6 +57,14 @@ function getDB() {
                         created_at DATETIME NOT NULL,
                         updated_at DATETIME NOT NULL
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+                    
+                    // Add payment_proof to sales_topups
+                    $pdo->exec("ALTER TABLE sales_topups ADD COLUMN payment_proof VARCHAR(255) DEFAULT NULL AFTER status");
+                } catch (\Exception $e) {}
+
+                // Add payment_proof to invoices
+                try {
+                    $pdo->exec("ALTER TABLE invoices ADD COLUMN payment_proof VARCHAR(255) DEFAULT NULL AFTER status");
                 } catch (\Exception $e) {}
 
                 // Default Payment Settings

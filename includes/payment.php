@@ -3,7 +3,7 @@
  * Payment Gateway Integration
  */
 
-require_once __DIR__ . '/config.php';
+require_once 'config.php';
 
 // Generate payment link based on gateway
 function generatePaymentLink($reference, $amount, $customerName, $customerPhone, $dueDate, $gateway = 'tripay', $paymentMethod = '') {
@@ -19,26 +19,83 @@ function generatePaymentLink($reference, $amount, $customerName, $customerPhone,
     ];
 }
 
-// Tripay Payment Link Generator
+// Tripay Payment Link Generator (Closed Payment API)
 function generateTripayPaymentLink($merchantRef, $amount, $customerName, $customerPhone, $dueDate, $paymentMethod = '') {
-    if (empty(TRIPAY_API_KEY) || empty(TRIPAY_MERCHANT_CODE)) {
+    if (empty(TRIPAY_API_KEY) || empty(TRIPAY_MERCHANT_CODE) || empty(TRIPAY_PRIVATE_KEY)) {
         return [
             'success' => false,
-            'message' => 'Payment gateway not configured',
+            'message' => 'Tripay API/Merchant/Private Key belum dikonfigurasi',
             'link' => null
         ];
     }
     
-    $paymentLink = "https://tripay.co.id/checkout?merchant_code=" . TRIPAY_MERCHANT_CODE . "&amount={$amount}&merchant_ref=" . urlencode($merchantRef) . "&customer_name=" . urlencode($customerName) . "&customer_phone=" . urlencode($customerPhone);
+    $apiKey       = TRIPAY_API_KEY;
+    $privateKey   = TRIPAY_PRIVATE_KEY;
+    $merchantCode = TRIPAY_MERCHANT_CODE;
     
-    if (!empty($paymentMethod)) {
-        $paymentLink .= "&payment_method={$paymentMethod}";
-    }
+    // Default to QRIS if method is not specified, but for 'Portal' effect, we use a generic method if possible.
+    // In Tripay Closed Payment, you MUST specify a method. If not specified, we can't create it.
+    // However, Tripay also has "Open Payment". If the user wants a "Portal", they might want to see all.
+    // If they want to Choose, we should probably redirect them to our own 'choose-method.php' or use Tripay redirect.
     
-    return [
-        'success' => true,
-        'link' => $paymentLink
+    // To satisfy "Tampil Portal", we will use QRIS as default if empty, OR if they want the portal,
+    // they should be able to see the list. Tripay Closed Payment requires a CODE (e.g., QRIS, BRIVA).
+    $method = !empty($paymentMethod) ? $paymentMethod : 'QRIS';
+
+    $signature = hash_hmac('sha256', $merchantCode.$merchantRef.$amount, $privateKey);
+
+    $data = [
+        'method'         => $method,
+        'merchant_ref'   => $merchantRef,
+        'amount'         => $amount,
+        'customer_name'  => $customerName,
+        'customer_email' => 'customer@mail.com',
+        'customer_phone' => $customerPhone,
+        'order_items'    => [
+            [
+                'sku'         => 'TOPUP',
+                'name'        => 'Topup Saldo',
+                'price'       => $amount,
+                'quantity'    => 1,
+                'product_url' => APP_URL,
+                'image_url'   => APP_URL . '/assets/img/logo.png',
+            ]
+        ],
+        'return_url'   => APP_URL . '/sales/topup.php',
+        'expired_time' => strtotime($dueDate),
+        'signature'    => $signature
     ];
+
+    $curl = curl_init();
+    curl_setopt_array($curl, [
+        CURLOPT_FRESH_CONNECT  => true,
+        CURLOPT_URL            => 'https://tripay.co.id/api/transaction/create',
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HEADER         => false,
+        CURLOPT_HTTPHEADER     => ['Authorization: Bearer ' . $apiKey],
+        CURLOPT_FAILONERROR    => false,
+        CURLOPT_POST           => true,
+        CURLOPT_POSTFIELDS     => http_build_query($data),
+        CURLOPT_IPRESOLVE      => CURL_IPRESOLVE_V4
+    ]);
+
+    $response = curl_exec($curl);
+    $error = curl_error($curl);
+    curl_close($curl);
+
+    $res = json_decode($response);
+    
+    if ($res && isset($res->success) && $res->success) {
+        return [
+            'success' => true,
+            'link'    => $res->data->checkout_url
+        ];
+    } else {
+        return [
+            'success' => false,
+            'message' => $res->message ?? $error ?? 'Gagal membuat transaksi ke Tripay'
+        ];
+    }
 }
 
 // DEPRECATED: Midtrans Payment Link Generator removed
