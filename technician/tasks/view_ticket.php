@@ -91,6 +91,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     
     if (update('trouble_tickets', $updateData, 'id = ?', [$ticketId])) {
+        // Send WhatsApp notification to customer
+        if (!empty($ticket['phone'])) {
+            require_once '../../includes/whatsapp.php';
+            $statusLabels = [
+                'pending' => 'Menunggu',
+                'in_progress' => 'Sedang Diproses',
+                'resolved' => 'Selesai'
+            ];
+            
+            $msg = "Halo *{$ticket['customer_name']}*,\n\n";
+            $msg .= "Laporan gangguan Anda (#{$ticketId}) telah diperbarui oleh Teknisi *{$tech['name']}*:\n\n";
+            $msg .= "*Status:* {$statusLabels[$status]}\n";
+            if ($notes) $msg .= "*Catatan:* {$notes}\n";
+            
+            if ($status === 'resolved') {
+                $msg .= "\nLayanan Anda seharusnya sudah kembali normal. Terima kasih atas kesabaran Anda.";
+            } else {
+                $msg .= "\nMohon tunggu pembaruan selanjutnya.";
+            }
+            
+            sendWhatsAppMessage($ticket['phone'], $msg);
+        }
+
         setFlash('success', 'Status tiket berhasil diperbarui.');
         redirect('index.php');
     } else {

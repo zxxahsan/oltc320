@@ -156,22 +156,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             'resolved' => 'Selesai'
                         ];
                         
-                        $message = "Halo {$customer['name']},\n\nStatus laporan gangguan Anda (Ticket #{$ticketId}) telah diperbarui:\n\nStatus: {$statusText[$status]}\n";
-                        if ($notes) {
-                            $message .= "Catatan: {$notes}\n";
-                        }
-                        if ($status === 'resolved') {
-                            $message .= "\nTerima kasih telah menggunakan layanan kami.";
+                        $processor = "Admin";
+                        if ($technicianId) {
+                            $procTech = fetchOne("SELECT name FROM technician_users WHERE id = ?", [$technicianId]);
+                            if ($procTech) $processor = "Teknisi *{$procTech['name']}*";
                         }
                         
-                        if (function_exists('sendWhatsApp')) {
-                             sendWhatsApp($customer['phone'], $message);
-                        } elseif (function_exists('sendWhatsAppMessage')) {
-                             sendWhatsAppMessage($customer['phone'], $message);
-                        } else {
-                             require_once '../includes/whatsapp.php';
-                             sendWhatsAppMessage($customer['phone'], $message);
+                        $message = "Halo *{$customer['name']}*,\n\n";
+                        $message .= "Laporan gangguan Anda (#{$ticketId}) telah diperbarui oleh *{$processor}*:\n\n";
+                        $message .= "*Status:* {$statusText[$status]}\n";
+                        if ($notes) {
+                            $message .= "*Catatan:* {$notes}\n";
                         }
+                        if ($status === 'resolved') {
+                            $message .= "\nLayanan Anda seharusnya sudah kembali normal. Terima kasih telah menggunakan layanan kami.";
+                        } else {
+                            $message .= "\nMohon tunggu pembaruan selanjutnya.";
+                        }
+                        
+                        require_once '../includes/whatsapp.php';
+                        sendWhatsAppMessage($customer['phone'], $message);
                     }
                     
                     setFlash('success', 'Status tiket berhasil diperbarui');
