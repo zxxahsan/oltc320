@@ -117,7 +117,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $invoice['due_date'],
                 $defaultGateway,
                 $selectedPaymentMethod,
-                "Tagihan " . $billingMonthYear
+                "Tagihan Internet " . $billingMonthYear
             );
             
             if ($result['success']) {
