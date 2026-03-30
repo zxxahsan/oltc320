@@ -25,16 +25,28 @@ if (isset($_GET['users'])) {
     $salesRecords = fetchAll("SELECT * FROM hotspot_sales WHERE username IN ($placeholders)", $usernames);
     
     $vouchers = [];
+    $profileCache = []; // To avoid repeated Mikrotik calls
+    
     foreach ($salesRecords as $rec) {
-        // If password is user=pass or predictable, we might show it. 
-        // But for security, reprinting usually implies just the ticket info.
-        // For this simple system, let's assume we just show username and info.
-        // Or if we want to show password, we need to have stored it or be able to read it.
-        // Mikrotik API user print might return password if allowed.
+        $validity = $rec['validity'] ?: '-';
+        $timelimit = $rec['timelimit'] ?: '-';
         
-        // Try to get from Mikrotik to be sure?
-        // $mikrotikUser = mikrotikGetUser($rec['username']);
-        // $password = $mikrotikUser['password'] ?? '******';
+        // Fallback: If data is missing locally, try to get from Mikrotik profile
+        if ($validity === '-' || $timelimit === '-') {
+            $routerId = (int)($rec['router_id'] ?? 0);
+            if (!isset($profileCache[$routerId])) {
+                $profileCache[$routerId] = mikrotikGetHotspotProfiles($routerId);
+            }
+            
+            foreach ($profileCache[$routerId] as $p) {
+                if ($p['name'] === $rec['profile']) {
+                    $mikhmonData = parseMikhmonOnLogin($p['on-login'] ?? '');
+                    if ($validity === '-') $validity = $mikhmonData['validity'] ?? '-';
+                    if ($timelimit === '-') $timelimit = $mikhmonData['timelimit'] ?? ($p['limit-uptime'] ?? '-');
+                    break;
+                }
+            }
+        }
         
         $vouchers[] = [
             'username' => $rec['username'],
@@ -42,8 +54,8 @@ if (isset($_GET['users'])) {
                                             // In a real scenario, you'd fetch from Mikrotik if possible.
             'profile' => $rec['profile'],
             'price' => formatCurrency($rec['selling_price']),
-            'validity' => $rec['validity'] ?: '-',
-            'timelimit' => $rec['timelimit'] ?: '-'
+            'validity' => $validity,
+            'timelimit' => $timelimit
         ];
     }
 }
