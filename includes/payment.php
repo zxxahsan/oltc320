@@ -62,7 +62,7 @@ function generateTripayPaymentLink($merchantRef, $amount, $customerName, $custom
         'customer_phone' => $cleanPhone,
         'order_items'    => [
             [
-                'sku'         => $itemName,
+                'sku'         => '',
                 'name'        => $itemName,
                 'price'       => $amountInt,
                 'quantity'    => 1,
