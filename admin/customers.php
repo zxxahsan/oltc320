@@ -1354,7 +1354,10 @@ function stopCameraScan() {
     }
 }
 
-document.addEventListener('DOMContentLoaded', loadOdpOptions);
+document.addEventListener('DOMContentLoaded', () => {
+    initMap();
+    loadOdpOptions();
+});
 </script>
 
 <?php
