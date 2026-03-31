@@ -16,7 +16,7 @@ class OltTelnetClient {
     private $timeout;
     private $buffer = "";
 
-    public function __construct($host, $port = 23, $timeout = 10) {
+    public function __construct($host, $port = 23, $timeout = 20) {
         $this->host = $host;
         $this->port = $port;
         $this->timeout = $timeout;
@@ -107,16 +107,24 @@ class OltTelnetClient {
             
             $result .= $char;
             
+            // PAGINATION HANDLING: Check for --More-- or --More(Ctrl+C to quit)--
+            if (preg_match('/--\s*More.*?--\s*$/i', $result)) {
+                $this->write(" "); // Send Space for next page
+                $result = preg_replace('/--\s*More.*?--\s*$/i', '', $result); // Clean result
+                continue;
+            }
+
             // Check for prompt at the end of the buffer
             if ($char == '>' || $char == '#' || $char == "\n") {
                 if (preg_match($regex, $result)) {
-                    return $result;
+                    // Final cleanup for potential ANSI/More artifacts
+                    $final = preg_replace('/\x1b\[[0-9;]*[mKHFAB]/', '', $result);
+                    return preg_replace('/--\s*More.*?--\s*$/i', '', $final);
                 }
             }
             
             if (time() - $start > $wait) break;
         }
-        // Final cleanup for potential ANSI escape codes (common in telnet)
         return preg_replace('/\x1b\[[0-9;]*[mKHFAB]/', '', $result);
     }
 
