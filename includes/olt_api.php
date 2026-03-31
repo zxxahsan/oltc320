@@ -128,9 +128,38 @@ class OltTelnetClient {
 }
 
 /**
- * Find ONUs waiting for authentication
+ * Find registered ONU ID by SN (for auto-learn support)
+ */
+function vsolGetOnuIdBySn($olt_id, $sn) {
+    if (empty($sn)) return null;
+    $olt = fetchOne("SELECT * FROM olt_configs WHERE id = ?", [$olt_id]);
+    if (!$olt) return null;
+
+    $client = new OltTelnetClient($olt['host'], $olt['port']);
+    try {
+        $client->connect($olt['username'], $olt['password']);
+        if (!empty($olt['enable_password'])) $client->enable($olt['enable_password']);
+        
+        $output = $client->execute("show gpon onu information");
+        $client->disconnect();
+
+        // Pattern: GPON0/1  1   6   GGCL01234567 ...
+        if (preg_match('/0\/(\d+)\s+(\d+)\s+\d+\s+'.$sn.'/i', $output, $m)) {
+            return [
+                'port' => (int)$m[1],
+                'id' => (int)$m[2]
+            ];
+        }
+    } catch (Exception $e) {
+        logError("V-SOL ID Lookup failed: " . $e->getMessage());
+    }
+    return null;
+}
+
+/**
+ * Find ONUs waiting for authentication OR already auto-learned
  * @param int $olt_id
- * @return array List of found ONUs [['port' => X, 'sn' => Y], ...]
+ * @return array List of found ONUs [['port' => X, 'sn' => Y, 'id' => Z], ...]
  */
 function vsolFindUnauthOnu($olt_id) {
     $olt = fetchOne("SELECT * FROM olt_configs WHERE id = ?", [$olt_id]);
@@ -141,20 +170,28 @@ function vsolFindUnauthOnu($olt_id) {
         $client->connect($olt['username'], $olt['password']);
         if (!empty($olt['enable_password'])) $client->enable($olt['enable_password']);
         
-        $output = $client->execute("show gpon onu unauthentication");
-        $client->disconnect();
-
+        // 1. Check Unauthentication list
+        $outputU = $client->execute("show gpon onu unauthentication");
         $onus = [];
-        // Typically output: " 0/1   1  GGCL01234567 ..."
-        // We match GPON port (X) and SN (Y)
-        if (preg_match_all('/0\/(\d+)\s+\d+\s+([A-Z0-9]{12,})/i', $output, $matches, PREG_SET_ORDER)) {
+        if (preg_match_all('/0\/(\d+)\s+\d+\s+([A-Z0-9]{12,})/i', $outputU, $matches, PREG_SET_ORDER)) {
             foreach ($matches as $m) {
-                $onus[] = [
-                    'port' => (int)$m[1],
-                    'sn' => $m[2]
-                ];
+                $onus[] = ['port' => (int)$m[1], 'sn' => $m[2], 'id' => null, 'status' => 'unconfigured'];
             }
         }
+
+        // 2. Check already auto-learned list (from general information)
+        $outputI = $client->execute("show gpon onu information");
+        // We look for ONUs that might be recently added by auto-learn
+        // Format: 0/PON ONU_ID STATE SN ...
+        if (preg_match_all('/0\/(\d+)\s+(\d+)\s+\w+\s+([A-Z0-9]{12,})/i', $outputI, $mI, PREG_SET_ORDER)) {
+            foreach ($mI as $m) {
+                // Check if this SN is already in our list or if we should add it if it looks "new"
+                // For simplicity, we just add registered ones if we need it for discovery
+                $onus[] = ['port' => (int)$m[1], 'sn' => $m[3], 'id' => (int)$m[2], 'status' => 'registered'];
+            }
+        }
+        
+        $client->disconnect();
         return $onus;
     } catch (Exception $e) {
         logError("V-SOL Scan failed: " . $e->getMessage());
@@ -206,7 +243,7 @@ function vsolRegisterOnu($olt_id, $port, $sn, $onu_id, $profile = 'default', $de
 }
 
 /**
- * Provision WAN (PPPoE) on a V-SOL ONU using pri wan_adv
+ * Provision WAN (PPPoE) on a V-SOL ONU using pri wan_adv (ONU 8:45 template)
  */
 function vsolProvisionWan($olt_id, $port, $onu_id, $vlan, $pppoe_user, $pppoe_pass) {
     $olt = fetchOne("SELECT * FROM olt_configs WHERE id = ?", [$olt_id]);
@@ -217,21 +254,29 @@ function vsolProvisionWan($olt_id, $port, $onu_id, $vlan, $pppoe_user, $pppoe_pa
         $client->connect($olt['username'], $olt['password']);
         if (!empty($olt['enable_password'])) $client->enable($olt['enable_password']);
         
+        // Template from ONU 8:45
         $commands = [
             "configure terminal",
             "interface gpon 0/$port",
-            // TR069/Management WAN (Index 1) - common in V-SOL logs
+            
+            // TR069/Management WAN (Index 1) - VLAN 101, DHCP
             "onu $onu_id pri wan_adv add route",
             "onu $onu_id pri wan_adv index 1 route mode tr069 mtu 1500",
             "onu $onu_id pri wan_adv index 1 route ipv4 dhcp",
             "onu $onu_id pri wan_adv index 1 vlan tag wan_vlan 101 0",
             
-            // Internet WAN (Index 2)
+            // Internet WAN (Index 2) - VLAN 100, PPPoE
             "onu $onu_id pri wan_adv add route",
             "onu $onu_id pri wan_adv index 2 route mode internet mtu 1492",
             "onu $onu_id pri wan_adv index 2 route ipv4 pppoe proxy disable user $pppoe_user pwd $pppoe_pass mode auto nat enable",
             "onu $onu_id pri wan_adv index 2 vlan tag wan_vlan $vlan 0",
-            "onu $onu_id pri wan_adv index 2 bind lan1 ssid1",
+            "onu $onu_id pri wan_adv index 2 bind lan1 ssid1 ssid2",
+            
+            // WiFi SSID 2 for Hotspot
+            "onu $onu_id pri wifi_ssid 2 name Jinom_Hotspot hide disable auth_mode open encrypt_type none",
+            
+            // TR069 Management release (ACS)
+            "onu $onu_id pri tr069_mng enable acs_server url http://172.16.200.3:7547 username acs password acs certificate disable inform enable inform_interval 200 reverse_connection username acs password acs",
             
             "exit",
             "exit"
@@ -241,12 +286,10 @@ function vsolProvisionWan($olt_id, $port, $onu_id, $vlan, $pppoe_user, $pppoe_pa
         foreach ($commands as $cmd) {
             $res = $client->execute($cmd);
             $log .= "> $cmd\n$res\n";
-            // Many OLTs echo and might have specific exit codes. 
-            // We mainly watch for "Error" or "Invalid"
         }
 
         $client->disconnect();
-        return ['success' => true, 'message' => "WAN provisioned successfully", 'log' => $log];
+        return ['success' => true, 'message' => "Provisioning Success (WAN + WiFi + TR069)", 'log' => $log];
 
     } catch (Exception $e) {
         $client->disconnect();

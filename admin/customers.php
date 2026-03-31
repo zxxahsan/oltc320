@@ -77,10 +77,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $sn = $data['onu_sn'];
                             $vlan = 100; // Standard Internet VLAN based on logs
                             
-                            // 1. Register ONU
-                            $regRes = vsolRegisterOnu($data['olt_id'], $pon, $sn, $onu_id, 'Jinom', $data['name']);
+                            // 1. Register ONU if NOT already registered (auto-learn)
+                            $regRes = ['success' => true];
+                            if (($_POST['onu_status'] ?? '') !== 'registered') {
+                                $regRes = vsolRegisterOnu($data['olt_id'], $pon, $sn, $onu_id, 'Jinom', $data['name']);
+                            }
                             
-                            // 2. Provision WAN (PPPoE)
+                            // 2. Provision WAN (PPPoE + TR069 + WiFi)
                             if ($regRes['success']) {
                                 vsolProvisionWan($data['olt_id'], $pon, $onu_id, $vlan, $data['pppoe_username'], $pppoePassword);
                             }
@@ -478,6 +481,7 @@ ob_start();
                         </div>
                     </div>
                 </div>
+                <input type="hidden" name="onu_status" id="onu_status_hidden" value="unconfigured">
                 <small style="color: var(--text-muted);">Isi OLT jika ingin pelanggan terdaftar otomatis ke OLT V-SOL.</small>
             </div>
 
@@ -1221,20 +1225,23 @@ function scanOltOnu() {
         .then(data => {
             select.innerHTML = '<option value=\"\">-- Pilih Serial Number --</option>';
             if (data.length === 0) {
-                alert('Tidak ditemukan ONU baru (unconfigured) pada OLT ini.');
+                alert('Tidak ditemukan ONU baru pada OLT ini.');
             } else {
                 data.forEach(onu => {
                     const opt = document.createElement('option');
                     opt.value = onu.sn;
-                    opt.textContent = onu.sn + ' (PON: ' + onu.port + ')';
+                    const statusTxt = onu.status === 'registered' ? ' [AUTO-LEARN]' : ' [UNCONFIG]';
+                    opt.textContent = onu.sn + ' (PON: ' + onu.port + ')' + statusTxt;
                     opt.dataset.port = onu.port;
+                    opt.dataset.id = onu.id || '';
+                    opt.dataset.status = onu.status;
                     select.appendChild(opt);
                 });
             }
         })
         .catch(err => {
             console.error(err);
-            alert('Gagal memindai OLT. Pastikan koneksi OLT lancar.');
+            alert('Gagal memindai OLT.');
             select.innerHTML = '<option value=\"\">-- Gagal --</option>';
         })
         .finally(() => {
@@ -1242,14 +1249,19 @@ function scanOltOnu() {
         });
 }
 
-// Auto-fill PON port when SN is selected
+// Auto-fill PON port & ID when SN is selected
 document.getElementById('onu_sn_selector').addEventListener('change', function() {
     const selected = this.options[this.selectedIndex];
-    if (selected && selected.dataset.port) {
-        document.getElementById('olt_pon_port_input').value = selected.dataset.port;
-        // Default ONU ID logic: set to 1 if empty, user can adjust
-        if (!document.getElementById('onu_id_input').value) {
-            document.getElementById('onu_id_input').value = '1';
+    if (selected) {
+        if (selected.dataset.port) document.getElementById('olt_pon_port_input').value = selected.dataset.port;
+        if (selected.dataset.id) document.getElementById('onu_id_input').value = selected.dataset.id;
+        if (selected.dataset.status) document.getElementById('onu_status_hidden').value = selected.dataset.status;
+        
+        // If it's already registered (auto-learn), highlight it
+        if (selected.dataset.status === 'registered') {
+            document.getElementById('onu_id_input').style.borderColor = 'var(--neon-green)';
+        } else {
+            document.getElementById('onu_id_input').style.borderColor = '';
         }
     }
 });
