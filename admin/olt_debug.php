@@ -88,7 +88,7 @@ if (isset($_GET['action'])) {
                 <button class="btn btn-sync" style="margin-left:10px;" onclick="syncMetadata()">
                     <i class="fas fa-sync-alt"></i> SYNC ALL METADATA
                 </button>
-                <span id="sync_status" class="loading"><i class="fas fa-spinner fa-spin"></i> Menarik data rasksasa... pendaftarannya...</span>
+                <span id="sync_status" class="loading"><i class="fas fa-spinner fa-spin"></i> Sedang menarik data OLT... Mohon tunggu.</span>
             </div>
 
             <div id="sync_results" style="display:none;">
