@@ -331,7 +331,7 @@ $routers = $routersTableExists ? getAllRouters() : [];
 ob_start();
 ?>
 
-<!-- Libraries Consolidated at the top of content (V7.4 RESET) -->
+<!-- Libraries Consolidated at the top of content (V7.5 RESTORATION) -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/html5-qrcode@latest/html5-qrcode.min.js"></script>
@@ -361,6 +361,13 @@ ob_start();
     </div>
 </div>
 
+<style>
+    .stats-grid { grid-template-columns: repeat(4, 1fr) !important; gap: 15px; }
+    @media (max-width: 768px) {
+        .stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
+    }
+</style>
+
 <!-- Add Customer Form Card -->
 <div class="card">
     <div class="card-header"><h3 class="card-title"><i class="fas fa-user-plus"></i> Tambah Pelanggan</h3></div>
@@ -368,31 +375,116 @@ ob_start();
         <input type="hidden" name="action" value="add"><input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; max-width: 100%;">
             <div class="form-group"><label class="form-label">Nama</label> <input type="text" name="name" class="form-control" required></div>
-            <div class="form-group"><label class="form-label">Nomor HP</label> <input type="text" name="phone" id="customer_phone_input" class="form-control" required></div>
+            <div class="form-group"><label class="form-label">Nomor HP</label> <input type="text" name="phone" class="form-control" required></div>
             <div class="form-group" style="grid-column: 1 / -1;"><label class="form-label">Username PPPoE</label><div style="display: flex; gap:10px;"><input type="text" name="pppoe_username" id="pppoe_username_input" class="form-control" required><button type="button" class="btn btn-secondary" onclick="openPppoeUserModal()">Pilih MikroTik</button></div></div>
-            <div class="form-group" style="grid-column: 1 / -1;"><label class="form-label">OLT Provisioning</label><div style="display: flex; gap:10px; margin-bottom:10px;"><select name="olt_id" id="olt_selector" class="form-control"><?php foreach($olts as $o): ?><option value="<?php echo $o['id']; ?>"><?php echo $o['name']; ?></option><?php endforeach; ?></select><input type="text" name="onu_sn" id="onu_sn_input" list="onu_sn_list" class="form-control" placeholder="Scan/Type SN"><datalist id="onu_sn_list"></datalist><button type="button" class="btn btn-secondary" onclick="startCameraScan()"><i class="fas fa-camera"></i></button><button type="button" class="btn btn-secondary" onclick="scanOltOnu()"><i id="scan-icon" class="fas fa-search"></i></button></div></div>
-            <input type="hidden" name="olt_pon_port" id="olt_pon_port_input"><input type="hidden" name="onu_id" id="onu_id_input"><input type="hidden" name="onu_status" id="onu_status_hidden" value="unconfigured">
-            <div class="form-group"><label class="form-label">Paket</label><select name="package_id" class="form-control" required><?php foreach ($packages as $pkg): ?><option value="<?php echo $pkg['id']; ?>"><?php echo $pkg['name']; ?></option><?php endforeach; ?></select></div>
-            <div class="form-group"><label class="form-label">Jatuh Tempo (Tgl)</label><input type="number" name="isolation_date" class="form-control" value="20" min="1" max="28" required></div>
+            
+            <!-- SMART OLT PROVISIONING UI (V7.5 RESTORED) -->
+            <div class="form-group" style="grid-column: 1 / -1; margin-top: 10px; padding: 15px; background: rgba(0,210,255,0.05); border: 1px solid rgba(0,210,255,0.1); border-radius: 8px;">
+                <label class="form-label" style="color: var(--neon-cyan);"><i class="fas fa-microchip"></i> OLT Provisioning (V-SOL)</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 10px;">
+                    <div>
+                        <label class="form-label">Pilih OLT</label>
+                        <select name="olt_id" id="olt_selector" class="form-control" style="background: var(--bg-card); color: var(--text-primary);">
+                            <option value="0">-- Lewati OLT --</option>
+                            <?php foreach ($olts as $idx => $o): ?>
+                                <option value="<?php echo $o['id']; ?>"><?php echo htmlspecialchars($o['name']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label">Scan / SN ONT <span id="sn_status_badge" style="display:none; font-size:0.7em; padding:2px 6px; border-radius:4px; margin-left:10px; background:var(--neon-green); color:#000; font-weight:bold;">ONU DITEMUKAN</span></label>
+                        <div style="display: flex; gap: 5px;">
+                            <input type="text" id="onu_sn_input" name="onu_sn" list="onu_sn_list" class="form-control" placeholder="Scan SN dari Box" style="flex: 1; background: var(--bg-card); color: var(--text-primary);">
+                            <datalist id="onu_sn_list"></datalist>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="startCameraScan()" title="Scan Kamera"><i class="fas fa-camera"></i></button>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="scanOltOnu()" title="Scan OLT"><i id="scan-icon" class="fas fa-search"></i></button>
+                        </div>
+                    </div>
+                </div>
+
+                <input type="hidden" name="olt_pon_port" id="olt_pon_port_input">
+                <input type="hidden" name="onu_id" id="onu_id_input">
+                <input type="hidden" name="onu_status" id="onu_status_hidden" value="unconfigured">
+
+                <!-- Service Multi-Selection RESTORED -->
+                <div style="margin-top: 15px; display: flex; flex-wrap: wrap; gap: 15px; padding: 10px; background: rgba(255,255,255,0.02); border-radius: 5px;">
+                    <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;"><input type="checkbox" name="olt_services[]" value="acs" checked> <span>TR069 (ACS)</span></label>
+                    <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;"><input type="checkbox" name="olt_services[]" value="pppoe" checked> <span>Internet (PPPoE)</span></label>
+                    <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;"><input type="checkbox" name="olt_services[]" value="hotspot" checked> <span>Hotspot (200)</span></label>
+                    <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;"><input type="checkbox" name="olt_services[]" value="wifi" checked> <span>WiFi SSID 2</span></label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Paket Langganan</label>
+                <select name="package_id" class="form-control" required style="background: var(--bg-card); color: var(--text-primary);">
+                    <option value="">Pilih Paket</option>
+                    <?php foreach ($packages as $pkg): ?>
+                        <option value="<?php echo $pkg['id']; ?>"><?php echo htmlspecialchars($pkg['name']); ?> (Rp <?php echo number_format($pkg['price'], 0, ',', '.'); ?>)</option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <div class="form-group"><label class="form-label">Jatuh Tempo (Tgl 1-28)</label><input type="number" name="isolation_date" class="form-control" value="20" min="1" max="28" required></div>
         </div>
-        <div class="form-group" style="margin-top:15px;"><label class="form-label">Lokasi</label><div style="display:flex; gap:10px; margin-bottom:10px;"><input type="text" name="lat" class="form-control" readonly><input type="text" name="lng" class="form-control" readonly></div><div id="map-picker" style="height: 300px; border-radius:8px;"></div></div>
-        <button type="submit" class="btn btn-primary" style="margin-top:20px;">Simpan Pelanggan</button>
+
+        <div class="form-group" style="margin-top:15px;">
+            <label class="form-label">Lokasi Geografis (Klik Peta)</label>
+            <div style="display:flex; gap:10px; margin-bottom:10px;">
+                <input type="text" name="lat" class="form-control" placeholder="Lat" readonly>
+                <input type="text" name="lng" class="form-control" placeholder="Lng" readonly>
+            </div>
+            <div id="map-picker" style="height: 350px; border-radius:8px; border:1px solid rgba(255,255,255,0.1);"></div>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="margin-top:20px; width:100%; height:50px; font-weight:bold;"><i class="fas fa-save"></i> SIMPAN PELANGGAN BARU</button>
     </form>
 </div>
 
 <!-- Modal Dialogs -->
-<div id="cameraScanModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; flex-direction:column; align-items:center; justify-content:center;"><div style="background:var(--bg-card); padding:20px; border-radius:10px; width:90%; max-width:500px; text-align:center;"><h3 style="color:var(--neon-cyan);">Barcode Scanner</h3><div id="reader" style="width:100%; min-height:300px; border-radius:5px; overflow:hidden;"></div><button class="btn btn-secondary" onclick="stopCameraScan()" style="margin-top:15px;">Tutup</button></div></div>
-<div id="pppoeUserModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:2000; align-items:center; justify-content:center;"><div class="card" style="width: 360px;"><div class="card-header"><h3>MikroTik Users</h3><button onclick="closePppoeUserModal()">&times;</button></div><div style="padding:15px;"><input type="text" id="pppoeUserSearch" class="form-control" placeholder="Cari..."><div id="pppoeUserList" style="max-height:400px; overflow-y:auto; margin-top:10px;"></div></div></div></div>
+<div id="cameraScanModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9999; flex-direction:column; align-items:center; justify-content:center;"><div style="background:var(--bg-card); padding:20px; border-radius:10px; width:90%; max-width:500px; text-align:center;"><h3 style="color:var(--neon-cyan);">Scan Barcode ONT</h3><div id="reader" style="width:100%; min-height:300px; border-radius:5px; overflow:hidden; background:#000;"></div><button class="btn btn-secondary" onclick="stopCameraScan()" style="margin-top:15px;">Tutup Kamera</button></div></div>
+<div id="pppoeUserModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:2000; align-items:center; justify-content:center;"><div class="card" style="width: 360px;"><div class="card-header"><h3>MikroTik PPPoE</h3><button onclick="closePppoeUserModal()" style="background:none; border:none; color:#fff; font-size:1.5em; cursor:pointer;">&times;</button></div><div style="padding:15px;"><input type="text" id="pppoeUserSearch" class="form-control" placeholder="Cari username..."><div id="pppoeUserList" style="max-height: 400px; overflow-y: auto; margin-top:10px;"></div></div></div></div>
+
+<!-- Edit Customer Modal (FULL RESTORED V7.5) -->
+<div id="editCustomerModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 2000; align-items: center; justify-content: center;">
+    <div class="card" style="width: 900px; max-width: 95%; max-height: 95vh; overflow-y: auto;">
+        <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;"><h3>Edit Pelanggan</h3> <button onclick="closeEditModal()" style="background:none; border:none; color:#fff; font-size:1.5em; cursor:pointer;">&times;</button></div>
+        <form method="POST" id="editCustomerForm" style="padding:20px;">
+            <input type="hidden" name="action" value="edit"><input type="hidden" name="customer_id" id="edit_customer_id"><input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group"><label>Nama</label><input type="text" name="name" id="edit_name" class="form-control" required></div>
+                <div class="form-group"><label>Phone</label><input type="text" name="phone" id="edit_phone" class="form-control" required></div>
+                <div class="form-group"><label>Paket</label><select name="package_id" id="edit_package_id" class="form-control"><?php foreach($packages as $pkg): ?><option value="<?php echo $pkg['id']; ?>"><?php echo $pkg['name']; ?></option><?php endforeach; ?></select></div>
+                <div class="form-group"><label>Jatuh Tempo</label><input type="number" name="isolation_date" id="edit_isolation_date" class="form-control"></div>
+            </div>
+            <div class="form-group" style="margin-top:15px;"><label>Lokasi</label><div style="display:flex; gap:10px; margin-bottom:10px;"><input type="text" name="lat" id="edit_lat" class="form-control" readonly><input type="text" name="lng" id="edit_lng" class="form-control" readonly></div><div id="edit-map-picker" style="height: 300px; border-radius:8px;"></div></div>
+            <button type="submit" class="btn btn-primary" style="margin-top:20px; width:100%;">SIMPAN PERUBAHAN</button>
+        </form>
+    </div>
+</div>
 
 <!-- Customer Table -->
-<div class="card" style="margin-top:30px;"><div class="card-header"><h3>Daftar Pelanggan</h3></div><table class="data-table"><thead><tr><th>Nama</th><th>Paket</th><th>PPPoE</th><th>Aksi</th></tr></thead><tbody><?php foreach($customers as $c): ?><tr><td><strong><?php echo $c['name']; ?></strong></td><td><?php echo $c['package_name']; ?></td><td><code><?php echo $c['pppoe_username']; ?></code></td><td><button class="btn btn-secondary btn-sm" onclick='editCustomer(<?php echo json_encode($c); ?>)'><i class="fas fa-edit"></i></button></td></tr><?php endforeach; ?></tbody></table></div>
+<div class="card" style="margin-top:30px;"><div class="card-header"><h3>Daftar Pelanggan Dashboard</h3></div><table class="data-table" id="customerTable"><thead><tr><th>Nama & Kontak</th><th>Paket & Router</th><th>Status</th><th>Jatuh Tempo</th><th>Aksi</th></tr></thead><tbody><?php foreach($customers as $c): ?><tr><td><strong><?php echo htmlspecialchars($c['name']); ?></strong><br><small><?php echo htmlspecialchars($c['phone']); ?></small></td><td><?php echo htmlspecialchars($c['package_name']); ?><br><small style="color:var(--neon-cyan);"><?php echo htmlspecialchars($c['router_name']); ?></small></td><td><span class="badge badge-<?php echo $c['status']==='active'?'success':'warning'; ?>"><?php echo $c['status']==='active'?'Aktif':'Isolir'; ?></span></td><td><?php echo (int)$c['isolation_date']; ?></td><td><button class="btn btn-secondary btn-sm" onclick='editCustomer(<?php echo json_encode($c); ?>)'><i class="fas fa-edit"></i></button></td></tr><?php endforeach; ?></tbody></table></div>
 
-<!-- UNIFIED SCRIPT (V7.4 TOTAL RESET) -->
+<!-- UNIFIED SCRIPT (V7.5 SMART UI RESTORED) -->
 <script>
 window.map = null;
 window.marker = null;
+window.editMap = null;
+window.editMarker = null;
 window.pppoeUsers = [];
 window.html5QrcodeScanner = null;
+window.lastScanResults = [];
+
+console.log('Restoration v7.5 Initializing...');
+
+window.addEventListener('load', () => { 
+    setTimeout(() => {
+        initMap(); 
+        loadOdpOptions();
+        console.log('Components Initialized.');
+    }, 500);
+});
 
 function initMap() {
     if (window.map || typeof L === 'undefined') return;
@@ -408,15 +500,30 @@ function initMap() {
     });
 }
 
+function initEditMap() {
+    if (window.editMap || typeof L === 'undefined') return;
+    const div = document.getElementById('edit-map-picker');
+    if (!div) return;
+    window.editMap = L.map('edit-map-picker').setView([<?php echo $mapCenter['lat']; ?>, <?php echo $mapCenter['lng']; ?>], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(window.editMap);
+    window.editMap.on('click', (e) => {
+        if (window.editMarker) window.editMap.removeLayer(window.editMarker);
+        window.editMarker = L.marker(e.latlng).addTo(window.editMap);
+        document.getElementById('edit_lat').value = e.latlng.lat.toFixed(6);
+        document.getElementById('edit_lng').value = e.latlng.lng.toFixed(6);
+    });
+}
+
 function startCameraScan() {
-    if (typeof Html5Qrcode === 'undefined') return alert('Pustaka Scan Gagal Dimuat!');
+    if (typeof Html5Qrcode === 'undefined') return alert('Pustaka Scan Hilang!');
     document.getElementById('cameraScanModal').style.display = 'flex';
     window.html5QrcodeScanner = new Html5Qrcode("reader");
-    window.html5QrcodeScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (txt) => {
-        document.getElementById('onu_sn_input').value = txt;
-        document.getElementById('onu_sn_input').dispatchEvent(new Event('input'));
+    window.html5QrcodeScanner.start({ facingMode: "environment" }, { fps: 15, qrbox: { width:250, height:150 } }, (txt) => {
+        const input = document.getElementById('onu_sn_input');
+        input.value = txt;
+        input.dispatchEvent(new Event('input'));
         stopCameraScan();
-    }).catch(e => { alert('Kamera Error: ' + e); stopCameraScan(); });
+    }).catch(e => { alert('Kamera Gagal: ' + e); stopCameraScan(); });
 }
 
 function stopCameraScan() {
@@ -427,34 +534,111 @@ function stopCameraScan() {
 function scanOltOnu() {
     const oltId = document.getElementById('olt_selector').value;
     const icon = document.getElementById('scan-icon');
+    if (oltId === '0') return alert('Pilih OLT!');
+    
     icon.className = 'fas fa-spinner fa-spin';
-    fetch('customers.php?ajax_action=scan_onu&olt_id=' + oltId).then(r => r.json()).then(data => {
+    fetch(`customers.php?ajax_action=scan_onu&olt_id=${oltId}`).then(r => r.json()).then(data => {
         const dl = document.getElementById('onu_sn_list'); dl.innerHTML = '';
+        window.lastScanResults = data;
         data.forEach(o => {
             const opt = document.createElement('option');
-            opt.value = o.sn; opt.textContent = 'PON: ' + o.port;
+            opt.value = o.sn; opt.textContent = `PON: ${o.port} [${o.status}]`;
             dl.appendChild(opt);
         });
+        if(data.length > 0) alert(data.length + ' ONU Baru Ditemukan!');
     }).finally(() => icon.className = 'fas fa-search');
 }
 
+// SMART SEARCH TRIGGER (RESTORED V7.5)
+document.getElementById('onu_sn_input').addEventListener('input', function() {
+    const sn = this.value.trim();
+    const badge = document.getElementById('sn_status_badge');
+    const onu = (window.lastScanResults || []).find(o => o.sn === sn);
+    
+    if (onu) {
+        document.getElementById('olt_pon_port_input').value = onu.port;
+        document.getElementById('onu_id_input').value = onu.id;
+        document.getElementById('onu_status_hidden').value = onu.status;
+        badge.style.display = 'inline-block';
+        console.log('ONU Found & Auto-filled: PON ' + onu.port);
+    } else {
+        badge.style.display = 'none';
+        document.getElementById('onu_status_hidden').value = 'unconfigured';
+    }
+});
+
 function openPppoeUserModal() {
     document.getElementById('pppoeUserModal').style.display = 'flex';
+    const list = document.getElementById('pppoeUserList');
+    list.innerHTML = 'Memuat User MikroTik...';
     fetch('../api/mikrotik.php?action=users').then(r => r.json()).then(d => {
-        const list = document.getElementById('pppoeUserList'); list.innerHTML = '';
-        d.data.users.forEach(u => {
-            const b = document.createElement('button'); b.className = 'btn btn-secondary'; b.style.width = '100%'; b.style.marginBottom = '5px';
-            b.textContent = u.name; b.onclick = () => { document.getElementById('pppoe_username_input').value = u.name; closePppoeUserModal(); };
-            list.appendChild(b);
+        if (!d.success) return list.innerHTML = 'Gagal memuat!';
+        window.pppoeUsers = d.data.users;
+        renderPppoeUserList(window.pppoeUsers);
+    });
+}
+
+function renderPppoeUserList(users) {
+    const list = document.getElementById('pppoeUserList');
+    list.innerHTML = '';
+    users.forEach(u => {
+        const b = document.createElement('button');
+        b.className = 'btn btn-secondary'; b.style.width = '100%'; b.style.marginBottom = '5px'; b.style.textAlign = 'left';
+        b.textContent = u.name;
+        b.onclick = () => { document.getElementById('pppoe_username_input').value = u.name; closePppoeUserModal(); };
+        list.appendChild(b);
+    });
+}
+document.getElementById('pppoeUserSearch').addEventListener('input', (e) => {
+    const txt = e.target.value.toLowerCase();
+    renderPppoeUserList(window.pppoeUsers.filter(u => u.name.toLowerCase().includes(txt)));
+});
+
+function closePppoeUserModal() { document.getElementById('pppoeUserModal').style.display = 'none'; }
+function closeEditModal() { document.getElementById('editCustomerModal').style.display = 'none'; }
+
+function editCustomer(c) {
+    document.getElementById('edit_customer_id').value = c.id;
+    document.getElementById('edit_name').value = c.name;
+    document.getElementById('edit_phone').value = c.phone;
+    document.getElementById('edit_package_id').value = c.package_id;
+    document.getElementById('edit_isolation_date').value = c.isolation_date;
+    document.getElementById('edit_lat').value = c.lat || '';
+    document.getElementById('edit_lng').value = c.lng || '';
+    document.getElementById('editCustomerModal').style.display = 'flex';
+    setTimeout(() => {
+        initEditMap();
+        window.editMap.invalidateSize();
+        if (c.lat && c.lng) {
+            const ll = [c.lat, c.lng];
+            window.editMap.setView(ll, 15);
+            if (window.editMarker) window.editMap.removeLayer(window.editMarker);
+            window.editMarker = L.marker(ll).addTo(window.editMap);
+        }
+    }, 250);
+}
+
+function loadOdpOptions() {
+    fetch('../api/onu_locations.php').then(r => r.json()).then(j => {
+        if (!j.success) return;
+        const odps = j.odps || [];
+        const addSel = document.getElementById('add_odp_select');
+        odps.forEach(o => {
+            if(addSel) {
+                const opt = document.createElement('option');
+                opt.value = o.id; opt.textContent = o.name;
+                addSel.appendChild(opt);
+            }
         });
     });
 }
 
-function closePppoeUserModal() { document.getElementById('pppoeUserModal').style.display = 'none'; }
-function editCustomer(c) { alert('Edit Feature Under Maintenance (Patch 7.4 Reset)'); }
-
-window.addEventListener('load', () => { setTimeout(initMap, 500); });
-console.log("Patch v7.4 (Total Reset) Fully Operational.");
+document.getElementById('searchCustomer').addEventListener('input', (e) => {
+    const val = e.target.value.toLowerCase();
+    document.querySelectorAll('#customerTable tbody tr').forEach(row => {
+        row.style.display = row.textContent.toLowerCase().includes(val) ? '' : 'none';
+    });
+});
 </script>
 
 <?php
