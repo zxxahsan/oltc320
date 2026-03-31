@@ -47,7 +47,10 @@ class OltTelnetClient {
         return true;
     }
 
-    public function execute($command, $wait_for = "/[>#]/") {
+    public function execute($command, $wait_for = "/[>#]\s*$/") {
+        // Clear any existing data in buffer before sending new command
+        $this->readUntil("/.*/", 0.1); 
+        
         $this->write($command . "\n");
         return $this->readUntil($wait_for);
     }
@@ -57,14 +60,14 @@ class OltTelnetClient {
      */
     public function enable($password = null) {
         $this->write("enable\n");
-        $res = $this->readUntil("/Password:|#/i");
+        $res = $this->readUntil("/Password:|#\s*$/i");
         
         if (stripos($res, "Password:") !== false) {
             $this->write($password . "\n");
-            $res = $this->readUntil("/#/i");
+            $res = $this->readUntil("/[>#]\s*$/i");
         }
         
-        if (strpos($res, "#") === false) {
+        if (preg_match("/[>#]\s*$/", $res) === false) {
             throw new Exception("Enable mode failed: " . trim($res));
         }
         
@@ -75,17 +78,32 @@ class OltTelnetClient {
         return fwrite($this->socket, $data);
     }
 
-    private function readUntil($regex) {
+    private function readUntil($regex, $timeout = null) {
         $result = "";
         $start = time();
+        $wait = $timeout ?? $this->timeout;
+        
         while (!feof($this->socket)) {
             $char = fgetc($this->socket);
-            if ($char === false) break;
-            $result .= $char;
-            if (preg_match($regex, $result)) {
-                return $result;
+            if ($char === false) {
+                // If we get no character, wait a tiny bit and try again 
+                // in case the stream hasn't finished yet
+                usleep(5000); 
+                if (time() - $start > $wait) break;
+                continue;
             }
-            if (time() - $start > $this->timeout) {
+            
+            $result .= $char;
+            
+            // Trigger check only when a newline or a prompt character appears
+            // but the regex should ideally look at the finish of the string
+            if ($char == '>' || $char == '#' || $char == "\n") {
+                if (preg_match($regex, $result)) {
+                    return $result;
+                }
+            }
+            
+            if (time() - $start > $wait) {
                 break;
             }
         }
