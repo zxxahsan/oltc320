@@ -5,9 +5,70 @@
  */
 
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/olt_api.php';
 
 /**
- * Fetch OLT Status via SNMP
+ * Fetch All ONU Statuses from OLT via Telnet (v2.1)
+ * Scans all PON ports to find online/offline/los states.
+ */
+function vsolFetchAllOnuStates($olt_id) {
+    $olt = fetchOne("SELECT * FROM olt_configs WHERE id = ?", [$olt_id]);
+    if (!$olt) return ['success' => false, 'message' => 'OLT not found'];
+
+    $client = new OltTelnetClient($olt['host'], $olt['port'], 5);
+    $allStatuses = [];
+    $log = [];
+
+    try {
+        $client->connect($olt['username'], $olt['password']);
+        if (!empty($olt['enable_password'])) {
+            $client->enable($olt['enable_password']);
+        }
+
+        // We scan 16 ports to be safe, standard VSOL usually has 8 or 16
+        for ($p = 1; $p <= 16; $p++) {
+            // Try standard command first
+            $cmd = "show gpon onu state 0/{$p}";
+            $client->write($cmd . "\n");
+            $resp = $client->readUntil("/[>#]/", 2);
+            
+            // If unknown, try alternate
+            if (stripos($resp, "Unknown") !== false) {
+                $cmd = "show onu state 0/{$p}";
+                $client->write($cmd . "\n");
+                $resp = $client->readUntil("/[>#]/", 2);
+            }
+
+            // Parse the output table
+            // Format expected: ONU-ID  SN  State  ... 
+            $lines = explode("\n", $resp);
+            foreach ($lines as $line) {
+                $line = trim($line);
+                // Look for SN pattern (usually 8-16 chars HEX/Alpha) + status
+                // Example: 1  GPON01EF919  online
+                if (preg_match('/(\d+)\s+([A-Z0-9]{8,16})\s+(online|offline|los|dying-gasp|power-off|auth-failed|mismatch)/i', $line, $matches)) {
+                    $sn = strtoupper($matches[2]);
+                    $status = strtolower($matches[3]);
+                    $allStatuses[$sn] = $status;
+                }
+            }
+        }
+
+        $client->disconnect();
+        return [
+            'success' => true,
+            'statuses' => $allStatuses,
+            'count' => count($allStatuses)
+        ];
+
+    } catch (Exception $e) {
+        if ($client) $client->disconnect();
+        return ['success' => false, 'message' => $e->getMessage()];
+    }
+}
+
+/**
+ * Fetch OLT Status via SNMP (Legacy)
  * 
  * @param int $olt_id ID from olt_configs
  * @return array Status results [success => bool, metrics => array, message => string]

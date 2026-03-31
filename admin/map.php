@@ -678,6 +678,17 @@ ob_start();
     from { stroke-dashoffset: 0; }
     to { stroke-dashoffset: -40; }
 }
+@keyframes marker-blink-red {
+    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); }
+    50% { transform: scale(1.2); box-shadow: 0 0 20px 8px rgba(255, 0, 0, 1); }
+    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }
+}
+.marker-blink-red {
+    background: #ff4757 !important;
+    animation: marker-blink-red 0.8s infinite;
+    border: 2px solid #fff !important;
+    z-index: 9999 !important;
+}
 </style>
 
 <script>
@@ -801,21 +812,28 @@ function loadMarkers() {
                 }
                 const isOnline = onu.status === 'online';
                 const hasTicket = onu.has_ticket || false;
+                const isLos = (onu.olt_status === 'los' || onu.olt_status === 'dying-gasp');
                 
                 let bgHex = '#ff4757';
                 let iconClass = 'fa-satellite-dish';
+                let extraClass = '';
                 
-                if (hasTicket) {
+                if (isLos) {
+                    bgHex = '#ff1111';
+                    iconClass = 'fa-plug-circle-xmark';
+                    extraClass = ' marker-blink-red';
+                } else if (hasTicket) {
                     bgHex = '#ffa502'; // Bright Orange Warning
                     iconClass = 'fa-exclamation-triangle';
                 } else if (isOnline) {
                     bgHex = '#00ff88'; // Neon Green
+                    iconClass = 'fa-home';
                 }
                 
                 const marker = L.marker([onu.lat, onu.lng], {
                     icon: L.divIcon({
-                        className: 'custom-marker',
-                        html: '<div style="background: ' + bgHex + '; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 12px; border: 2px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"><i class="fas ' + iconClass + '"></i></div>'
+                        className: 'custom-marker' + extraClass,
+                        html: '<div style="background: ' + bgHex + '; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; border: 2px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"><i class="fas ' + iconClass + '"></i></div>'
                     })
                 });
                 

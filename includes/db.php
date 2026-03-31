@@ -51,6 +51,8 @@ function getDB() {
                     $pdo->exec("ALTER TABLE customers ADD COLUMN IF NOT EXISTS onu_sn VARCHAR(50) DEFAULT NULL AFTER olt_id");
                     $pdo->exec("ALTER TABLE customers ADD COLUMN IF NOT EXISTS onu_id INT DEFAULT NULL AFTER onu_sn");
                     $pdo->exec("ALTER TABLE customers ADD COLUMN IF NOT EXISTS olt_pon_port INT DEFAULT NULL AFTER onu_id");
+                    $pdo->exec("ALTER TABLE customers ADD COLUMN IF NOT EXISTS onu_status VARCHAR(20) DEFAULT 'unknown' AFTER olt_pon_port");
+                    $pdo->exec("ALTER TABLE customers ADD COLUMN IF NOT EXISTS last_status_change DATETIME DEFAULT NULL AFTER onu_status");
                 } catch (\Exception $e) {}
 
                 // Sales Topups Table
