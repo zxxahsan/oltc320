@@ -47,12 +47,26 @@ class OltTelnetClient {
         return true;
     }
 
-    public function execute($command, $wait_for = "/[>#]\s*$/") {
-        // Clear any existing data in buffer before sending new command
+    public function execute($command, $wait_for = "/(\r\n|\n|^)[^>\r\n#]*[>#]\s*$/") {
+        // Clear buffer
         $this->readUntil("/.*/", 0.1); 
         
         $this->write($command . "\n");
-        return $this->readUntil($wait_for);
+        // Give OLT a tiny moment to echo and process
+        usleep(100000); 
+        
+        $output = $this->readUntil($wait_for);
+        
+        // Robust echo removal:
+        // Many OLTs echo the command + \n before the actual response.
+        $lines = explode("\n", str_replace("\r", "", $output));
+        if (count($lines) > 0 && stripos(trim($lines[0]), trim($command)) !== false) {
+            array_shift($lines);
+        }
+        
+        $clean_output = implode("\n", $lines);
+        // Remove the prompt itself from the end of the clean output
+        return preg_replace("/[^>\r\n#]*[>#]\s*$/", "", $clean_output);
     }
 
     /**
@@ -67,7 +81,7 @@ class OltTelnetClient {
             $res = $this->readUntil("/[>#]\s*$/i");
         }
         
-        if (preg_match("/[>#]\s*$/", $res) === false) {
+        if (!preg_match("/[>#]\s*$/", $res)) {
             throw new Exception("Enable mode failed: " . trim($res));
         }
         
@@ -86,8 +100,6 @@ class OltTelnetClient {
         while (!feof($this->socket)) {
             $char = fgetc($this->socket);
             if ($char === false) {
-                // If we get no character, wait a tiny bit and try again 
-                // in case the stream hasn't finished yet
                 usleep(5000); 
                 if (time() - $start > $wait) break;
                 continue;
@@ -95,19 +107,17 @@ class OltTelnetClient {
             
             $result .= $char;
             
-            // Trigger check only when a newline or a prompt character appears
-            // but the regex should ideally look at the finish of the string
+            // Check for prompt at the end of the buffer
             if ($char == '>' || $char == '#' || $char == "\n") {
                 if (preg_match($regex, $result)) {
                     return $result;
                 }
             }
             
-            if (time() - $start > $wait) {
-                break;
-            }
+            if (time() - $start > $wait) break;
         }
-        return $result;
+        // Final cleanup for potential ANSI escape codes (common in telnet)
+        return preg_replace('/\x1b\[[0-9;]*[mKHFAB]/', '', $result);
     }
 
     public function disconnect() {

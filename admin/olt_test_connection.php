@@ -28,13 +28,18 @@ try {
         echo "Success: Entered enable mode!\n\n";
     }
 
-    // The Gold Standard: show running-config
+    // Ultimate Comprehensive Test
     $test_commands = [
         "terminal length 0",
-        "list",
         "show running-config",
-        "show ip interface brief",
-        "exit"
+        "show gpon onu unauthentication",
+        "show epon onu-unauthentication",
+        "configure terminal",
+        "show gpon onu uncfg",
+        "show onu unconfiguration",
+        "show ?",
+        "exit", // Exit config mode
+        "exit"  // Exit OLT
     ];
 
     foreach ($test_commands as $cmd) {
