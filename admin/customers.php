@@ -216,199 +216,75 @@ $customers = fetchAll("
     LIMIT $limit OFFSET $offset
 ", $params);
 
+// === Stats Metrics ===
+$stat_total = $totalRecords;
+$stat_active = fetchOne("SELECT COUNT(*) as count FROM customers WHERE status = 'active'")['count'];
+$stat_no_olt = fetchOne("SELECT COUNT(*) as count FROM customers WHERE olt_id = 0 OR olt_id IS NULL")['count'];
+$stat_pending_acs = fetchOne("SELECT COUNT(*) as count FROM task_queue WHERE task_type = 'acs_tag' AND status IN ('pending', 'processing')")['count'];
+
 ?>
 
 <style>
-    :root {
-        --neon-cyan: #00d2ff;
-        --neon-blue: #3a7bd5;
-        --bg-dark: #0a0e17;
-        --bg-card: #141e2d;
-        --text-primary: #e0e6ed;
-        --text-secondary: #94a3b8;
-        --border-color: rgba(255, 255, 255, 0.1);
-    }
-
-    .card {
-        background: var(--bg-card);
-        border: 1px solid var(--border-color);
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-        border-radius: 12px;
-        padding: 24px;
-        margin-bottom: 24px;
-    }
-
-    .form-group {
-        margin-bottom: 20px;
-    }
-
-    .form-label {
-        display: block;
-        margin-bottom: 8px;
-        font-weight: 500;
-        color: var(--text-primary);
-        font-size: 0.9rem;
-    }
-
-    .form-control {
-        width: 100%;
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        padding: 10px 14px;
-        color: var(--text-primary);
-        transition: all 0.3s ease;
-    }
-
-    .form-control:focus {
-        outline: none;
-        border-color: var(--neon-cyan);
-        box-shadow: 0 0 0 2px rgba(0, 210, 255, 0.2);
-        background: rgba(255, 255, 255, 0.08);
-    }
-
-    .btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        padding: 10px 20px;
-        border-radius: 8px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        border: none;
-        font-size: 0.9rem;
-    }
-
-    .btn-primary {
-        background: linear-gradient(135deg, var(--neon-cyan), var(--neon-blue));
-        color: white;
-    }
-
-    .btn-primary:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 15px rgba(0, 210, 255, 0.4);
-    }
-
-    .btn-secondary {
-        background: rgba(255, 255, 255, 0.1);
-        color: var(--text-primary);
-    }
-
-    .btn-secondary:hover {
-        background: rgba(255, 255, 255, 0.15);
-    }
-
-    .table-container {
-        overflow-x: auto;
-        border-radius: 12px;
-        border: 1px solid var(--border-color);
-    }
-
-    table {
-        width: 100%;
-        border-collapse: collapse;
-        color: var(--text-primary);
-    }
-
-    th {
-        background: rgba(255, 255, 255, 0.03);
-        padding: 16px;
-        text-align: left;
-        font-weight: 600;
-        font-size: 0.85rem;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        color: var(--text-secondary);
-        border-bottom: 1px solid var(--border-color);
-    }
-
-    td {
-        padding: 16px;
-        border-bottom: 1px solid var(--border-color);
-        font-size: 0.9rem;
-    }
-
-    tr:hover {
-        background: rgba(255, 255, 255, 0.02);
-    }
-
-    .badge {
-        padding: 4px 10px;
-        border-radius: 20px;
-        font-size: 0.75rem;
-        font-weight: 600;
-    }
-
-    .badge-active { background: rgba(0, 255, 65, 0.1); color: #00ff41; }
-    .badge-inactive { background: rgba(255, 49, 49, 0.1); color: #ff3131; }
-
-    .status-dot {
-        height: 8px;
-        width: 8px;
-        border-radius: 50%;
-        display: inline-block;
-        margin-right: 6px;
-    }
-
     .olt-box {
-        background: rgba(0, 210, 255, 0.05);
-        border: 1px solid rgba(0, 210, 255, 0.1);
-        padding: 15px;
-        border-radius: 10px;
-        margin-top: 10px;
+        background: rgba(0, 245, 255, 0.05);
+        border: 1px solid var(--border-color);
+        padding: 20px;
+        border-radius: var(--border-radius-md);
+        margin-top: 15px;
     }
 
     .prov-log-box {
-        margin-top: 10px;
-        padding: 10px;
+        margin-top: 15px;
+        padding: 12px;
         background: #000;
-        color: #00ff41;
-        font-family: 'Courier New', Courier, monospace;
+        color: var(--neon-green);
+        font-family: 'JetBrains Mono', 'Courier New', monospace;
         font-size: 11px;
-        border-radius: 4px;
-        max-height: 150px;
+        border-radius: 8px;
+        max-height: 200px;
         overflow-y: auto;
         white-space: pre-wrap;
-        border: 1px solid #333;
+        border: 1px solid var(--border-color);
     }
 
     .svc-grid {
         display: grid;
         grid-template-columns: repeat(2, 1fr);
-        gap: 12px;
-        margin-bottom: 15px;
+        gap: 15px;
+        margin-bottom: 20px;
     }
     .svc-label {
-        font-size: 12px;
+        font-size: 13px;
         background: rgba(255,255,255,0.03);
-        padding: 8px;
-        border-radius: 6px;
-        border: 1px solid rgba(255,255,255,0.05);
+        padding: 12px;
+        border-radius: 10px;
+        border: 1px solid var(--border-color);
     }
     .binding-box {
-        margin-top: 8px;
-        padding-top: 8px;
-        border-top: 1px dashed rgba(255,255,255,0.1);
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px dashed var(--border-color);
         display: flex;
         flex-wrap: wrap;
-        gap: 4px;
+        gap: 6px;
     }
     .bind-item {
-        font-size: 9px;
-        padding: 2px 4px;
-        background: rgba(0,0,0,0.3);
-        border-radius: 3px;
-        border: 1px solid #444;
+        font-size: 10px;
+        padding: 4px 8px;
+        background: rgba(0,0,0,0.4);
+        border-radius: 12px;
+        border: 1px solid var(--border-color);
         cursor: pointer;
         display: flex;
         align-items: center;
-        gap: 2px;
+        gap: 4px;
+        transition: all 0.3s;
     }
+    .bind-item:hover { background: rgba(0, 245, 255, 0.1); }
     .bind-item.active {
-        border-color: #00ff41;
-        background: rgba(0,255,65,0.1);
+        border-color: var(--neon-green);
+        background: rgba(0, 255, 136, 0.1);
+        color: var(--neon-green);
     }
     .bind-item input { display: none; }
 
@@ -417,33 +293,60 @@ $customers = fetchAll("
         justify-content: space-between;
         align-items: center;
         cursor: pointer;
-        padding: 10px;
-        border-radius: 8px;
-        transition: background 0.3s;
+        padding: 15px 20px;
+        border-radius: var(--border-radius-md);
+        transition: all 0.3s;
     }
-    .add-form-header:hover {
-        background: rgba(255,255,255,0.05);
+    .add-form-header:hover { background: rgba(255,255,255,0.05); }
+    .add-form-content { display: none; margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 20px; }
+    .add-form-content.show { display: block; }
+    .icon-toggle { transition: transform 0.3s; }
+    .icon-toggle.active { transform: rotate(180deg); }
+
+    .magic-save-btn {
+        background: linear-gradient(135deg, var(--neon-cyan), var(--neon-purple));
+        box-shadow: 0 0 15px rgba(0, 245, 255, 0.3);
     }
-    .add-form-content {
-        display: none;
-        margin-top: 20px;
-    }
-    .add-form-content.show {
-        display: block;
-    }
-    .icon-toggle {
-        transition: transform 0.3s;
-    }
-    .icon-toggle.active {
-        transform: rotate(180deg);
-    }
+    .magic-save-btn:hover { box-shadow: 0 0 25px rgba(0, 245, 255, 0.5); }
 </style>
 
-<div class="card">
+<!-- Metrics Overview -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon purple"><i class="fas fa-users"></i></div>
+        <div class="stat-info">
+            <h3><?php echo $stat_total; ?></h3>
+            <p>Total Pelanggan</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon green"><i class="fas fa-user-check"></i></div>
+        <div class="stat-info">
+            <h3><?php echo $stat_active; ?></h3>
+            <p>Layanan Aktif</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon orange"><i class="fas fa-microchip"></i></div>
+        <div class="stat-info">
+            <h3><?php echo $stat_no_olt; ?></h3>
+            <p>Belum Setting OLT</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon cyan"><i class="fas fa-tags"></i></div>
+        <div class="stat-info">
+            <h3><?php echo $stat_pending_acs; ?></h3>
+            <p>Tagging ACS Pending</p>
+        </div>
+    </div>
+</div>
+
+<div class="card" style="padding: 0; overflow: hidden;">
     <div class="add-form-header" onclick="toggleAddForm()">
-        <h2 style="margin:0; font-size: 1.25rem; color: var(--neon-cyan);">
+        <h3 class="card-title" style="margin:0;">
             <i class="fas fa-user-plus"></i> Tambah Pelanggan Baru
-        </h2>
+        </h3>
         <i class="fas fa-chevron-down icon-toggle" id="icon-toggle-add"></i>
     </div>
     
@@ -611,7 +514,7 @@ $customers = fetchAll("
             
             <div id="map-picker" style="height: 300px; margin-bottom: 20px; border-radius: 12px; border: 1px solid var(--border-color);"></div>
             
-            <button type="button" id="btn_magic_save_add" class="btn btn-primary" style="width: 100%;" onclick="magicSave('add')">
+            <button type="button" id="btn_magic_save_add" class="btn btn-primary magic-save-btn" style="width: 100%;" onclick="magicSave('add')">
                 <i class="fas fa-magic"></i> Simpan Pelanggan (Magic Save)
             </button>
         </form>
@@ -619,17 +522,17 @@ $customers = fetchAll("
 </div>
 
 <div class="card">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
-        <h2 style="margin: 0; font-size: 1.25rem; color: var(--neon-cyan);">
+    <div class="card-header">
+        <h3 class="card-title">
             <i class="fas fa-users"></i> Daftar Pelanggan
-        </h2>
-        <div style="display: flex; gap: 10px; flex: 1; max-width: 400px;">
-            <input type="text" id="searchCustomer" class="form-control" placeholder="Cari pelanggan (nama, HP, user)...">
+        </h3>
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <input type="text" id="searchCustomer" class="form-control" placeholder="Cari pelanggan..." style="width: 250px;">
         </div>
     </div>
     
-    <div class="table-container">
-        <table id="customerTable">
+    <div class="table-responsive">
+        <table class="data-table" id="customerTable">
             <thead>
                 <tr>
                     <th>Pelanggan</th>
@@ -651,7 +554,7 @@ $customers = fetchAll("
                 <?php else: ?>
                     <?php foreach ($customers as $customer): ?>
                         <tr>
-                            <td>
+                            <td data-label="Pelanggan">
                                 <div style="font-weight: 600; color: var(--text-primary);">
                                     <?php echo htmlspecialchars($customer['name']); ?>
                                 </div>
@@ -660,49 +563,49 @@ $customers = fetchAll("
                                     <?php 
                                         $tagColor = '#444'; 
                                         $tagTitle = 'Belum/Tidak ditag ke ACS';
-                                        if ($customer['tag_status'] === 'completed') { $tagColor = '#00ff41'; $tagTitle = 'Terkonfirmasi di ACS'; }
-                                        elseif ($customer['tag_status'] === 'pending' || $customer['tag_status'] === 'processing') { $tagColor = '#ffaa00'; $tagTitle = 'Menunggu konfirmasi ACS (5 menit)'; }
-                                        elseif ($customer['tag_status'] === 'failed') { $tagColor = '#ff3131'; $tagTitle = 'Gagal konfirmasi ACS'; }
+                                        if ($customer['tag_status'] === 'completed') { $tagColor = 'var(--neon-green)'; $tagTitle = 'Terkonfirmasi di ACS'; }
+                                        elseif ($customer['tag_status'] === 'pending' || $customer['tag_status'] === 'processing') { $tagColor = 'var(--neon-orange)'; $tagTitle = 'Menunggu konfirmasi ACS (5 menit)'; }
+                                        elseif ($customer['tag_status'] === 'failed') { $tagColor = 'var(--neon-red)'; $tagTitle = 'Gagal konfirmasi ACS'; }
                                     ?>
                                     <i class="fas fa-tag" style="color:<?php echo $tagColor; ?>; font-size: 10px;" title="<?php echo $tagTitle; ?>"></i>
                                 </div>
                             </td>
-                            <td>
-                                <code style="background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px; color: var(--neon-cyan)">
+                            <td data-label="PPPoE User">
+                                <code style="color: var(--neon-cyan)">
                                     <?php echo htmlspecialchars($customer['pppoe_username'] ?: '-'); ?>
                                 </code>
                             </td>
-                            <td>
+                            <td data-label="Paket">
                                 <div style="font-weight: 500;"><?php echo htmlspecialchars($customer['package_name'] ?: 'N/A'); ?></div>
-                                <div style="font-size: 0.8rem; color: var(--text-secondary);">
+                                <div style="font-size: 0.8rem; color: var(--text-muted);">
                                     Isolir Tgl <?php echo $customer['isolation_date'] ?: 20; ?>
                                 </div>
                             </td>
-                            <td>
-                                <div style="font-size: 0.85rem; color: var(--text-secondary);">
+                            <td data-label="Router">
+                                <div style="font-size: 0.85rem; color: var(--text-muted);">
                                     <?php echo htmlspecialchars($customer['router_name'] ?: 'Default'); ?>
                                 </div>
                             </td>
-                            <td>
+                            <td data-label="Alamat">
                                 <div style="font-size: 0.85rem; max-width: 15rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="<?php echo htmlspecialchars($customer['address']); ?>">
                                     <?php echo htmlspecialchars($customer['address'] ?: '-'); ?>
                                 </div>
                             </td>
-                            <td>
-                                <div style="font-size: 0.85rem; color: var(--text-secondary);">
-                                    <i class="fas fa-tools" style="font-size:0.75rem"></i> <?php echo htmlspecialchars($customer['technician_name'] ?: '-'); ?>
+                            <td data-label="Pemasang">
+                                <div style="font-size: 0.85rem; color: var(--text-muted);">
+                                    <i class="fas fa-tools" style="font-size:0.75rem opacity: 0.7"></i> <?php echo htmlspecialchars($customer['technician_name'] ?: '-'); ?>
                                 </div>
                             </td>
-                            <td>
+                            <td data-label="Aksi">
                                 <div style="display: flex; gap: 8px;">
-                                    <button onclick='editCustomer(<?php echo json_encode($customer); ?>)' class="btn btn-secondary" style="padding: 6px 12px;" title="Edit">
+                                    <button onclick='editCustomer(<?php echo json_encode($customer); ?>)' class="btn btn-secondary btn-sm" title="Edit">
                                         <i class="fas fa-edit"></i>
                                     </button>
-                                    <form method="POST" style="display: inline;" onsubmit="return confirm('Apakah Anda yakin ingin menghapus pelanggan ini?')">
+                                    <form method="POST" style="display: inline;" onsubmit="return confirm('Hapus pelanggan ini?')">
                                         <input type="hidden" name="action" value="delete">
                                         <input type="hidden" name="customer_id" value="<?php echo $customer['id']; ?>">
                                         <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
-                                        <button type="submit" class="btn btn-secondary" style="padding: 6px 12px; color: #ff3131;">
+                                        <button type="submit" class="btn btn-secondary btn-sm" style="color: var(--neon-red);">
                                             <i class="fas fa-trash"></i>
                                         </button>
                                     </form>
@@ -924,7 +827,7 @@ $customers = fetchAll("
             </div>
             
             <div style="display: flex; gap: 10px; margin-top: 20px;">
-                <button type="button" id="btn_magic_save_edit" class="btn btn-primary" style="flex: 1;" onclick="magicSave('edit')">
+                <button type="button" id="btn_magic_save_edit" class="btn btn-primary magic-save-btn" style="flex: 1;" onclick="magicSave('edit')">
                     <i class="fas fa-magic"></i> Simpan Perubahan (Magic Save)
                 </button>
                 <button type="button" class="btn btn-secondary" onclick="closeEditModal()" style="flex: 1;">
