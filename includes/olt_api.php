@@ -386,19 +386,19 @@ function vsolFindOnuBySn($olt_id, $sn) {
         }
         
         // Try global SN search first
-        $client->write("show gpon onu sn-item $sn\n");
-        $resp = $client->readUntil("/[>#]/", 3);
+        $client->write("show onu sn-list | include $sn\n");
+        $resp = $client->readUntil("/[>#]/", 5);
 
-        // Try unconfigured list
+        // Try uncfg list
         if (strpos($resp, '0/') === false) {
-            $client->write("show gpon onu unconfigured\n");
+            $client->write("show onu uncfg\n");
             $resp .= "\n" . $client->readUntil("/[>#]/", 5);
         }
 
-        // AGGRESSIVE: Try state list (for online/configured)
+        // AGGRESSIVE: Try state list
         if (strpos($resp, '0/') === false) {
-            $client->write("show gpon onu state\n");
-            $resp .= "\n" . $client->readUntil("/[>#]/", 8);
+            $client->write("show onu state\n");
+            $resp .= "\n" . $client->readUntil("/[>#]/", 10);
         }
 
         $client->disconnect();
@@ -407,23 +407,23 @@ function vsolFindOnuBySn($olt_id, $sn) {
         $port = null;
         $onu_id = null;
 
-        // Pattern 1: GPON OLT PON Port: 0/8, ONU ID: 40
-        if (preg_match('/Port:\s*0\/(\d+),\s*ONU ID:\s*(\d+)/i', $resp, $m)) {
-            $port = $m[1];
-            $onu_id = $m[2];
-        } 
-        // Pattern 2: Interface style (0/8:40)
-        elseif (preg_match('/0\/(\d+):(\d+)/i', $resp, $m)) {
-            $port = $m[1];
-            $onu_id = $m[2];
-        }
-        // Pattern 3: Table list format (Index | Port | SN)
-        elseif (preg_match('/(\d+)\s+0\/(\d+)\s+'.$sn.'/i', $resp, $m)) {
+        // Pattern 1: Table list format (Index | Port | SN)
+        if (preg_match('/(\d+)\s+0\/(\d+)\s+'.$sn.'/i', $resp, $m)) {
             $port = $m[2];
             $onu_id = $m[1];
         }
-        // Pattern 4: Global search/state format
+        // Pattern 2: Global search/state format (Port ONU_ID ... SN)
         elseif (preg_match('/0\/(\d+)\s+(\d+)\s+.*?'.$sn.'/i', $resp, $m)) {
+            $port = $m[1];
+            $onu_id = $m[2];
+        }
+        // Pattern 3: GPON OLT PON Port: 0/8, ONU ID: 40
+        elseif (preg_match('/Port:\s*0\/(\d+),\s*ONU ID:\s*(\d+)/i', $resp, $m)) {
+            $port = $m[1];
+            $onu_id = $m[2];
+        } 
+        // Pattern 4: Interface style (0/8:40)
+        elseif (preg_match('/0\/(\d+):(\d+)/i', $resp, $m)) {
             $port = $m[1];
             $onu_id = $m[2];
         }
