@@ -98,16 +98,14 @@ $mapCenter = ['lat' => -6.200000, 'lng' => 106.816666];
 ob_start();
 ?>
 
-<!-- UI VISIBILITY FIX: Reverting to Standard Form Controls (V7.9) -->
+<!-- UI VISIBILITY: Reverting to Native App Styles (V8.0) -->
 <style>
-    .form-group label { color: var(--text-primary, #fff) !important; font-weight: 500; }
-    .form-control { background: rgba(255,255,255,0.05) !important; color: #fff !important; border: 1px solid rgba(255,255,255,0.1) !important; }
-    .form-control::placeholder { color: rgba(255,255,255,0.3); }
-    #sn_status_badge { display: inline-block; font-size: 0.75rem; padding: 3px 8px; border-radius: 4px; margin-left: 10px; font-weight: bold; }
-    .card { background: var(--bg-card, #1e1e1e); }
+    #sn_status_badge { font-size: 0.75rem; padding: 3px 8px; border-radius: 4px; margin-left: 10px; font-weight: bold; }
+    .card { margin-bottom: 20px; }
+    .olt-provisioning-box { padding: 20px; background: rgba(0,210,255,0.05); border: 1px solid rgba(0,210,255,0.1); border-radius: 12px; }
 </style>
 
-<div class="card" style="margin-bottom: 20px;">
+<div class="card">
     <div class="card-header"><h3><i class="fas fa-user-plus"></i> Tambah Pelanggan</h3></div>
     <form method="POST">
         <input type="hidden" name="action" value="add"><input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
@@ -116,26 +114,26 @@ ob_start();
             <div class="form-group"><label>Nomor WhatsApp</label> <input type="text" name="phone" class="form-control" required placeholder="08xxxx"></div>
             <div class="form-group" style="grid-column: 1 / -1;"><label>PPPoE Username</label><input type="text" name="pppoe_username" class="form-control" required placeholder="User internet"></div>
             
-            <div class="form-group" style="grid-column: 1 / -1; padding: 20px; background: rgba(0,210,255,0.03); border: 1px solid rgba(0,210,255,0.1); border-radius: 12px; position: relative;">
+            <div class="form-group olt-provisioning-box" style="grid-column: 1 / -1;">
                 <label style="color: var(--neon-cyan); display: block; margin-bottom: 15px;"><i class="fas fa-microchip"></i> OLT Provisioning (V-SOL)</label>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                     <div><label>Pilih OLT</label>
-                        <select name="olt_id" id="olt_selector" class="form-control" style="cursor: pointer;">
+                        <select name="olt_id" id="olt_selector" class="form-control">
                             <option value="0">-- Lewati OLT --</option>
                             <?php foreach ($olts as $o): ?><option value="<?php echo $o['id']; ?>"><?php echo htmlspecialchars($o['name']); ?></option><?php endforeach; ?>
                         </select>
                     </div>
-                    <div><label>Serial Number ONU <span id="sn_status_badge" style="display:none;"></span></label>
+                    <div><label>Serial Number ONT <span id="sn_status_badge" style="display:none;"></span></label>
                         <div style="display: flex; gap: 8px;">
                             <input type="text" id="onu_sn_input" name="onu_sn" list="onu_sn_list" class="form-control" placeholder="Scan atau Paste SN" style="flex: 1;">
                             <datalist id="onu_sn_list"></datalist>
-                            <button type="button" class="btn btn-secondary btn-sm" onclick="startCameraScan()" title="Camera Scan"><i class="fas fa-camera"></i></button>
-                            <button type="button" class="btn btn-secondary btn-sm" onclick="scanOltOnu()" title="Refresh Scan List"><i id="scan-icon" class="fas fa-search"></i></button>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="startCameraScan()"><i class="fas fa-camera"></i></button>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="scanOltOnu()"><i id="scan-icon" class="fas fa-search"></i></button>
                         </div>
                     </div>
                 </div>
                 <input type="hidden" name="olt_pon_port" id="olt_pon_port_input"><input type="hidden" name="onu_id" id="onu_id_input"><input type="hidden" name="onu_status" id="onu_status_hidden" value="unconfigured">
-                <div style="margin-top: 20px; display: flex; flex-wrap: wrap; gap: 20px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 8px;">
+                <div style="margin-top: 20px; display: flex; flex-wrap: wrap; gap: 20px; padding: 12px; background: rgba(0,0,0,0.1); border-radius: 8px;">
                     <label style="cursor:pointer; display: flex; align-items: center; gap: 8px;"><input type="checkbox" name="olt_services[]" value="acs" checked> <span>TR069 (ACS)</span></label>
                     <label style="cursor:pointer; display: flex; align-items: center; gap: 8px;"><input type="checkbox" name="olt_services[]" value="pppoe" checked> <span>Internet (PPPoE)</span></label>
                     <label style="cursor:pointer; display: flex; align-items: center; gap: 8px;"><input type="checkbox" name="olt_services[]" value="hotspot" checked> <span>Hotspot (200)</span></label>
@@ -151,7 +149,7 @@ ob_start();
             </div>
             <div class="form-group"><label>Jatuh Tempo (1-28)</label><input type="number" name="isolation_date" class="form-control" value="20" min="1" max="28" required></div>
         </div>
-        <button type="submit" class="btn btn-primary" style="margin-top:25px; width:100%; height:55px; font-weight: bold; font-size: 1.1rem; box-shadow: 0 4px 15px rgba(0,210,255,0.2);"><i class="fas fa-save"></i> SIMPAN & PROSES OLT</button>
+        <button type="submit" class="btn btn-primary" style="margin-top:25px; width:100%; height:55px; font-weight: bold;"><i class="fas fa-save"></i> SIMPAN & PROSES OLT</button>
     </form>
 </div>
 

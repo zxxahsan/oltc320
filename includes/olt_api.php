@@ -143,8 +143,8 @@ function vsolGetOnuIdBySn($olt_id, $sn) {
         $output = $client->execute("show gpon onu information");
         $client->disconnect();
 
-        // Pattern: GPON0/1  1   6   GGCL01234567 ...
-        if (preg_match('/0\/(\d+)\s+(\d+)\s+\d+\s+'.$sn.'/i', $output, $m)) {
+        // Pattern: GPON0/1  1   6   FHTTXXXXXXXX (Support 8-16 chars SN)
+        if (preg_match('/0\/(\d+)\s+(\d+)\s+.*?\s+([A-Z0-9]{8,16})/i', $output, $m)) {
             return [
                 'port' => (int)$m[1],
                 'id' => (int)$m[2]
@@ -170,23 +170,19 @@ function vsolFindUnauthOnu($olt_id) {
         $client->connect($olt['username'], $olt['password']);
         if (!empty($olt['enable_password'])) $client->enable($olt['enable_password']);
         
-        // 1. Check Unauthentication list
+        // 1. Check Unauthentication list (Broad Regex)
         $outputU = $client->execute("show gpon onu unauthentication");
         $onus = [];
-        if (preg_match_all('/0\/(\d+)\s+\d+\s+([A-Z0-9]{12,})/i', $outputU, $matches, PREG_SET_ORDER)) {
+        if (preg_match_all('/0\/(\d+)\s+\d+\s+([A-Z0-9]{8,16})/i', $outputU, $matches, PREG_SET_ORDER)) {
             foreach ($matches as $m) {
                 $onus[] = ['port' => (int)$m[1], 'sn' => $m[2], 'id' => null, 'status' => 'unconfigured'];
             }
         }
 
-        // 2. Check already auto-learned list (from general information)
+        // 2. Check already auto-learned list (Broad Regex)
         $outputI = $client->execute("show gpon onu information");
-        // We look for ONUs that might be recently added by auto-learn
-        // Format: 0/PON ONU_ID STATE SN ...
-        if (preg_match_all('/0\/(\d+)\s+(\d+)\s+\w+\s+([A-Z0-9]{12,})/i', $outputI, $mI, PREG_SET_ORDER)) {
+        if (preg_match_all('/0\/(\d+)\s+(\d+)\s+.*?\s+([A-Z0-9]{8,16})/i', $outputI, $mI, PREG_SET_ORDER)) {
             foreach ($mI as $m) {
-                // Check if this SN is already in our list or if we should add it if it looks "new"
-                // For simplicity, we just add registered ones if we need it for discovery
                 $onus[] = ['port' => (int)$m[1], 'sn' => $m[3], 'id' => (int)$m[2], 'status' => 'registered'];
             }
         }
