@@ -215,8 +215,11 @@ ob_start();
                     </p>
                     
                     <div class="form-group">
-                        <label style="font-size:10px;color:#888;">Ketik ulang SN untuk konfirmasi:</label>
-                        <input type="text" id="f_confirm_sn" class="form-control" placeholder="Masukan SN di sini..." oninput="validateCleanup()">
+                        <label style="font-size:10px;color:#888;">Ketik ulang SN untuk konfirmasi: <span id="sn_match_badge" style="font-size:9px; font-weight:bold; padding:2px 4px; border-radius:4px; display:none;"></span></label>
+                        <div style="position:relative;">
+                            <input type="text" id="f_confirm_sn" class="form-control" placeholder="Masukan SN di sini..." oninput="validateCleanup()">
+                            <span id="sn_status_icon" style="position:absolute; right:10px; top:10px; font-size:14px; display:none;"></span>
+                        </div>
                     </div>
 
                     <label style="display:flex; align-items:center; gap:8px; color:#fff; font-size:11px; margin-bottom:12px; cursor:pointer;">
@@ -225,7 +228,7 @@ ob_start();
 
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
                         <button class="btn btn-secondary btn-sm" onclick="toggleDeleteArea(false)">Batal</button>
-                        <button class="btn btn-danger btn-sm" id="btn_delete_final" onclick="doDeleteWan()" disabled>HAJAR / CLEANUP</button>
+                        <button class="btn btn-danger btn-sm" id="btn_delete_final" onclick="doDeleteWan()">HAJAR / CLEANUP</button>
                     </div>
                 </div>
                 <button class="btn btn-outline-danger btn-sm" style="width:100%; border-color:#500; color:#a00;" id="btn_delete_init" onclick="toggleDeleteArea(true)">
@@ -378,22 +381,37 @@ function toggleDeleteArea(show) {
     document.getElementById('btn_delete_init').style.display = show ? 'none' : 'block';
     if (!show) {
         document.getElementById('chk_delete_sure').checked = false;
-        document.getElementById('btn_delete_final').disabled = true;
+        document.getElementById('f_confirm_sn').value = '';
+        validateCleanup(); // Reset status
     }
 }
 
-// ── Validasi Cleanup
+// ── Validasi Visual Cleanup
 function validateCleanup() {
     const snInput  = document.getElementById('f_confirm_sn').value.trim().toUpperCase();
     const targetSn = document.getElementById('f_active_sn').value.trim().toUpperCase();
-    const isChecked = document.getElementById('chk_delete_sure').checked;
-    const btn = document.getElementById('btn_delete_final');
+    const badge = document.getElementById('sn_match_badge');
+    const icon = document.getElementById('sn_status_icon');
 
-    // Aktifkan tombol hanya jika SN cocok AND checklist ok
-    if (snInput === targetSn && targetSn.length > 5 && isChecked) {
-        btn.disabled = false;
+    if (snInput.length === 0 || targetSn.length === 0) {
+        badge.style.display = 'none';
+        icon.style.display = 'none';
+        return;
+    }
+
+    badge.style.display = 'inline-block';
+    icon.style.display = 'block';
+
+    if (snInput === targetSn) {
+        badge.textContent = 'MATCHED';
+        badge.style.background = '#2e7d32'; // Green
+        badge.style.color = '#fff';
+        icon.innerHTML = '✅';
     } else {
-        btn.disabled = true;
+        badge.textContent = 'MISMATCH';
+        badge.style.background = '#d32f2f'; // Red
+        badge.style.color = '#fff';
+        icon.innerHTML = '❌';
     }
 }
 
@@ -408,22 +426,32 @@ async function doDeleteWan() {
     const logBox = document.getElementById('log_box');
     const badge  = document.getElementById('status_badge');
 
-    // Better Validation
+    // Smart Warning Logic (v1.16)
     if (olt_id === "0" || !port || !onu_id) { 
-        alert('Pilih OLT, Port, dan ID terlebih dahulu!'); 
+        alert('ADUH PAK! Pilih OLT, Port (0/x), dan ONU ID terlebih dahulu sebelum di-hajar!'); 
         return; 
     }
     
-    // Final check for SN match against hidden field
-    const snInput = document.getElementById('f_confirm_sn').value.trim().toUpperCase();
+    const snInput  = document.getElementById('f_confirm_sn').value.trim().toUpperCase();
     const targetSn = document.getElementById('f_active_sn').value.trim().toUpperCase();
-    
+    const isChecked = document.getElementById('chk_delete_sure').checked;
+
+    if (!targetSn) {
+         alert('PAK, Cari dulu ONU-nya di OLT sampai SN-nya muncul di sistem!');
+         return;
+    }
+
     if (snInput !== targetSn) { 
-        alert('SN Konfirmasi tidak cocok!'); 
+        alert(`SN TIDAK COCOK!\nSistem mencatat SN: "${targetSn}"\nBapak ketik: "${snInput || '(Kosong)'}"\n\nKetik ulang SN dengan benar ya Pak!`); 
         return; 
     }
 
-    if (!confirm('PERINGATAN TERAKHIR: Anda akan MENGHAPUS TOTAL (WIPE) konfigurasi ONU ini. Lanjut?')) return;
+    if (!isChecked) {
+        alert('Pak, centang dulu kotak "Saya paham..." sebagai tanda Bapak sudah mengerti risikonya!');
+        return;
+    }
+
+    if (!confirm('PERINGATAN TERAKHIR!\nAnda akan MENGHAPUS TOTAL (WIPE) konfigurasi ONU ini.\nBapak yakin betul mau hajar?')) return;
 
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> PROSES...';
