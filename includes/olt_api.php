@@ -39,9 +39,10 @@ class OltTelnetClient {
     }
 
     public function execute($command, $wait_for = "/(\r\n|\n|^)[^>\r\n#]*[>#]\s*$/") {
+        set_time_limit(60); // Give PHP more time
         $this->readUntil("/.*/", 0.05); 
         $this->write($command . "\n"); // Using LF
-        $output = $this->readUntil($wait_for, 8); // Higher timeout for long outputs
+        $output = $this->readUntil($wait_for, 30); // Higher timeout for long outputs
         
         $lines = explode("\n", str_replace("\r", "", $output));
         if (count($lines) > 0 && stripos(trim($lines[0]), trim($command)) !== false) array_shift($lines);
@@ -61,7 +62,7 @@ class OltTelnetClient {
 
     public function write($data) { return fwrite($this->socket, $data); }
 
-    private function readUntil($regex, $timeout = null) {
+    public function readUntil($regex, $timeout = null) {
         $result = "";
         $start = time();
         $wait = $timeout ?? $this->timeout;
