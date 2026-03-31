@@ -47,7 +47,7 @@ if (isset($_GET['ajax_action']) && $_GET['ajax_action'] === 'provision') {
     
     if ($result['success']) {
         // Find SN for this ONU to queue ACS tagging
-        $onu = vsolSyncAllMetadata($olt_id); // Simple way to get SN
+        $onu = vsolSyncAllMetadata($olt_id);
         $sn = '';
         foreach ($onu as $o) {
             if ($o['port'] == $port && $o['id'] == $onu_id) {
@@ -57,7 +57,6 @@ if (isset($_GET['ajax_action']) && $_GET['ajax_action'] === 'provision') {
         }
         
         if ($sn) {
-            // Find customer to get their internal ID or phone for tagging
             $cust = fetchOne("SELECT id, phone FROM customers WHERE pppoe_username = ?", [$pppoe_user]);
             $tagValue = $cust ? $cust['id'] : $pppoe_user;
             
@@ -74,6 +73,22 @@ if (isset($_GET['ajax_action']) && $_GET['ajax_action'] === 'provision') {
         }
     }
     
+    echo json_encode($result);
+    exit;
+}
+
+// === AJAX: Cari SN di OLT ===
+if (isset($_GET['ajax_action']) && $_GET['ajax_action'] === 'find_sn') {
+    header('Content-Type: application/json');
+    $olt_id = (int)($_GET['olt_id'] ?? 0);
+    $sn     = strtoupper(trim($_GET['sn'] ?? ''));
+    
+    if (!$olt_id || !$sn) {
+        echo json_encode(['success' => false, 'message' => 'OLT ID and SN are required']);
+        exit;
+    }
+    
+    $result = vsolFindOnuBySn($olt_id, $sn);
     echo json_encode($result);
     exit;
 }
@@ -769,6 +784,9 @@ $customers = fetchAll("
                             <button type="button" class="btn btn-secondary" onclick="startScanner('edit_onu_sn')" title="Scan Barcode SN">
                                 <i class="fas fa-camera"></i>
                             </button>
+                            <button type="button" class="btn btn-secondary" onclick="findOnOlt()" id="btn_find_olt" title="Cari Port & ID di OLT">
+                                <i class="fas fa-search-plus"></i>
+                            </button>
                         </div>
                     </div>
                     <div><label class="form-label">PON Port (0/x)</label>
@@ -805,10 +823,10 @@ $customers = fetchAll("
                         </div>
                         <div class="binding-box">
                             <?php for($i=1;$i<=4;$i++): ?>
-                            <label class="bind-item active"><input type="checkbox" name="edit_p_bind[]" value="LAN<?php echo $i; ?>" checked>L<?php echo $i; ?></label>
+                            <label class="bind-item active"><input type="checkbox" name="edit_p_bind[]" value="LAN<?php echo $i; ?>" checked onchange="syncBindings()">L<?php echo $i; ?></label>
                             <?php endfor; ?>
                             <?php for($i=1;$i<=8;$i++): ?>
-                            <label class="bind-item active"><input type="checkbox" name="edit_p_bind[]" value="SSID<?php echo $i; ?>" checked>W<?php echo $i; ?></label>
+                            <label class="bind-item active"><input type="checkbox" name="edit_p_bind[]" value="SSID<?php echo $i; ?>" checked onchange="syncBindings()">W<?php echo $i; ?></label>
                             <?php endfor; ?>
                         </div>
                     </div>
@@ -819,10 +837,10 @@ $customers = fetchAll("
                         </div>
                         <div class="binding-box">
                             <?php for($i=1;$i<=4;$i++): ?>
-                            <label class="bind-item"><input type="checkbox" name="edit_b_bind[]" value="LAN<?php echo $i; ?>">L<?php echo $i; ?></label>
+                            <label class="bind-item"><input type="checkbox" name="edit_b_bind[]" value="LAN<?php echo $i; ?>" onchange="syncBindings()">L<?php echo $i; ?></label>
                             <?php endfor; ?>
                             <?php for($i=1;$i<=8;$i++): ?>
-                            <label class="bind-item"><input type="checkbox" name="edit_b_bind[]" value="SSID<?php echo $i; ?>">W<?php echo $i; ?></label>
+                            <label class="bind-item"><input type="checkbox" name="edit_b_bind[]" value="SSID<?php echo $i; ?>" onchange="syncBindings()">W<?php echo $i; ?></label>
                             <?php endfor; ?>
                         </div>
                     </div>
@@ -895,6 +913,59 @@ function openPppoeUserModal() {
                 list.innerHTML = '<div style="padding: 10px; color: var(--text-secondary);">Gagal mengambil data dari MikroTik</div>';
             }
         });
+}
+
+async function findOnOlt() {
+    const olt_id = document.getElementById('edit_olt_id').value;
+    const sn     = document.getElementById('edit_onu_sn').value.trim();
+    const btn    = document.getElementById('btn_find_olt');
+    const logBox = document.getElementById('prov_log');
+
+    if (!olt_id || olt_id == 0) { alert('Pilih OLT terlebih dahulu!'); return; }
+    if (!sn || sn.length < 8) { alert('Masukkan Serial Number (min 8 karakter)!'); return; }
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    logBox.style.display = 'block';
+    logBox.textContent = `⏳ Mencari SN: ${sn} di OLT...`;
+
+    try {
+        const r = await fetch(`customers.php?ajax_action=find_sn&olt_id=${olt_id}&sn=${sn}`);
+        const data = await r.json();
+        
+        if (data.success) {
+            document.getElementById('edit_pon_port').value = data.port;
+            document.getElementById('edit_onu_id').value = data.onu_id;
+            logBox.innerHTML = `<span style="color:#00ff41">✓ SN Ditemukan!</span>\n  Port: 0/${data.port}\n  ONU ID: ${data.onu_id}\n\nSilakan klik "KIRIM KE OLT" untuk provisioning.`;
+        } else {
+            logBox.innerHTML = `<span style="color:#ff3131">✗ SN Tidak Ditemukan di OLT.</span>\n  Pesan: ${data.message}`;
+        }
+    } catch(e) {
+        logBox.textContent = '✗ Error: ' + e.message;
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-search-plus"></i>';
+    }
+}
+
+// Port Binding Sync (v1.17)
+function syncBindings() {
+    const p_binds = document.querySelectorAll('input[name="edit_p_bind[]"]');
+    const b_binds = document.querySelectorAll('input[name="edit_b_bind[]"]');
+
+    const updateLabel = (el) => {
+        const lbl = el.parentElement;
+        if (el.disabled) { lbl.classList.add('disabled'); lbl.classList.remove('active'); }
+        else { lbl.classList.remove('disabled'); if (el.checked) lbl.classList.add('active'); else lbl.classList.remove('active'); }
+    };
+
+    p_binds.forEach((p, i) => {
+        const b = b_binds[i];
+        if (p.checked) { b.disabled = true; b.checked = false; } else { b.disabled = false; }
+        if (b.checked) { p.disabled = true; p.checked = false; } else { p.disabled = false; }
+        updateLabel(p);
+        updateLabel(b);
+    });
 }
 
 function renderPppoeUserList(users) {
