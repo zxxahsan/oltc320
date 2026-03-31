@@ -28,11 +28,13 @@ try {
         echo "Success: Entered enable mode!\n\n";
     }
 
-    // Common V-SOL commands to test
+    // Common V-SOL commands to test as alternatives
     $test_commands = [
-        "enable",
-        "show gpon onu unconfigured",
-        "show version",
+        "?",
+        "show gpon onu unauthentication",
+        "show onu unauthentication",
+        "show gpon onu auth-fail",
+        "show system information",
         "exit"
     ];
 
