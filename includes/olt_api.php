@@ -16,30 +16,30 @@ class OltTelnetClient {
     private $timeout;
     private $buffer = "";
 
-    public function __construct($host, $port = 23, $timeout = 20) {
+    public function __construct($host, $port = 23, $timeout = 5) {
         $this->host = $host;
         $this->port = $port;
         $this->timeout = $timeout;
     }
 
     public function connect($username, $password) {
-        $this->socket = @fsockopen($this->host, $this->port, $errno, $errstr, $this->timeout);
+        $this->socket = @fsockopen($this->host, $this->port, $errno, $errstr, 2); // 2s connect timeout
         if (!$this->socket) {
             throw new Exception("Connection failed: $errstr ($errno)");
         }
 
-        stream_set_timeout($this->socket, 2);
+        stream_set_timeout($this->socket, 1); // 1s stream timeout
 
         // Wait for Login prompt
-        $this->readUntil("/Login:|Username:|User Name:/i");
+        $this->readUntil("/Login:|Username:|User Name:/i", 2);
         $this->write($username . "\n");
 
         // Wait for Password prompt
-        $this->readUntil("/Password:/i");
+        $this->readUntil("/Password:/i", 2);
         $this->write($password . "\n");
 
         // Check if login successful (wait for prompt like # or >)
-        $result = $this->readUntil("/[>#]/");
+        $result = $this->readUntil("/[>#]/", 3);
         if (!$result) {
             throw new Exception("Login failed or timed out.");
         }
@@ -49,13 +49,13 @@ class OltTelnetClient {
 
     public function execute($command, $wait_for = "/(\r\n|\n|^)[^>\r\n#]*[>#]\s*$/") {
         // Clear buffer
-        $this->readUntil("/.*/", 0.1); 
+        $this->readUntil("/.*/", 0.05); 
         
         $this->write($command . "\n");
         // Give OLT a tiny moment to echo and process
-        usleep(100000); 
+        usleep(50000); 
         
-        $output = $this->readUntil($wait_for);
+        $output = $this->readUntil($wait_for, 3); // 3s execution timeout
         
         // Robust echo removal:
         // Many OLTs echo the command + \n before the actual response.
