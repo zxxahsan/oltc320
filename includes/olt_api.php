@@ -276,9 +276,10 @@ function vsolProvisionOnu($olt_id, $port, $onu_id, $pppoe_user, $pppoe_pass, $se
                 "onu {$onu_id} pri wan_adv index {$current_idx} route ipv4 pppoe proxy disable user {$pppoe_user} pwd {$pppoe_pass} mode auto nat enable",
                 "onu {$onu_id} pri wan_adv index {$current_idx} vlan tag wan_vlan 100 0",
             ];
-            // Dynamic Binding (v1.17)
-            foreach ($pppoe_bind as $b) {
-                $cmds[] = "onu {$onu_id} pri wan_adv index {$current_idx} bind {$b}";
+            // Consolidate Binding (v1.18 - Comma separated)
+            if (!empty($pppoe_bind)) {
+                $b_str = implode(',', $pppoe_bind);
+                $cmds[] = "onu {$onu_id} pri wan_adv index {$current_idx} bind {$b_str}";
             }
             foreach ($cmds as $cmd) {
                 $client->write($cmd . "\n");
@@ -307,9 +308,10 @@ function vsolProvisionOnu($olt_id, $port, $onu_id, $pppoe_user, $pppoe_pass, $se
                 "onu {$onu_id} pri wan_adv index {$current_idx} bridge other mtu 1500",
                 "onu {$onu_id} pri wan_adv index {$current_idx} vlan tag wan_vlan 200 0",
             ];
-            // Dynamic Binding (v1.17)
-            foreach ($hotspot_bind as $b) {
-                $cmds[] = "onu {$onu_id} pri wan_adv index {$current_idx} bind {$b}";
+            // Consolidate Binding (v1.18 - Comma separated)
+            if (!empty($hotspot_bind)) {
+                $b_str = implode(',', $hotspot_bind);
+                $cmds[] = "onu {$onu_id} pri wan_adv index {$current_idx} bind {$b_str}";
             }
             foreach ($cmds as $cmd) {
                 $client->write($cmd . "\n");
