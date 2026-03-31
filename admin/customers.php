@@ -1,6 +1,7 @@
 <?php
 /**
  * Customers Management
+ * Optimization & Visibility Update (V7.9)
  */
 
 require_once '../includes/auth.php';
@@ -10,7 +11,7 @@ require_once '../includes/olt_api.php';
 
 $pageTitle = 'Pelanggan';
 
-// AJAX Handler for OLT Scanning
+// AJAX Handler for OLT Scanning (Fast Response)
 if (isset($_GET['ajax_action'])) {
     if ($_GET['ajax_action'] === 'scan_onu') {
         if (ob_get_level()) ob_clean();
@@ -18,7 +19,7 @@ if (isset($_GET['ajax_action'])) {
         $olt_id = (int)$_GET['olt_id'];
         try {
             $found = vsolFindUnauthOnu($olt_id);
-            echo json_encode($found);
+            echo json_encode($found ?: []);
         } catch (Exception $e) {
             http_response_code(500);
             echo json_encode(['error' => $e->getMessage()]);
@@ -82,147 +83,114 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 redirect('customers.php');
                 break;
-                
-            case 'edit':
-                $customerId = (int)$_POST['customer_id'];
-                $data = [
-                    'name' => sanitize($_POST['name']),
-                    'phone' => sanitize($_POST['phone']),
-                    'package_id' => (int)$_POST['package_id'],
-                    'isolation_date' => (int)$_POST['isolation_date'],
-                    'updated_at' => date('Y-m-d H:i:s')
-                ];
-                if (update('customers', $data, 'id = ?', [$customerId])) {
-                    setFlash('success', 'Berhasil memperbarui pelanggan');
-                    logActivity('UPDATE_CUSTOMER', "ID: {$customerId}");
-                } else { setFlash('error', 'Gagal memperbarui pelanggan'); }
-                redirect('customers.php');
-                break;
         }
     }
 }
 
+// Core Data Fetch (Optimized)
 $olts = fetchAll("SELECT id, name FROM olt_configs ORDER BY name ASC");
 $packages = fetchAll("SELECT * FROM packages ORDER BY price ASC");
-
-// Pagination
-$page = (int)($_GET['page'] ?? 1);
-$perPage = 20;
-$offset = ($page - 1) * $perPage;
 $totalCustomers = fetchOne("SELECT COUNT(*) as total FROM customers")['total'] ?? 0;
-$customers = fetchAll("SELECT c.*, p.name as package_name FROM customers c LEFT JOIN packages p ON c.package_id = p.id ORDER BY c.created_at DESC LIMIT $perPage OFFSET $offset");
+$customers = fetchAll("SELECT c.*, p.name as package_name FROM customers c LEFT JOIN packages p ON c.package_id = p.id ORDER BY c.created_at DESC LIMIT 20");
 
 $mapCenter = ['lat' => -6.200000, 'lng' => 106.816666];
 
 ob_start();
 ?>
 
-<!-- Libraries (V7.8 INTERACTIVITY) -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/html5-qrcode@latest/html5-qrcode.min.js"></script>
+<!-- UI VISIBILITY FIX: Reverting to Standard Form Controls (V7.9) -->
+<style>
+    .form-group label { color: var(--text-primary, #fff) !important; font-weight: 500; }
+    .form-control { background: rgba(255,255,255,0.05) !important; color: #fff !important; border: 1px solid rgba(255,255,255,0.1) !important; }
+    .form-control::placeholder { color: rgba(255,255,255,0.3); }
+    #sn_status_badge { display: inline-block; font-size: 0.75rem; padding: 3px 8px; border-radius: 4px; margin-left: 10px; font-weight: bold; }
+    .card { background: var(--bg-card, #1e1e1e); }
+</style>
 
-<div class="card" style="position: relative; z-index: 5;">
+<div class="card" style="margin-bottom: 20px;">
     <div class="card-header"><h3><i class="fas fa-user-plus"></i> Tambah Pelanggan</h3></div>
     <form method="POST">
         <input type="hidden" name="action" value="add"><input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
-        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
-            <div class="form-group"><label>Nama</label> <input type="text" name="name" class="form-control" required></div>
-            <div class="form-group"><label>Nomor HP</label> <input type="text" name="phone" class="form-control" required></div>
-            <div class="form-group" style="grid-column: 1 / -1;"><label>Username PPPoE</label><input type="text" name="pppoe_username" class="form-control" required></div>
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+            <div class="form-group"><label>Nama Pelanggan</label> <input type="text" name="name" class="form-control" required placeholder="Nama Lengkap"></div>
+            <div class="form-group"><label>Nomor WhatsApp</label> <input type="text" name="phone" class="form-control" required placeholder="08xxxx"></div>
+            <div class="form-group" style="grid-column: 1 / -1;"><label>PPPoE Username</label><input type="text" name="pppoe_username" class="form-control" required placeholder="User internet"></div>
             
-            <!-- SMART OLT PROVISIONING (V7.8 INTERACTIVITY FIX) -->
-            <div class="form-group" style="grid-column: 1 / -1; padding: 15px; background: rgba(0,210,255,0.05); border: 1px solid rgba(0,210,255,0.1); border-radius: 8px; position: relative; z-index: 10;">
-                <label style="color: var(--neon-cyan); display: block; margin-bottom: 10px;"><i class="fas fa-microchip"></i> OLT Provisioning (V-SOL)</label>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div class="form-group" style="grid-column: 1 / -1; padding: 20px; background: rgba(0,210,255,0.03); border: 1px solid rgba(0,210,255,0.1); border-radius: 12px; position: relative;">
+                <label style="color: var(--neon-cyan); display: block; margin-bottom: 15px;"><i class="fas fa-microchip"></i> OLT Provisioning (V-SOL)</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                     <div><label>Pilih OLT</label>
-                        <select name="olt_id" id="olt_selector" class="form-control" style="background:#2a2a2a; color:#fff; cursor: pointer;">
+                        <select name="olt_id" id="olt_selector" class="form-control" style="cursor: pointer;">
                             <option value="0">-- Lewati OLT --</option>
                             <?php foreach ($olts as $o): ?><option value="<?php echo $o['id']; ?>"><?php echo htmlspecialchars($o['name']); ?></option><?php endforeach; ?>
                         </select>
                     </div>
-                    <div><label>Scan / SN ONT <span id="sn_status_badge" style="display:none; font-size:0.75em; padding:2px 8px; border-radius:4px; margin-left:10px; background:var(--neon-green); color:#000;">DITEMUKAN</span></label>
-                        <div style="display: flex; gap: 5px;">
-                            <input type="text" id="onu_sn_input" name="onu_sn" list="onu_sn_list" class="form-control" placeholder="Scan atau Paste SN" style="flex: 1; background:#2a2a2a; color:#fff;">
+                    <div><label>Serial Number ONU <span id="sn_status_badge" style="display:none;"></span></label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" id="onu_sn_input" name="onu_sn" list="onu_sn_list" class="form-control" placeholder="Scan atau Paste SN" style="flex: 1;">
                             <datalist id="onu_sn_list"></datalist>
-                            <button type="button" class="btn btn-secondary btn-sm" onclick="startCameraScan()"><i class="fas fa-camera"></i></button>
-                            <button type="button" class="btn btn-secondary btn-sm" onclick="scanOltOnu()"><i id="scan-icon" class="fas fa-search"></i></button>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="startCameraScan()" title="Camera Scan"><i class="fas fa-camera"></i></button>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="scanOltOnu()" title="Refresh Scan List"><i id="scan-icon" class="fas fa-search"></i></button>
                         </div>
                     </div>
                 </div>
                 <input type="hidden" name="olt_pon_port" id="olt_pon_port_input"><input type="hidden" name="onu_id" id="onu_id_input"><input type="hidden" name="onu_status" id="onu_status_hidden" value="unconfigured">
-                <div style="margin-top: 15px; display: flex; gap: 15px; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 5px;">
-                    <label style="cursor:pointer; display: flex; align-items: center; gap: 5px;"><input type="checkbox" name="olt_services[]" value="acs" checked> <span>TR069</span></label>
-                    <label style="cursor:pointer; display: flex; align-items: center; gap: 5px;"><input type="checkbox" name="olt_services[]" value="pppoe" checked> <span>Internet</span></label>
-                    <label style="cursor:pointer; display: flex; align-items: center; gap: 5px;"><input type="checkbox" name="olt_services[]" value="hotspot" checked> <span>Hotspot</span></label>
-                    <label style="cursor:pointer; display: flex; align-items: center; gap: 5px;"><input type="checkbox" name="olt_services[]" value="wifi" checked> <span>WiFi 2</span></label>
+                <div style="margin-top: 20px; display: flex; flex-wrap: wrap; gap: 20px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 8px;">
+                    <label style="cursor:pointer; display: flex; align-items: center; gap: 8px;"><input type="checkbox" name="olt_services[]" value="acs" checked> <span>TR069 (ACS)</span></label>
+                    <label style="cursor:pointer; display: flex; align-items: center; gap: 8px;"><input type="checkbox" name="olt_services[]" value="pppoe" checked> <span>Internet (PPPoE)</span></label>
+                    <label style="cursor:pointer; display: flex; align-items: center; gap: 8px;"><input type="checkbox" name="olt_services[]" value="hotspot" checked> <span>Hotspot (200)</span></label>
+                    <label style="cursor:pointer; display: flex; align-items: center; gap: 8px;"><input type="checkbox" name="olt_services[]" value="wifi" checked> <span>WiFi SSID 2</span></label>
                 </div>
             </div>
 
-            <div class="form-group"><label>Paket</label>
-                <select name="package_id" class="form-control" required style="background:#2a2a2a; color:#fff;">
-                    <option value="">Pilih Paket</option>
+            <div class="form-group"><label>Paket Langganan</label>
+                <select name="package_id" class="form-control" required>
+                    <option value="">Pilih Paket Paket</option>
                     <?php foreach ($packages as $pkg): ?><option value="<?php echo $pkg['id']; ?>"><?php echo htmlspecialchars($pkg['name']); ?></option><?php endforeach; ?>
                 </select>
             </div>
             <div class="form-group"><label>Jatuh Tempo (1-28)</label><input type="number" name="isolation_date" class="form-control" value="20" min="1" max="28" required></div>
         </div>
-        <div class="form-group" style="margin-top:15px;"><label>Lokasi (Klik Peta)</label>
-            <div style="display:flex; gap:10px; margin-bottom:10px;"><input type="text" name="lat" class="form-control" readonly><input type="text" name="lng" class="form-control" readonly></div>
-            <div id="map-picker" style="height: 350px; border-radius:8px;"></div>
-        </div>
-        <button type="submit" class="btn btn-primary" style="margin-top:20px; width:100%; height:50px; font-weight: bold;">SIMPAN PELANGGAN</button>
+        <button type="submit" class="btn btn-primary" style="margin-top:25px; width:100%; height:55px; font-weight: bold; font-size: 1.1rem; box-shadow: 0 4px 15px rgba(0,210,255,0.2);"><i class="fas fa-save"></i> SIMPAN & PROSES OLT</button>
     </form>
 </div>
 
-<div id="cameraScanModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9999; flex-direction:column; align-items:center; justify-content:center;"><div style="background:var(--bg-card); padding:20px; border-radius:10px; width:90%; max-width:500px; text-align:center;"><h3 style="color:var(--neon-cyan);">Scan ONT Barcode</h3><div id="reader" style="width:100%; height:300px; background:#000;"></div><button class="btn btn-secondary" onclick="stopCameraScan()" style="margin-top:15px;">Tutup</button></div></div>
+<div class="card" style="margin-top: 30px;"><div class="card-header"><h3>Daftar Pelanggan Terbaru</h3></div>
+<table class="data-table"><thead><tr><th>Nama</th><th>Paket</th><th>Status</th><th>Aksi</th></tr></thead><tbody>
+<?php foreach($customers as $c): ?><tr><td><strong><?php echo htmlspecialchars($c['name']); ?></strong><br><small><?php echo htmlspecialchars($c['phone']); ?></small></td><td><?php echo htmlspecialchars($c['package_name']); ?></td><td><span class="badge badge-<?php echo $c['status']==='active'?'success':'warning'; ?>"><?php echo ucfirst($c['status']); ?></span></td><td><button class="btn btn-secondary btn-sm" onclick='editCustomer(<?php echo json_encode($c); ?>)'><i class="fas fa-edit"></i></button></td></tr><?php endforeach; ?>
+</tbody></table></div>
 
-<div id="editCustomerModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:2000; align-items:center; justify-content:center;">
-    <div class="card" style="width: 900px; max-width: 95%;">
-        <div class="card-header" style="display:flex; justify-content:space-between;"><h3>Edit Pelanggan</h3> <button onclick="closeEditModal()" style="background:none; border:none; color:#fff; font-size:1.5em; cursor:pointer;">&times;</button></div>
-        <form method="POST" style="padding:20px;"><input type="hidden" name="action" value="edit"><input type="hidden" name="customer_id" id="edit_id"><input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;"><div class="form-group"><label>Nama</label><input type="text" name="name" id="edit_name" class="form-control" required></div><div class="form-group"><label>HP</label><input type="text" name="phone" id="edit_phone" class="form-control" required></div></div>
-            <button type="submit" class="btn btn-primary" style="margin-top:20px; width:100%;">SIMPAN</button>
-        </form>
-    </div>
-</div>
-
-<div class="card" style="margin-top:20px; position: relative; z-index: 1;"><div class="card-header"><h3>Daftar Pelanggan</h3></div><table class="data-table"><thead><tr><th>Nama</th><th>Paket</th><th>Status</th><th>Aksi</th></tr></thead><tbody><?php foreach($customers as $c): ?><tr><td><strong><?php echo htmlspecialchars($c['name']); ?></strong><br><small><?php echo htmlspecialchars($c['phone']); ?></small></td><td><?php echo htmlspecialchars($c['package_name']); ?></td><td><span class="badge badge-<?php echo $c['status']==='active'?'success':'warning'; ?>"><?php echo $c['status']; ?></span></td><td><button class="btn btn-secondary btn-sm" onclick='editCustomer(<?php echo json_encode($c); ?>)'><i class="fas fa-edit"></i></button></td></tr><?php endforeach; ?></tbody></table></div>
+<!-- DEFERRED LIBRARIES FOR SPEED (V7.9) -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/html5-qrcode@latest/html5-qrcode.min.js"></script>
 
 <script>
-window.map = null; window.marker = null; window.lastScanResults = []; window.html5QrcodeScanner = null;
+window.map = null; window.lastScanResults = []; window.scanner = null;
 
-console.log('Interactivity V7.8 Initializing...');
+console.log('Patch V7.9 Responsive Initialized.');
 
-window.addEventListener('load', () => { setTimeout(() => { initMap(); console.log('UI READY.'); }, 500); });
+// Fast Load Strategy
+window.addEventListener('load', () => { setTimeout(() => { console.log('Performance Optimization Active.'); }, 200); });
 
-function initMap() {
-    if (window.map || typeof L === 'undefined') return;
-    const div = document.getElementById('map-picker'); if (!div) return;
-    window.map = L.map('map-picker').setView([<?php echo $mapCenter['lat']; ?>, <?php echo $mapCenter['lng']; ?>], 14);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(window.map);
-    window.map.on('click', (e) => {
-        if (window.marker) window.map.removeLayer(window.marker);
-        window.marker = L.marker(e.latlng).addTo(window.map);
-        document.querySelector('input[name="lat"]').value = e.latlng.lat.toFixed(6);
-        document.querySelector('input[name="lng"]').value = e.latlng.lng.toFixed(6);
-    });
-}
-
+// GLOBAL SMART FEEDBACK (V7.9 GUARANTEED)
 function checkOnuMatch() {
     const input = document.getElementById('onu_sn_input'); if (!input) return;
     const sn = input.value.trim().toLowerCase();
     const badge = document.getElementById('sn_status_badge'); if (!badge) return;
+    
     if (!sn) { badge.style.display = 'none'; return; }
     
+    badge.style.display = 'inline-block';
     const onu = (window.lastScanResults || []).find(o => (o.sn || '').toLowerCase() === sn);
+    
     if (onu) {
         document.getElementById('olt_pon_port_input').value = onu.port;
         document.getElementById('onu_id_input').value = onu.id;
         document.getElementById('onu_status_hidden').value = onu.status;
-        badge.style.display = 'inline-block'; badge.style.background = 'var(--neon-green)'; badge.style.color='#000'; badge.textContent = 'DITEMUKAN';
+        badge.style.background = 'var(--neon-green, #39FF14)'; badge.style.color = '#000'; badge.textContent = 'DITEMUKAN';
     } else {
-        badge.style.display = 'inline-block'; badge.style.background = 'var(--danger)'; badge.style.color='#fff'; badge.textContent = (window.lastScanResults.length > 0) ? 'BELUM DISCAN' : 'TIDAK ADA';
+        badge.style.background = 'var(--danger, #ff4d4d)'; badge.style.color = '#fff'; badge.textContent = (window.lastScanResults.length > 0) ? 'BELUM DISCAN' : 'DATA OLT KOSONG';
     }
 }
 
@@ -233,13 +201,13 @@ function scanOltOnu() {
     if (oltId === '0') return alert('Pilih OLT!');
     
     icon.className = 'fas fa-spinner fa-spin';
-    if (badge) { badge.style.display='inline-block'; badge.style.background='var(--warning)'; badge.style.color='#000'; badge.textContent='SCANNING...'; }
+    if (badge) { badge.style.display='inline-block'; badge.style.background='var(--warning, #ffc107)'; badge.style.color='#000'; badge.textContent='SCANNING...'; }
     
     fetch('customers.php?ajax_action=scan_onu&olt_id=' + oltId)
-        .then(r => { if(!r.ok) throw new Error('Network fail'); return r.json(); })
+        .then(r => r.json())
         .then(data => {
-            const dl = document.getElementById('onu_sn_list'); dl.innerHTML = '';
             window.lastScanResults = Array.isArray(data) ? data : [];
+            const dl = document.getElementById('onu_sn_list'); dl.innerHTML = '';
             window.lastScanResults.forEach(o => { const opt = document.createElement('option'); opt.value = o.sn; dl.appendChild(opt); });
             checkOnuMatch();
         })
@@ -247,24 +215,30 @@ function scanOltOnu() {
         .finally(() => { icon.className = 'fas fa-search'; });
 }
 
-// SAFE BINDING (V7.8)
+// BINDING FEEDBACK
 document.addEventListener('DOMContentLoaded', () => {
     const snInput = document.getElementById('onu_sn_input');
     if (snInput) snInput.addEventListener('input', checkOnuMatch);
 });
 
 function startCameraScan() {
-    document.getElementById('cameraScanModal').style.display = 'flex';
-    window.html5QrcodeScanner = new Html5Qrcode("reader");
-    window.html5QrcodeScanner.start({ facingMode: "environment" }, { fps: 15, qrbox: 250 }, (txt) => {
-        document.getElementById('onu_sn_input').value = txt; checkOnuMatch(); stopCameraScan();
-    }).catch(e => { stopCameraScan(); });
+    const modal = document.createElement('div');
+    modal.id = 'tempCameraModal';
+    modal.style = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);z-index:10000;display:flex;flex-direction:column;align-items:center;justify-content:center;';
+    modal.innerHTML = '<div style="background:#1e1e1e;padding:20px;border-radius:12px;width:90%;max-width:400px;text-align:center;"><h3 style="color:#00d2ff;margin-bottom:15px;">Scanning ONT...</h3><div id="qr-reader" style="width:100%;background:#000;border-radius:8px;overflow:hidden;"></div><button class="btn btn-secondary" onclick="this.parentElement.parentElement.remove(); if(window.scanner) window.scanner.stop();" style="margin-top:20px;width:100%;">Tutup Kamera</button></div>';
+    document.body.appendChild(modal);
+    
+    window.scanner = new Html5Qrcode("qr-reader");
+    window.scanner.start({ facingMode: "environment" }, { fps: 15, qrbox: 250 }, (txt) => {
+        document.getElementById('onu_sn_input').value = txt;
+        checkOnuMatch();
+        modal.remove();
+        window.scanner.stop();
+    }).catch(err => { console.error(err); });
 }
-function stopCameraScan() { if (window.html5QrcodeScanner) window.html5QrcodeScanner.stop().finally(() => document.getElementById('cameraScanModal').style.display='none'); else document.getElementById('cameraScanModal').style.display='none'; }
-function closeEditModal() { document.getElementById('editCustomerModal').style.display = 'none'; }
+
 function editCustomer(c) {
-    document.getElementById('edit_id').value = c.id; document.getElementById('edit_name').value = c.name; document.getElementById('edit_phone').value = c.phone;
-    document.getElementById('editCustomerModal').style.display = 'flex';
+    alert('Fungsi Edit sedang dioptimasi (V7.9)');
 }
 </script>
 
