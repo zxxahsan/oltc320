@@ -1,7 +1,7 @@
 <?php
 /**
- * OLT Forensic Tool (V8.10)
- * Intelligent detection for OLT Brand and Interface types
+ * OLT Sniper Tool (V8.11)
+ * Optimized for V-SOL Firmware V1.3.9R
  */
 
 error_reporting(E_ALL);
@@ -27,44 +27,43 @@ function live_echo($msg, $type = 'info') {
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>OLT Intelligence v8.10</title>
+    <title>OLT Sniper v8.11</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        body { background: #0d0d1a; color: #e0e0e0; font-family: 'Segoe UI', Tahoma, sans-serif; padding: 20px; }
-        .card { background: #161a2e; border-radius: 12px; padding: 25px; box-shadow: 0 15px 35px rgba(0,0,0,0.7); max-width: 1000px; margin: auto; border: 1px solid #2e3b55; }
-        .console { background: #000; color: #39FF14; padding: 15px; border-radius: 8px; font-family: 'Consolas', monospace; height: 300px; overflow-y: auto; border: 1px solid #00d2ff55; margin-top: 15px; line-height: 1.4; border-left: 5px solid #00d2ff; }
-        .btn { padding: 12px 25px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; text-decoration: none; display: inline-block; }
-        .btn-primary { background: linear-gradient(135deg, #00d2ff 0%, #3a7bd5 100%); color: #fff; }
-        .btn-outline { background: transparent; border: 1px solid #444; color: #888; margin-left: 10px; }
-        select, input[type="text"] { padding: 12px; background: #1e2235; color: #fff; border: 1px solid #2e3b55; border-radius: 6px; outline: none; }
-        textarea { width: 100%; height: 400px; background: #050505; color: #39FF14; border: 1px solid #2e3b55; padding: 15px; border-radius: 8px; font-family: 'Consolas', monospace; font-size: 13px; margin-top: 10px; }
+        body { background: #0a0e14; color: #b0b8c1; font-family: 'Consolas', monospace; padding: 20px; }
+        .card { background: #1c232d; border-radius: 8px; padding: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.8); max-width: 1000px; margin: auto; border: 1px solid #30363d; }
+        .console { background: #0d1117; color: #58a6ff; padding: 15px; border-radius: 6px; height: 300px; overflow-y: auto; border: 1px solid #30363d; margin-top: 15px; }
+        .btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; background: #238636; color: #fff; }
+        .btn-outline { background: transparent; border: 1px solid #30363d; color: #8b949e; margin-left: 10px; }
+        select, input[type="text"] { padding: 10px; background: #0d1117; color: #c9d1d9; border: 1px solid #30363d; border-radius: 6px; outline: none; }
+        textarea { width: 100%; height: 400px; background: #0d1117; color: #79c0ff; border: 1px solid #30363d; padding: 10px; border-radius: 6px; font-family: 'Consolas', monospace; font-size: 12px; margin-top: 10px; }
     </style>
 </head>
 <body>
     <div class="card">
-        <h2 style="color:#00d2ff; margin-top:0;"><i class="fas fa-search-plus"></i> OLT Intelligence v8.10</h2>
-        <p style="color:#888;">Eksperimen pendaftaran pendaftarannya (Oops!) ... Deteksi otomatis tipe OLT dan perintah yang didukung.</p>
+        <h2 style="color:#58a6ff; margin-top:0;"><i class="fas fa-bullseye"></i> OLT Sniper v8.11</h2>
+        <p style="color:#8b949e;">Firmware v1.3.9R Terdeteksi. Menjalankan pendaftaran pendaftarannya (X_X)... Menjalankan misi pencarian khusus.</p>
         
-        <form method="POST">
+        <form method="POST" id="diagForm">
             <div style="display: flex; gap: 10px; align-items: center;">
                 <select name="olt_id" required>
-                    <option value="">-- Pilih OLT --</option>
+                    <option value="">-- PILIH TARGET --</option>
                     <?php foreach($olts as $o): ?>
                     <option value="<?php echo $o['id']; ?>" <?php echo (isset($_POST['olt_id']) && $_POST['olt_id'] == $o['id']) ? 'selected' : ''; ?>>
-                        <?php echo htmlspecialchars($o['name']); ?> (<?php echo $o['host']; ?>)
+                        <?php echo htmlspecialchars($o['name']); ?>
                     </option>
                     <?php endforeach; ?>
                 </select>
-                <input type="text" name="manual_cmd" placeholder="Cth: show version" style="flex:1;">
-                <button type="submit" class="btn btn-primary">DETECT OLT</button>
-                <a href="customers.php" class="btn btn-outline">KEMBALI</a>
+                <input type="text" name="manual_cmd" placeholder="Tembak manual ke OLT..." style="flex:1;">
+                <button type="submit" class="btn">Tembak!</button>
+                <a href="customers.php" class="btn btn-outline">Batal</a>
             </div>
         </form>
 
-        <div class="console" id="console-logs">> Pilih OLT dan klik DETECT untuk memulai pendaftaran pendaftaran...</div>
+        <div class="console" id="console-logs">> Sniper Siaga. Siap membidik ONU pendaftaran pendaftarannya pendaftaran...</div>
 
-        <h4 style="color: #64b5f6; margin-bottom: 5px; margin-top:25px;">JAWABAN MENTAH OLT:</h4>
-        <textarea id="rawOutput" readonly placeholder="Semua respon OLT akan tumpah di sini..."></textarea>
+        <h4 style="color: #58a6ff; margin-bottom: 5px; margin-top:20px;">HASIL TEMBAKAN (RAW):</h4>
+        <textarea id="rawOutput" readonly></textarea>
     </div>
 
     <script>
@@ -72,7 +71,7 @@ function live_echo($msg, $type = 'info') {
         const raw = document.getElementById('rawOutput');
         function appendLog(msg, color) {
             const d = document.createElement('div');
-            d.style.color = color;
+            if(color) d.style.color = color;
             d.innerHTML = `[${new Date().toLocaleTimeString()}] ${msg}`;
             logs.appendChild(d);
             logs.scrollTop = logs.scrollHeight;
@@ -81,6 +80,9 @@ function live_echo($msg, $type = 'info') {
             raw.value += val + "\n";
             raw.scrollTop = raw.scrollHeight;
         }
+        document.getElementById('diagForm').onsubmit = function() {
+            appendLog("--- MEMULAI OPERASI SNIPER ---", "#58a6ff");
+        };
     </script>
 
     <?php
@@ -94,48 +96,43 @@ function live_echo($msg, $type = 'info') {
         $selected_olt = fetchOne("SELECT * FROM olt_configs WHERE id = ?", [$olt_id]);
 
         if ($selected_olt) {
-            live_echo("Mencoba Menyusup ke OLT " . $selected_olt['name'] . "...");
-            
-            $client = new OltTelnetClient($selected_olt['host'], $selected_olt['port'], 5);
+            $client = new OltTelnetClient($selected_olt['host'], $selected_olt['port'], 2);
             
             try {
-                if (!$client->connect($selected_olt['username'], $selected_olt['password'])) throw new Exception("Login Gagal.");
-                live_echo("BERHASIL MASUK!", 'success');
+                if (!$client->connect($selected_olt['username'], $selected_olt['password'])) throw new Exception("Zonk. Gagal Login.");
+                live_echo("Target Terkoneksi.", 'success');
                 if (!empty($selected_olt['enable_password'])) $client->enable($selected_olt['enable_password']);
 
-                // Probing commands
+                // Target commands for V1.3.9R
                 $cmds = $manual_cmd ? [$manual_cmd] : [
-                    "show version", 
-                    "show interface brief",
-                    "show gpon onu unauth",
-                    "show epon onu-list unauth",
-                    "show running-config"
+                    "show onu unauth", 
+                    "show onu uncfg", 
+                    "show onu auto-learn",
+                    "show onu authentication-list",
+                    "show interface gpon 0/1 onu unauth"
                 ];
                 
                 foreach ($cmds as $c) {
-                    live_echo("Eksekusi: <code>$c</code>");
+                    live_echo("Menembak: <code>$c</code>");
                     $res = $client->execute($c);
                     
                     if (strlen(trim($res)) > 0) {
-                        live_echo(">> Respon " . strlen($res) . " Karakter.", 'success');
+                        live_echo(">> Respon Masuk!", 'success');
                         $clean_res = addslashes($res);
                         $clean_res = str_replace(array("\r", "\n"), "\\n", $clean_res);
-                        echo "<script>updateRaw('--- COMMAND: $c ---\\n$clean_res');</script>\n";
+                        echo "<script>updateRaw('--- TARGET: $c ---\\n$clean_res');</script>\n";
                         flush();
-                        
-                        // Stop if we found a massive config
-                        if ($c == "show running-config") break; 
                     } else {
-                        live_echo(">> Tanpa Jawaban.", 'warn');
+                        live_echo(">> Meleset (Kosong).", 'warn');
                     }
-                    usleep(100000);
+                    usleep(150000);
                 }
 
                 $client->disconnect();
-                live_echo("Pendeteksian Selesai.", 'info');
+                live_echo("Misi Selesai.", 'info');
 
             } catch (Exception $e) {
-                live_echo("GAGAL: " . $e->getMessage(), 'error');
+                live_echo("MISI GAGAL: " . $e->getMessage(), 'error');
             }
         }
     }
