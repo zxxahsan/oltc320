@@ -143,8 +143,9 @@ function vsolGetOnuIdBySn($olt_id, $sn) {
         $output = $client->execute("show gpon onu information");
         $client->disconnect();
 
-        // Pattern: GPON0/1  1   6   FHTTXXXXXXXX (Support 8-16 chars SN)
-        if (preg_match('/0\/(\d+)\s+(\d+)\s+.*?\s+([A-Z0-9]{8,16})/i', $output, $m)) {
+        // Pattern: Matches anything on a line that has the SN (Support FHTT, GGCL, etc.)
+        // Look for 0/PORT and SN on the same line
+        if (preg_match('/0\/(\d+)\s+(\d+)\s+.*?\s+('.$sn.')/i', $output, $m)) {
             return [
                 'port' => (int)$m[1],
                 'id' => (int)$m[2]
@@ -170,20 +171,46 @@ function vsolFindUnauthOnu($olt_id) {
         $client->connect($olt['username'], $olt['password']);
         if (!empty($olt['enable_password'])) $client->enable($olt['enable_password']);
         
-        // 1. Check Unauthentication list (Broad Regex)
+        // 1. Check Unauthentication list (Ultra-Wide Regex)
         $outputU = $client->execute("show gpon onu unauthentication");
+        
+        // DEBUG: Capture raw unauth output
+        @file_put_contents(__DIR__ . '/../debug_olt_unauth.log', "--- " . date('Y-m-d H:i:s') . " ---\n" . $outputU . "\n", FILE_APPEND);
+        
         $onus = [];
-        if (preg_match_all('/0\/(\d+)\s+\d+\s+([A-Z0-9]{8,16})/i', $outputU, $matches, PREG_SET_ORDER)) {
+        // Format: Look for line with 0/PORT and an SN pattern [A-Z0-9]{8,16}
+        if (preg_match_all('/0\/(\d+)\s+.*?\s+([A-Z0-9]{8,16})/i', $outputU, $matches, PREG_SET_ORDER)) {
             foreach ($matches as $m) {
-                $onus[] = ['port' => (int)$m[1], 'sn' => $m[2], 'id' => null, 'status' => 'unconfigured'];
+                if (strlen($m[2]) >= 8) {
+                    $onus[] = [
+                        'port' => (int)$m[1],
+                        'sn' => $m[2],
+                        'id' => null,
+                        'status' => 'unconfigured'
+                    ];
+                }
             }
         }
 
-        // 2. Check already auto-learned list (Broad Regex)
+        // 2. Check already auto-learned/registered list (Ultra-Wide Regex)
         $outputI = $client->execute("show gpon onu information");
+        
+        // DEBUG: Capture raw information output
+        @file_put_contents(__DIR__ . '/../debug_olt_info.log', "--- " . date('Y-m-d H:i:s') . " ---\n" . $outputI . "\n", FILE_APPEND);
+        
         if (preg_match_all('/0\/(\d+)\s+(\d+)\s+.*?\s+([A-Z0-9]{8,16})/i', $outputI, $mI, PREG_SET_ORDER)) {
             foreach ($mI as $m) {
-                $onus[] = ['port' => (int)$m[1], 'sn' => $m[3], 'id' => (int)$m[2], 'status' => 'registered'];
+                // Prevent duplicate SNs if already found in unauth list
+                $exists = false;
+                foreach($onus as $known) { if(strcasecmp($known['sn'], $m[3]) === 0) { $exists = true; break; } }
+                if (!$exists) {
+                    $onus[] = [
+                        'port' => (int)$m[1],
+                        'sn' => $m[3],
+                        'id' => (int)$m[2],
+                        'status' => 'registered'
+                    ];
+                }
             }
         }
         
