@@ -1,7 +1,7 @@
 <?php
 /**
- * OLT Deep Diagnostic Tool (V8.9)
- * Ultra-fast loading & Forensic Debugging
+ * OLT Forensic Tool (V8.10)
+ * Intelligent detection for OLT Brand and Interface types
  */
 
 error_reporting(E_ALL);
@@ -22,40 +22,28 @@ function live_echo($msg, $type = 'info') {
     flush(); 
 }
 
-function pingHost($host) {
-    if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
-        $cmd = "ping -n 1 -w 1000 $host";
-    } else {
-        $cmd = "ping -c 1 -W 1 $host";
-    }
-    exec($cmd, $output, $result);
-    return ($result === 0);
-}
-
 ?>
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>OLT Forensic Debug v8.9</title>
+    <title>OLT Intelligence v8.10</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        body { background: #121212; color: #e0e0e0; font-family: 'Segoe UI', Tahoma, Verdana, sans-serif; padding: 20px; }
-        .card { background: #1e1e1e; border-radius: 12px; padding: 25px; box-shadow: 0 8px 32px rgba(0,0,0,0.6); max-width: 1000px; margin: auto; border: 1px solid #333; }
-        .console { background: #000; color: #39FF14; padding: 15px; border-radius: 8px; font-family: 'Consolas', monospace; height: 300px; overflow-y: auto; border: 1px solid #444; margin-top: 15px; line-height: 1.4; border-left: 4px solid #00d2ff; }
-        .btn { padding: 12px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; text-decoration: none; display: inline-block; }
-        .btn-primary { background: #00d2ff; color: #000; }
+        body { background: #0d0d1a; color: #e0e0e0; font-family: 'Segoe UI', Tahoma, sans-serif; padding: 20px; }
+        .card { background: #161a2e; border-radius: 12px; padding: 25px; box-shadow: 0 15px 35px rgba(0,0,0,0.7); max-width: 1000px; margin: auto; border: 1px solid #2e3b55; }
+        .console { background: #000; color: #39FF14; padding: 15px; border-radius: 8px; font-family: 'Consolas', monospace; height: 300px; overflow-y: auto; border: 1px solid #00d2ff55; margin-top: 15px; line-height: 1.4; border-left: 5px solid #00d2ff; }
+        .btn { padding: 12px 25px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; text-decoration: none; display: inline-block; }
+        .btn-primary { background: linear-gradient(135deg, #00d2ff 0%, #3a7bd5 100%); color: #fff; }
         .btn-outline { background: transparent; border: 1px solid #444; color: #888; margin-left: 10px; }
-        .btn-outline:hover { color: #fff; border-color: #666; }
-        select, input[type="text"] { padding: 12px; background: #252525; color: #fff; border: 1px solid #333; border-radius: 6px; outline: none; }
-        textarea { width: 100%; height: 350px; background: #0a0a0a; color: #39FF14; border: 1px solid #333; padding: 15px; border-radius: 8px; font-family: 'Consolas', monospace; font-size: 13px; margin-top: 10px; }
-        .success-box { color: #39FF14; font-weight: bold; }
+        select, input[type="text"] { padding: 12px; background: #1e2235; color: #fff; border: 1px solid #2e3b55; border-radius: 6px; outline: none; }
+        textarea { width: 100%; height: 400px; background: #050505; color: #39FF14; border: 1px solid #2e3b55; padding: 15px; border-radius: 8px; font-family: 'Consolas', monospace; font-size: 13px; margin-top: 10px; }
     </style>
 </head>
 <body>
     <div class="card">
-        <h2 style="color:#00d2ff; margin-top:0;"><i class="fas fa-bug"></i> Forensic Debug Tool v8.9</h2>
-        <p style="color:#777;">Gunakan alat ini untuk melihat jawaban "ASLI" dari OLT jika pendaftaran pendaftaran (X_X)... jika pencarian ONU gagal.</p>
+        <h2 style="color:#00d2ff; margin-top:0;"><i class="fas fa-search-plus"></i> OLT Intelligence v8.10</h2>
+        <p style="color:#888;">Eksperimen pendaftaran pendaftarannya (Oops!) ... Deteksi otomatis tipe OLT dan perintah yang didukung.</p>
         
         <form method="POST">
             <div style="display: flex; gap: 10px; align-items: center;">
@@ -67,16 +55,16 @@ function pingHost($host) {
                     </option>
                     <?php endforeach; ?>
                 </select>
-                <input type="text" name="manual_cmd" placeholder="Cth: ? atau show version" style="flex:1;">
-                <button type="submit" class="btn btn-primary" id="btnRun">EKSEKUSI</button>
+                <input type="text" name="manual_cmd" placeholder="Cth: show version" style="flex:1;">
+                <button type="submit" class="btn btn-primary">DETECT OLT</button>
                 <a href="customers.php" class="btn btn-outline">KEMBALI</a>
             </div>
         </form>
 
-        <div class="console" id="console-logs">> Siap. Masukkan perintah atau biarkan kosong untuk Auto-Scan.</div>
+        <div class="console" id="console-logs">> Pilih OLT dan klik DETECT untuk memulai pendaftaran pendaftaran...</div>
 
-        <h4 style="color: #555; margin-bottom: 5px; margin-top:25px;">JAWABAN ASLI OLT (RAW):</h4>
-        <textarea id="rawOutput" readonly placeholder="Jawaban OLT akan muncul lengkap di sini..."></textarea>
+        <h4 style="color: #64b5f6; margin-bottom: 5px; margin-top:25px;">JAWABAN MENTAH OLT:</h4>
+        <textarea id="rawOutput" readonly placeholder="Semua respon OLT akan tumpah di sini..."></textarea>
     </div>
 
     <script>
@@ -97,7 +85,6 @@ function pingHost($host) {
 
     <?php
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['olt_id'])) {
-        // Set up streaming for POST request
         @ini_set('implicit_flush', 1);
         ob_implicit_flush(true);
         while (ob_get_level()) ob_end_flush();
@@ -107,50 +94,50 @@ function pingHost($host) {
         $selected_olt = fetchOne("SELECT * FROM olt_configs WHERE id = ?", [$olt_id]);
 
         if ($selected_olt) {
-            live_echo("Membuka jalur ke OLT " . $selected_olt['name'] . "...");
+            live_echo("Mencoba Menyusup ke OLT " . $selected_olt['name'] . "...");
             
-            $client = new OltTelnetClient($selected_olt['host'], $selected_olt['port'], 5); // Fast connect 5s
+            $client = new OltTelnetClient($selected_olt['host'], $selected_olt['port'], 5);
             
             try {
-                if (!$client->connect($selected_olt['username'], $selected_olt['password'])) {
-                    throw new Exception("OLT menolak jabat tangan. Cek User/Pass.");
-                }
-                live_echo("LOGIN SUKSES!", 'success');
+                if (!$client->connect($selected_olt['username'], $selected_olt['password'])) throw new Exception("Login Gagal.");
+                live_echo("BERHASIL MASUK!", 'success');
+                if (!empty($selected_olt['enable_password'])) $client->enable($selected_olt['enable_password']);
 
-                if (!empty($selected_olt['enable_password'])) {
-                    $client->enable($selected_olt['enable_password']);
-                    live_echo("PRIVILEGE # DIAKTIFKAN.", 'success');
-                }
-
-                $cmds = $manual_cmd ? [$manual_cmd] : ["show gpon onu unauth", "show gpon onu uncfg", "show ?"];
+                // Probing commands
+                $cmds = $manual_cmd ? [$manual_cmd] : [
+                    "show version", 
+                    "show interface brief",
+                    "show gpon onu unauth",
+                    "show epon onu-list unauth",
+                    "show running-config"
+                ];
                 
                 foreach ($cmds as $c) {
-                    live_echo("Mengirim: <code>$c</code>");
+                    live_echo("Eksekusi: <code>$c</code>");
                     $res = $client->execute($c);
                     
-                    // Show in log
                     if (strlen(trim($res)) > 0) {
-                        live_echo(">> OLT Merespon (" . strlen($res) . " Karakter)", 'success');
-                        
-                        // Push to Raw Textarea via JS
+                        live_echo(">> Respon " . strlen($res) . " Karakter.", 'success');
                         $clean_res = addslashes($res);
                         $clean_res = str_replace(array("\r", "\n"), "\\n", $clean_res);
-                        echo "<script>updateRaw('--- RESPON UNTUK: $c ---\\n$clean_res');</script>\n";
+                        echo "<script>updateRaw('--- COMMAND: $c ---\\n$clean_res');</script>\n";
                         flush();
+                        
+                        // Stop if we found a massive config
+                        if ($c == "show running-config") break; 
                     } else {
-                        live_echo(">> OLT Diam saja (Kosong).", 'warn');
+                        live_echo(">> Tanpa Jawaban.", 'warn');
                     }
                     usleep(100000);
                 }
 
                 $client->disconnect();
-                live_echo("Selesai. Koneksi ditutup.", 'info');
+                live_echo("Pendeteksian Selesai.", 'info');
 
             } catch (Exception $e) {
                 live_echo("GAGAL: " . $e->getMessage(), 'error');
             }
         }
-        live_echo("--- PROSES BERAKHIR ---");
     }
     ?>
 </body>
