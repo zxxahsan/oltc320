@@ -28,13 +28,12 @@ try {
         echo "Success: Entered enable mode!\n\n";
     }
 
-    // Common V-SOL commands to test as alternatives
+    // Deep investigation of show commands
     $test_commands = [
-        "?",
+        "show ?",
+        "show gpon ?",
+        "show gpon onu",
         "show gpon onu unauthentication",
-        "show onu unauthentication",
-        "show gpon onu auth-fail",
-        "show system information",
         "exit"
     ];
 
