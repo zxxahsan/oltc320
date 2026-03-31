@@ -234,67 +234,90 @@ function vsolProvisionOnu($olt_id, $port, $onu_id, $pppoe_user, $pppoe_pass, $se
             $client->readUntil("/[>#]/", 1);
         }
 
-        // === INDEX WAN COUNTER ===
-        $idx = 1;
-
         // === ACS / TR-069 ===
         if (in_array('acs', $services)) {
+            $client->write("onu {$onu_id} pri wan_adv add route\n");
+            $resp = $client->readUntil("/[>#]/", 2);
+            $log[] = "  → onu {$onu_id} pri wan_adv add route";
+            
+            // DYNAMIC INDEX PARSING
+            $current_idx = 1; // Default fallback
+            if (preg_match('/wanIndex\s+(\d+)/i', $resp, $matches)) {
+                $current_idx = $matches[1];
+                $log[] = "    [DEBUG] Detected WAN Index: $current_idx";
+            }
+
             $cmds = [
-                "onu {$onu_id} pri wan_adv add route",
-                "onu {$onu_id} pri wan_adv index {$idx} route mode tr069 mtu 1500",
-                "onu {$onu_id} pri wan_adv index {$idx} route ipv4 dhcp",
-                "onu {$onu_id} pri wan_adv index {$idx} vlan tag wan_vlan 101 0",
+                "onu {$onu_id} pri wan_adv index {$current_idx} route mode tr069 mtu 1500",
+                "onu {$onu_id} pri wan_adv index {$current_idx} route ipv4 dhcp",
+                "onu {$onu_id} pri wan_adv index {$current_idx} vlan tag wan_vlan 101 0",
             ];
             foreach ($cmds as $cmd) {
                 $client->write($cmd . "\n");
                 $resp = $client->readUntil("/[>#]/", 2);
                 $log[] = "  → $cmd";
-                if (trim($resp) && strpos($resp, $cmd) === false) $log[] = "    RESP: " . trim($resp);
+                $clean_resp = trim(str_ireplace($cmd, '', $resp));
+                if ($clean_resp && strpos($clean_resp, 'Unknown') === false) $log[] = "    RESP: " . $clean_resp;
             }
-            $log[] = "✓ WAN #{$idx} ACS/TR-069 (VLAN 101) OK";
-            $idx++;
+            $log[] = "✓ WAN #{$current_idx} ACS/TR-069 (VLAN 101) OK";
         }
 
         // === PPPoE INTERNET ===
         if (in_array('pppoe', $services)) {
+            $client->write("onu {$onu_id} pri wan_adv add route\n");
+            $resp = $client->readUntil("/[>#]/", 2);
+            $log[] = "  → onu {$onu_id} pri wan_adv add route";
+
+            // DYNAMIC INDEX PARSING
+            $current_idx = 2; // Default fallback
+            if (preg_match('/wanIndex\s+(\d+)/i', $resp, $matches)) {
+                $current_idx = $matches[1];
+                $log[] = "    [DEBUG] Detected WAN Index: $current_idx";
+            }
+
             $cmds = [
-                "onu {$onu_id} pri wan_adv add route",
-                "onu {$onu_id} pri wan_adv index {$idx} route mode internet mtu 1492",
-                "onu {$onu_id} pri wan_adv index {$idx} route ipv4 pppoe proxy disable user {$pppoe_user} pwd {$pppoe_pass} mode auto nat enable",
-                "onu {$onu_id} pri wan_adv index {$idx} vlan tag wan_vlan 100 0",
-                "onu {$onu_id} pri wan_adv index {$idx} bind SSID1",
+                "onu {$onu_id} pri wan_adv index {$current_idx} route mode internet mtu 1492",
+                "onu {$onu_id} pri wan_adv index {$current_idx} route ipv4 pppoe proxy disable user {$pppoe_user} pwd {$pppoe_pass} mode auto nat enable",
+                "onu {$onu_id} pri wan_adv index {$current_idx} vlan tag wan_vlan 100 0",
+                "onu {$onu_id} pri wan_adv index {$current_idx} bind SSID1",
             ];
             foreach ($cmds as $cmd) {
                 $client->write($cmd . "\n");
                 $resp = $client->readUntil("/[>#]/", 2);
                 $log[] = "  → $cmd";
                 $clean_resp = trim(str_ireplace($cmd, '', $resp));
-                if ($clean_resp) $log[] = "    RESP: " . $clean_resp;
+                if ($clean_resp && strpos($clean_resp, 'Unknown') === false) $log[] = "    RESP: " . $clean_resp;
             }
-            $log[] = "✓ WAN #{$idx} PPPoE Internet (VLAN 100) OK";
-            $idx++;
+            $log[] = "✓ WAN #{$current_idx} PPPoE Internet (VLAN 100) OK";
         }
 
         // === HOTSPOT BRIDGE (VLAN 200) ===
         if (in_array('hotspot', $services)) {
+            $client->write("onu {$onu_id} pri wan_adv add bridge\n");
+            $resp = $client->readUntil("/[>#]/", 2);
+            $log[] = "  → onu {$onu_id} pri wan_adv add bridge";
+
+            // DYNAMIC INDEX PARSING
+            $current_idx = 3; // Default fallback
+            if (preg_match('/wanIndex\s+(\d+)/i', $resp, $matches)) {
+                $current_idx = $matches[1];
+                $log[] = "    [DEBUG] Detected WAN Index: $current_idx";
+            }
+
             $cmds = [
-                "onu {$onu_id} pri wan_adv add bridge",
-                "onu {$onu_id} pri wan_adv index {$idx} service other",
-                "onu {$onu_id} pri wan_adv index {$idx} bridge other mtu 1500",
-                "onu {$onu_id} pri wan_adv index {$idx} vlan tag wan_vlan 200 0",
-                "onu {$onu_id} pri wan_adv index {$idx} bind LAN1",
-                "onu {$onu_id} pri wan_adv index {$idx} bind SSID2",
-                "onu {$onu_id} pri wan_adv index {$idx} commit", 
+                "onu {$onu_id} pri wan_adv index {$current_idx} bridge other mtu 1500",
+                "onu {$onu_id} pri wan_adv index {$current_idx} vlan tag wan_vlan 200 0",
+                "onu {$onu_id} pri wan_adv index {$current_idx} bind LAN1",
+                "onu {$onu_id} pri wan_adv index {$current_idx} bind SSID2",
             ];
             foreach ($cmds as $cmd) {
                 $client->write($cmd . "\n");
                 $resp = $client->readUntil("/[>#]/", 2);
                 $log[] = "  → $cmd";
                 $clean_resp = trim(str_ireplace($cmd, '', $resp));
-                if ($clean_resp) $log[] = "    RESP: " . $clean_resp;
+                if ($clean_resp && strpos($clean_resp, 'Unknown') === false) $log[] = "    RESP: " . $clean_resp;
             }
-            $log[] = "✓ WAN #{$idx} Hotspot Bridge (VLAN 200) DONE";
-            $idx++;
+            $log[] = "✓ WAN #{$current_idx} Hotspot Bridge (VLAN 200) DONE";
         }
 
         // === WIFI SSID 2 (Jinom Hotspot) ===
