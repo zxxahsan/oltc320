@@ -31,6 +31,23 @@ if (isset($_GET['ajax_action']) && $_GET['ajax_action'] === 'provision') {
     exit;
 }
 
+// === AJAX: Delete All WAN ===
+if (isset($_GET['ajax_action']) && $_GET['ajax_action'] === 'delete_wan') {
+    header('Content-Type: application/json');
+    $olt_id = (int)($_POST['olt_id'] ?? 0);
+    $port   = (int)($_POST['port'] ?? 0);
+    $onu_id = (int)($_POST['onu_id'] ?? 0);
+    
+    if (!$olt_id || !$port || !$onu_id) {
+        echo json_encode(['success' => false, 'log' => '✗ Data tidak lengkap untuk penghapusan.']);
+        exit;
+    }
+    
+    $result = vsolDeleteOnuWanConfigs($olt_id, $port, $onu_id);
+    echo json_encode($result);
+    exit;
+}
+
 // === AJAX: Cari SN di OLT ===
 if (isset($_GET['ajax_action']) && $_GET['ajax_action'] === 'find_sn') {
     header('Content-Type: application/json');
@@ -184,6 +201,27 @@ ob_start();
                 <i class="fas fa-bolt"></i> KIRIM KE OLT
             </button>
 
+            <div style="margin-top:20px; padding:15px; border:1px solid #300; background:rgba(255,0,0,0.05); border-radius:8px;">
+                <label style="color:#ff5252; font-size:12px; font-weight:bold; display:block; margin-bottom:8px;">
+                    <i class="fas fa-exclamation-triangle"></i> DANGER ZONE
+                </label>
+                <div id="delete_confirm_step" style="display:none;">
+                    <p style="font-size:11px; color:#aaa; margin-bottom:10px;">
+                        Tindakan ini akan menghapus **Index 1-8** pada konfigurasi WAN/Bridge di ONU tersebut. Pelanggan akan terputus.
+                    </p>
+                    <label style="display:flex; align-items:center; gap:8px; color:#fff; font-size:12px; margin-bottom:12px; cursor:pointer;">
+                        <input type="checkbox" id="chk_delete_sure"> Saya yakin ingin menghapus semua config WAN.
+                    </label>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                        <button class="btn btn-secondary btn-sm" onclick="toggleDeleteArea(false)">Batal</button>
+                        <button class="btn btn-danger btn-sm" id="btn_delete_final" onclick="doDeleteWan()" disabled>HAJAR / HAPUS</button>
+                    </div>
+                </div>
+                <button class="btn btn-outline-danger btn-sm" style="width:100%; border-color:#500; color:#a00;" id="btn_delete_init" onclick="toggleDeleteArea(true)">
+                    <i class="fas fa-trash-alt"></i> Hapus Semua Config WAN
+                </button>
+            </div>
+
             <div style="margin-top:12px;color:#555;font-size:12px;text-align:center;">
                 Proses membutuhkan ~15-30 detik untuk menyelesaikan semua perintah ke OLT.
             </div>
@@ -318,6 +356,72 @@ async function findOnOlt() {
     } finally {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-search-plus"></i> Cari di OLT';
+    }
+}
+
+// ── Toggle Area Hapus (Danger Zone)
+function toggleDeleteArea(show) {
+    document.getElementById('delete_confirm_step').style.display = show ? 'block' : 'none';
+    document.getElementById('btn_delete_init').style.display = show ? 'none' : 'block';
+    if (!show) {
+        document.getElementById('chk_delete_sure').checked = false;
+        document.getElementById('btn_delete_final').disabled = true;
+    }
+}
+
+// ── Listener untuk checkbox konfirmasi hapus
+document.addEventListener('change', e => {
+    if (e.target && e.target.id === 'chk_delete_sure') {
+        document.getElementById('btn_delete_final').disabled = !e.target.checked;
+    }
+});
+
+// ── Eksekusi Hapus WAN
+async function doDeleteWan() {
+    const olt_id = document.getElementById('f_olt').value;
+    const port   = document.getElementById('f_port').value;
+    const onu_id = document.getElementById('f_onu_id').value;
+    const btn    = document.getElementById('btn_delete_final');
+    const logBox = document.getElementById('log_box');
+    const badge  = document.getElementById('status_badge');
+
+    if (!olt_id || !port || !onu_id) { alert('Pilih OLT, Port, dan ID terlebih dahulu!'); return; }
+    
+    if (!confirm('PERINGATAN TERAKHIR: Anda akan merestart konfigurasi WAN ONU ini. Lanjut?')) return;
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> MENGHAPUS...';
+    badge.className = 'status-idle';
+    badge.textContent = '⏳ Deleting...';
+    logBox.textContent = `⏳ Membersihkan Konfigurasi WAN ONU ${port}/${onu_id}...\nMohon tunggu...`;
+
+    const fd = new FormData();
+    fd.append('olt_id', olt_id);
+    fd.append('port', port);
+    fd.append('onu_id', onu_id);
+
+    try {
+        const r = await fetch('olt_provision.php?ajax_action=delete_wan', {
+            method: 'POST',
+            body: fd
+        });
+        const data = await r.json();
+        logBox.textContent = data.log || 'Selesai tanpa log.';
+        
+        if (data.success) {
+            badge.className = 'status-ok';
+            badge.textContent = '✓ BERSIH';
+            toggleDeleteArea(false);
+        } else {
+            badge.className = 'status-err';
+            badge.textContent = '✗ GAGAL';
+        }
+    } catch(e) {
+        logBox.textContent = '✗ Error: ' + e.message;
+        badge.className = 'status-err';
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = 'HAJAR / HAPUS';
     }
 }
 

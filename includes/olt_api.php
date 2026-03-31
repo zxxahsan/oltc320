@@ -398,7 +398,6 @@ function vsolFindOnuBySn($olt_id, $sn) {
         $client->disconnect();
 
         // Parse Port and ONU ID
-        // Pattern matches: 0/8, ONU ID: 40, SN: VSOL... or ONU 0/8:40
         $port = null;
         $onu_id = null;
 
@@ -407,15 +406,22 @@ function vsolFindOnuBySn($olt_id, $sn) {
             $port = $m[1];
             $onu_id = $m[2];
         } 
-        // Pattern 2: 0/8:40 (Interface style)
+        // Pattern 2: Interface style (0/8:40)
         elseif (preg_match('/0\/(\d+):(\d+)/i', $resp, $m)) {
             $port = $m[1];
             $onu_id = $m[2];
         }
-        // Pattern 3: Serial number list match
+        // Pattern 3: Table list format (Index | Port | SN)
+        // e.g. " 1 0/8 GPON0123... Unconfigured"
         elseif (preg_match('/(\d+)\s+0\/(\d+)\s+'.$sn.'/i', $resp, $m)) {
             $port = $m[2];
             $onu_id = $m[1];
+        }
+        // Pattern 4: Global search format
+        elseif (preg_match('/PON ID:\s*0\/(\d+).*?SN:\s*'.$sn.'/i', $resp, $m)) {
+            $port = $m[1];
+            // Might need another lookup for ONU ID if it's unconfigured
+            if (preg_match('/ONU ID:\s*(\d+)/i', $resp, $mi)) $onu_id = $mi[1];
         }
 
         if ($port !== null && $onu_id !== null) {
@@ -432,5 +438,56 @@ function vsolFindOnuBySn($olt_id, $sn) {
     } catch (Exception $e) {
         if (isset($client)) $client->disconnect();
         return ['success' => false, 'message' => 'Telnet Error: ' . $e->getMessage()];
+    }
+}
+
+/**
+ * Delete all WAN configurations (Index 1-8) for a specific ONU
+ */
+function vsolDeleteOnuWanConfigs($olt_id, $port, $onu_id) {
+    if (!$olt_id || !$port || !$onu_id) return ['success' => false, 'log' => 'ID tidak lengkap'];
+
+    $olt = fetchOne("SELECT * FROM olt_configs WHERE id = ?", [$olt_id]);
+    if (!$olt) return ['success' => false, 'log' => 'OLT tidak ditemukan'];
+
+    $log = [];
+    $client = new OltTelnetClient($olt['host'], $olt['port'], 5);
+
+    try {
+        $client->connect($olt['username'], $olt['password']);
+        if (!empty($olt['enable_password'])) $client->enable($olt['enable_password']);
+
+        $client->write("configure terminal\n");
+        $client->readUntil("/[>#\(]/", 2);
+        $client->write("interface gpon 0/{$port}\n");
+        $client->readUntil("/[>#\(]/", 2);
+
+        $log[] = "🗑️ Menghapus semua index WAN (1-8) untuk ONU {$onu_id}...";
+        for ($i = 1; $i <= 8; $i++) {
+            $client->write("onu {$onu_id} pri wan_adv delete index $i\n");
+            $resp = $client->readUntil("/[>#]/", 1);
+            if (strpos($resp, 'Unknown') === false) {
+                 // Index existed and was processed
+            }
+        }
+
+        $client->write("onu {$onu_id} pri wan_adv commit\n");
+        $client->readUntil("/[>#]/", 5);
+        $log[] = "✓ WAN configurations cleared and committed.";
+
+        $client->write("exit\n");
+        $client->readUntil("/[>#]/", 1);
+        $client->write("exit\n");
+        $client->readUntil("/[>#]/", 1);
+        $client->write("write\n");
+        $client->readUntil("/[>#]/", 5);
+        $log[] = "✓ OLT Save Done.";
+
+        $client->disconnect();
+        return ['success' => true, 'log' => implode("\n", $log)];
+
+    } catch (Exception $e) {
+        if (isset($client)) $client->disconnect();
+        return ['success' => false, 'log' => "✗ ERROR Delete: " . $e->getMessage()];
     }
 }
