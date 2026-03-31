@@ -1,7 +1,7 @@
 <?php
 /**
- * OLT Sniper Tool (V8.11)
- * Optimized for V-SOL Firmware V1.3.9R
+ * OLT Live Terminal (V8.12)
+ * Pure Interactive Mode
  */
 
 error_reporting(E_ALL);
@@ -13,13 +13,29 @@ require_once '../includes/olt_api.php';
 
 $olts = fetchAll("SELECT * FROM olt_configs ORDER BY name ASC");
 
-function live_echo($msg, $type = 'info') {
-    $colors = ['info' => '#00d2ff', 'success' => '#39FF14', 'error' => '#ff4b2b', 'warn' => '#ffc107', 'cmd' => '#ffffff'];
-    $color = $colors[$type] ?? '#fff';
-    $msg = addslashes($msg);
-    echo "<script>appendLog('$msg', '$color');</script>\n";
-    if (ob_get_level() > 0) ob_flush();
-    flush(); 
+// Handle AJAX Command Execution
+if (isset($_GET['ajax_cmd'])) {
+    $olt_id = (int)$_GET['olt_id'];
+    $cmd = trim($_GET['ajax_cmd']);
+    $selected_olt = fetchOne("SELECT * FROM olt_configs WHERE id = ?", [$olt_id]);
+    
+    if (!$selected_olt) {
+        echo "Error: OLT tidak ditemukan.";
+        exit;
+    }
+
+    $client = new OltTelnetClient($selected_olt['host'], $selected_olt['port'], 5);
+    try {
+        $client->connect($selected_olt['username'], $selected_olt['password']);
+        if (!empty($selected_olt['enable_password'])) $client->enable($selected_olt['enable_password']);
+        
+        $res = $client->execute($cmd);
+        echo $res;
+        $client->disconnect();
+    } catch (Exception $e) {
+        echo "Error: " . $e->getMessage();
+    }
+    exit;
 }
 
 ?>
@@ -27,115 +43,76 @@ function live_echo($msg, $type = 'info') {
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>OLT Sniper v8.11</title>
+    <title>OLT Live Terminal v8.12</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        body { background: #0a0e14; color: #b0b8c1; font-family: 'Consolas', monospace; padding: 20px; }
-        .card { background: #1c232d; border-radius: 8px; padding: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.8); max-width: 1000px; margin: auto; border: 1px solid #30363d; }
-        .console { background: #0d1117; color: #58a6ff; padding: 15px; border-radius: 6px; height: 300px; overflow-y: auto; border: 1px solid #30363d; margin-top: 15px; }
-        .btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; background: #238636; color: #fff; }
-        .btn-outline { background: transparent; border: 1px solid #30363d; color: #8b949e; margin-left: 10px; }
-        select, input[type="text"] { padding: 10px; background: #0d1117; color: #c9d1d9; border: 1px solid #30363d; border-radius: 6px; outline: none; }
-        textarea { width: 100%; height: 400px; background: #0d1117; color: #79c0ff; border: 1px solid #30363d; padding: 10px; border-radius: 6px; font-family: 'Consolas', monospace; font-size: 12px; margin-top: 10px; }
+        body { background: #0c0c0c; color: #00ff00; font-family: 'Consolas', 'Monaco', monospace; padding: 20px; }
+        .card { background: #1a1a1a; border-radius: 10px; padding: 20px; border: 1px solid #333; max-width: 1100px; margin: auto; }
+        #terminal { background: #000; height: 500px; overflow-y: auto; padding: 15px; border: 1px solid #00ff0033; margin-bottom: 15px; font-size: 14px; line-height: 1.5; white-space: pre-wrap; }
+        .input-group { display: flex; gap: 10px; border-top: 1px solid #333; padding-top: 15px; }
+        input[type="text"] { flex: 1; background: #000; border: 1px solid #444; color: #00ff00; padding: 12px; outline: none; border-radius: 5px; }
+        select { background: #222; color: #fff; border: 1px solid #444; padding: 10px; border-radius: 5px; }
+        .btn { background: #00ff00; color: #000; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .prompt { color: #00d2ff; }
+        .error { color: #ff4b2b; }
     </style>
 </head>
 <body>
     <div class="card">
-        <h2 style="color:#58a6ff; margin-top:0;"><i class="fas fa-bullseye"></i> OLT Sniper v8.11</h2>
-        <p style="color:#8b949e;">Firmware v1.3.9R Terdeteksi. Menjalankan pendaftaran pendaftarannya (X_X)... Menjalankan misi pencarian khusus.</p>
+        <h2 style="color:#00ff00; margin-top:0;"><i class="fas fa-terminal"></i> OLT Live Terminal v8.12</h2>
+        <p style="color:#888;">Gunakan terminal ini untuk mencari perintah discovery yang benar menggunakan tanda tanya pendaftarannya pendaftaran (OKE!) ... menggunakan <b>?</b> secara langsung.</p>
         
-        <form method="POST" id="diagForm">
-            <div style="display: flex; gap: 10px; align-items: center;">
-                <select name="olt_id" required>
-                    <option value="">-- PILIH TARGET --</option>
-                    <?php foreach($olts as $o): ?>
-                    <option value="<?php echo $o['id']; ?>" <?php echo (isset($_POST['olt_id']) && $_POST['olt_id'] == $o['id']) ? 'selected' : ''; ?>>
-                        <?php echo htmlspecialchars($o['name']); ?>
-                    </option>
-                    <?php endforeach; ?>
-                </select>
-                <input type="text" name="manual_cmd" placeholder="Tembak manual ke OLT..." style="flex:1;">
-                <button type="submit" class="btn">Tembak!</button>
-                <a href="customers.php" class="btn btn-outline">Batal</a>
-            </div>
-        </form>
+        <div id="terminal">> Siaga. Pilih OLT dan ketik perintah... (Contoh: show ?)</div>
 
-        <div class="console" id="console-logs">> Sniper Siaga. Siap membidik ONU pendaftaran pendaftarannya pendaftaran...</div>
-
-        <h4 style="color: #58a6ff; margin-bottom: 5px; margin-top:20px;">HASIL TEMBAKAN (RAW):</h4>
-        <textarea id="rawOutput" readonly></textarea>
+        <div class="input-group">
+            <select id="olt_id">
+                <?php foreach($olts as $o): ?>
+                <option value="<?php echo $o['id']; ?>"><?php echo htmlspecialchars($o['name']); ?></option>
+                <?php endforeach; ?>
+            </select>
+            <span class="prompt">Ahsan-Network#</span>
+            <input type="text" id="cmd_input" placeholder="Ketik perintah di sini... (Lalu Enter)" autofocus>
+            <button class="btn" onclick="sendCmd()">KIRIM</button>
+        </div>
     </div>
 
     <script>
-        const logs = document.getElementById('console-logs');
-        const raw = document.getElementById('rawOutput');
-        function appendLog(msg, color) {
-            const d = document.createElement('div');
-            if(color) d.style.color = color;
-            d.innerHTML = `[${new Date().toLocaleTimeString()}] ${msg}`;
-            logs.appendChild(d);
-            logs.scrollTop = logs.scrollHeight;
+        const terminal = document.getElementById('terminal');
+        const cmdInput = document.getElementById('cmd_input');
+        const oltSelect = document.getElementById('olt_id');
+
+        function appendOutput(text, isError = false) {
+            const span = document.createElement('span');
+            if (isError) span.className = 'error';
+            span.textContent = text + "\n";
+            terminal.appendChild(span);
+            terminal.scrollTop = terminal.scrollHeight;
         }
-        function updateRaw(val) {
-            raw.value += val + "\n";
-            raw.scrollTop = raw.scrollHeight;
-        }
-        document.getElementById('diagForm').onsubmit = function() {
-            appendLog("--- MEMULAI OPERASI SNIPER ---", "#58a6ff");
-        };
-    </script>
 
-    <?php
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['olt_id'])) {
-        @ini_set('implicit_flush', 1);
-        ob_implicit_flush(true);
-        while (ob_get_level()) ob_end_flush();
+        async function sendCmd() {
+            const cmd = cmdInput.value.trim();
+            const oltId = oltSelect.value;
+            if (!cmd) return;
 
-        $olt_id = (int)$_POST['olt_id'];
-        $manual_cmd = trim($_POST['manual_cmd'] ?? '');
-        $selected_olt = fetchOne("SELECT * FROM olt_configs WHERE id = ?", [$olt_id]);
+            appendOutput(`\nAhsan-Network# ${cmd}`);
+            cmdInput.value = '';
+            cmdInput.disabled = true;
 
-        if ($selected_olt) {
-            $client = new OltTelnetClient($selected_olt['host'], $selected_olt['port'], 2);
-            
             try {
-                if (!$client->connect($selected_olt['username'], $selected_olt['password'])) throw new Exception("Zonk. Gagal Login.");
-                live_echo("Target Terkoneksi.", 'success');
-                if (!empty($selected_olt['enable_password'])) $client->enable($selected_olt['enable_password']);
-
-                // Target commands for V1.3.9R
-                $cmds = $manual_cmd ? [$manual_cmd] : [
-                    "show onu unauth", 
-                    "show onu uncfg", 
-                    "show onu auto-learn",
-                    "show onu authentication-list",
-                    "show interface gpon 0/1 onu unauth"
-                ];
-                
-                foreach ($cmds as $c) {
-                    live_echo("Menembak: <code>$c</code>");
-                    $res = $client->execute($c);
-                    
-                    if (strlen(trim($res)) > 0) {
-                        live_echo(">> Respon Masuk!", 'success');
-                        $clean_res = addslashes($res);
-                        $clean_res = str_replace(array("\r", "\n"), "\\n", $clean_res);
-                        echo "<script>updateRaw('--- TARGET: $c ---\\n$clean_res');</script>\n";
-                        flush();
-                    } else {
-                        live_echo(">> Meleset (Kosong).", 'warn');
-                    }
-                    usleep(150000);
-                }
-
-                $client->disconnect();
-                live_echo("Misi Selesai.", 'info');
-
-            } catch (Exception $e) {
-                live_echo("MISI GAGAL: " . $e->getMessage(), 'error');
+                const response = await fetch(`?ajax_cmd=${encodeURIComponent(cmd)}&olt_id=${oltId}`);
+                const text = await response.text();
+                appendOutput(text);
+            } catch (e) {
+                appendOutput("Error: Gagal menghubungi server.", true);
+            } finally {
+                cmdInput.disabled = false;
+                cmdInput.focus();
             }
         }
-    }
-    ?>
+
+        cmdInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendCmd();
+        });
+    </script>
 </body>
 </html>
