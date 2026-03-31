@@ -74,14 +74,21 @@ class OltTelnetClient {
                 continue;
             }
             $result .= $char;
+            
+            // Fast check for common prompts to avoid regex overhead on every char
+            if ($char == '>' || $char == '#' || $char == ' ' || $char == "\n") {
+                if (preg_match($regex, $result)) {
+                    return preg_replace('/\x1b\[[0-9;]*[mKHFAB]/', '', $result);
+                }
+            }
+            
+            // Check pagination
             if (preg_match('/--\s*More.*?--\s*$/i', $result)) {
                 $this->write(" ");
                 $result = preg_replace('/--\s*More.*?--\s*$/i', '', $result);
                 continue;
             }
-            if ($char == '>' || $char == '#' || $char == "\n") {
-                if (preg_match($regex, $result)) return preg_replace('/\x1b\[[0-9;]*[mKHFAB]/', '', $result);
-            }
+
             if (time() - $start > $wait) break;
         }
         return preg_replace('/\x1b\[[0-9;]*[mKHFAB]/', '', $result);
