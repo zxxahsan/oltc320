@@ -1,7 +1,7 @@
 <?php
 /**
- * GEMBOK Configuration File (SAMPLE)
- * Rename this file to config.php and update values
+ * GEMBOK Configuration Sample File
+ * Rename this file to config.php and fill in your details.
  */
 
 // Database Configuration
@@ -18,9 +18,13 @@ define('MIKROTIK_PORT', 8728);
 
 // Application Configuration
 define('APP_NAME', 'GEMBOK');
-define('APP_URL', 'http://localhost/gembok-simple2');
+// Automatically detect the App URL
+$protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+$host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+define('APP_URL', $protocol . '://' . $host . '/gembokcontainer');
+
 define('APP_VERSION', '3.0.1');
-define('GEMBOK_UPDATE_VERSION_URL', 'https://raw.githubusercontent.com/zxxahsan/gembok/main/version.txt');
+define('GEMBOK_UPDATE_VERSION_URL', 'https://raw.githubusercontent.com/zxxahsan/bill/main/version.txt');
 
 // Pagination and currency
 define('ITEMS_PER_PAGE', 20);
@@ -32,19 +36,19 @@ define('INVOICE_START', 1);
 // Security
 define('ENCRYPTION_KEY', 'your-secret-key-here-32-chars-long');
 
-// WhatsApp Configuration
+// WhatsApp Configuration (Optional)
 define('WHATSAPP_API_URL', '');
 define('WHATSAPP_TOKEN', '');
 
-// Tripay Configuration
+// Tripay Configuration (Optional)
 define('TRIPAY_API_KEY', '');
 define('TRIPAY_PRIVATE_KEY', '');
 define('TRIPAY_MERCHANT_CODE', '');
 
-// Telegram Configuration
+// Telegram Configuration (Optional)
 define('TELEGRAM_BOT_TOKEN', '');
 
-// GenieACS Configuration
+// GenieACS Configuration (Optional)
 define('GENIEACS_URL', 'http://localhost:7557');
 define('GENIEACS_USERNAME', '');
 define('GENIEACS_PASSWORD', '');
