@@ -467,29 +467,41 @@ function vsolDeleteOnuWanConfigs($olt_id, $port, $onu_id) {
         $client->write("interface gpon 0/{$port}\n");
         $client->readUntil("/[>#\(]/", 2);
 
-        $log[] = "🗑️ Menghapus semua index WAN (1-8) untuk ONU {$onu_id}...";
+        $log[] = "🧹 Memulai Total Wipe untuk ONU {$port}/{$onu_id}...";
+        
+        // 1. Hapus Index 1-8 (WAN/Bridge)
         for ($i = 1; $i <= 8; $i++) {
-            $client->write("onu {$onu_id} pri wan_adv delete index $i\n");
-            $resp = $client->readUntil("/[>#]/", 1);
-            if (strpos($resp, 'Unknown') === false) {
-                 // Index existed and was processed
-            }
+            $client->write("no onu {$onu_id} pri wan_adv index $i\n");
+            $client->readUntil("/[>#]/", 1);
         }
+        $log[] = "✓ Index WAN 1-8 dibersihkan.";
+
+        // 2. Hapus Setting ACS / TR-069
+        $client->write("no onu {$onu_id} pri tr069_mng\n");
+        $client->readUntil("/[>#]/", 1);
+        $log[] = "✓ Konfigurasi ACS TR-069 dibersihkan.";
+
+        // 3. Hapus Setting WiFi (SSID 1, 2, 5, 6)
+        foreach ([1, 2, 5, 6] as $ssid) {
+            $client->write("no onu {$onu_id} pri wifi_switch $ssid\n");
+            $client->readUntil("/[>#]/", 1);
+            $client->write("no onu {$onu_id} pri wifi_ssid $ssid\n");
+            $client->readUntil("/[>#]/", 1);
+        }
+        $log[] = "✓ Konfigurasi WiFi SSID dibersihkan.";
 
         $client->write("onu {$onu_id} pri wan_adv commit\n");
         $client->readUntil("/[>#]/", 5);
-        $log[] = "✓ WAN configurations cleared and committed.";
+        $log[] = "✓ Final Commit ke ONU OK.";
 
-        $client->write("exit\n");
-        $client->readUntil("/[>#]/", 1);
         $client->write("exit\n");
         $client->readUntil("/[>#]/", 1);
         $client->write("write\n");
         $client->readUntil("/[>#]/", 5);
-        $log[] = "✓ OLT Save Done.";
+        $log[] = "✓ OLT Config Saved.";
 
         $client->disconnect();
-        return ['success' => true, 'log' => implode("\n", $log)];
+        return ['success' => true, 'log' => implode("\n", $log) . "\n\n✨ ONU BERSIH TOTAL!"];
 
     } catch (Exception $e) {
         if (isset($client)) $client->disconnect();

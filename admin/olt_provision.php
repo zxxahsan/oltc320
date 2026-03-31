@@ -208,7 +208,7 @@ ob_start();
                 </label>
                 <div id="delete_confirm_step" style="display:none;">
                     <p style="font-size:11px; color:#aaa; margin-bottom:10px;">
-                        Tindakan ini akan menghapus **Index 1-8** pada konfigurasi WAN/Bridge di ONU tersebut. Pelanggan akan terputus.
+                        Tindakan ini akan menghapus **Total** seluruh konfigurasi pada ONU ini (WAN Index 1-8, ACS TR-069, dan WiFi SSID). Pelanggan akan terputus total.
                     </p>
                     
                     <div class="form-group">
@@ -405,7 +405,12 @@ async function doDeleteWan() {
 
     if (!olt_id || !port || !onu_id) { alert('Pilih OLT, Port, dan ID terlebih dahulu!'); return; }
     
-    if (!confirm('PERINGATAN TERAKHIR: Anda akan merestart konfigurasi WAN ONU ini. Lanjut?')) return;
+    // Final check for SN match
+    const snInput = document.getElementById('f_confirm_sn').value.trim().toUpperCase();
+    const targetSn = document.getElementById('search_cust').value.trim().toUpperCase();
+    if (snInput !== targetSn) { alert('SN Konfirmasi tidak cocok!'); return; }
+
+    if (!confirm('PERINGATAN TERAKHIR: Anda akan MENGHAPUS TOTAL (WIPE) konfigurasi ONU ini. Lanjut?')) return;
 
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> MENGHAPUS...';
