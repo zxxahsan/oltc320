@@ -291,7 +291,14 @@ ob_start();
             Catatan:
             <br>- Update akan menjalankan perintah <code>git pull</code> di folder aplikasi.
             <br>- Pastikan server memiliki akses git dan izin file yang benar.
-            <br>- Mengecek ke repositori GitHub <code>zxxahsan/gembok</code>.
+            <?php 
+                $currentRepo = "zxxahsan/gembok"; // Default
+                $updateUrl = defined('GEMBOK_UPDATE_VERSION_URL') ? GEMBOK_UPDATE_VERSION_URL : '';
+                if (preg_match('/githubusercontent\.com\/([^\/]+\/[^\/]+)/', $updateUrl, $matches)) {
+                    $currentRepo = $matches[1];
+                }
+            ?>
+            <br>- Mengecek ke repositori GitHub <code><?php echo htmlspecialchars($currentRepo); ?></code>.
             <br>- Setelah instalasi awal, hapus file <code>install.sh</code> dari server jika pernah digunakan.
         </p>
 

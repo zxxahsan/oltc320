@@ -80,6 +80,30 @@ function getDB() {
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
                 } catch (\Exception $e) {}
 
+                // OLT Configuration Table
+                try {
+                    $pdo->exec("CREATE TABLE IF NOT EXISTS olt_configs (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        name VARCHAR(100) NOT NULL,
+                        host VARCHAR(100) NOT NULL,
+                        port INT DEFAULT 22,
+                        username VARCHAR(50) NOT NULL,
+                        password VARCHAR(255) NOT NULL,
+                        type ENUM('vsol_gpon', 'vsol_epon') DEFAULT 'vsol_gpon',
+                        protocol ENUM('ssh', 'telnet') DEFAULT 'ssh',
+                        snmp_community VARCHAR(50) DEFAULT 'public',
+                        snmp_version ENUM('1', '2c', '3') DEFAULT '2c',
+                        created_at DATETIME NOT NULL,
+                        updated_at DATETIME NOT NULL
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+                } catch (\Exception $e) {}
+
+                // Addition: Alter existing olt_configs if columns missing
+                try {
+                    $pdo->exec("ALTER TABLE olt_configs ADD COLUMN IF NOT EXISTS snmp_community VARCHAR(50) DEFAULT 'public' AFTER protocol");
+                    $pdo->exec("ALTER TABLE olt_configs ADD COLUMN IF NOT EXISTS snmp_version ENUM('1', '2c', '3') DEFAULT '2c' AFTER snmp_community");
+                } catch (\Exception $e) {}
+
                 // Default Payment Settings
                 $defaultSettings = [
                     'ENABLE_TRIPAY_CUSTOMER' => '1',
