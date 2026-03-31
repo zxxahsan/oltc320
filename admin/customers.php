@@ -7,9 +7,11 @@ require_once '../includes/auth.php';
 requireAdminLogin();
 require_once '../includes/olt_api.php';
 
+ob_start();
+
 // Auto-migrate task_queue table
 if (!tableExists('task_queue')) {
-    $conn->query("CREATE TABLE task_queue (
+    getDB()->query("CREATE TABLE task_queue (
         id INT AUTO_INCREMENT PRIMARY KEY,
         task_type VARCHAR(50) NOT NULL,
         payload TEXT NOT NULL,
@@ -98,78 +100,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'address' => sanitize($_POST['address']),
                     'lat' => (!isset($_POST['lat']) || trim($_POST['lat']) === '') ? null : (string) str_replace(',', '.', trim($_POST['lat'])),
                     'lng' => (!isset($_POST['lng']) || trim($_POST['lng']) === '') ? null : (string) str_replace(',', '.', trim($_POST['lng'])),
-                    'installed_by' => !empty($_POST['installed_by']) ? (int)$_POST['installed_by'] : null,
-                    'portal_password' => password_hash('1234', PASSWORD_DEFAULT),
-                    'olt_id'          => (int)($_POST['olt_id'] ?? 0),
-                    'onu_sn'          => strtoupper(sanitize($_POST['onu_sn'] ?? '')),
-                    'olt_pon_port'    => (int)($_POST['olt_pon_port'] ?? 0),
-                    'onu_id'          => (int)($_POST['onu_id'] ?? 0),
-                    'created_at'      => date('Y-m-d H:i:s')
+                    'installed_by' => (int)($_POST['installed_by'] ?? 0),
+                    'olt_id' => (int)($_POST['olt_id'] ?? 0),
+                    'onu_sn' => sanitize($_POST['onu_sn'] ?? ''),
+                    'olt_pon_port' => (int)($_POST['olt_pon_port'] ?? 0),
+                    'onu_id' => (int)($_POST['onu_id'] ?? 0),
+                    'created_at' => date('Y-m-d H:i:s')
                 ];
                 
-                if (insert('customers', $data)) {
-                    // Sync to onu_locations if requested
-                    $saveOnu = isset($_POST['save_onu']) && $_POST['save_onu'] == '1';
-                    $odpId = isset($_POST['odp_id']) && $_POST['odp_id'] !== '' ? (int) $_POST['odp_id'] : null;
-                    if ($saveOnu) {
-                        try {
-                            $serial = $data['pppoe_username']; // Use PPPoE username as identifier if serial not known yet
-                            $exists = fetchOne("SELECT id FROM onu_locations WHERE serial_number = ?", [$serial]);
-                            $payload = [
-                                'name' => $data['name'],
-                                'lat' => $data['lat'],
-                                'lng' => $data['lng'],
-                                'odp_id' => $odpId,
-                                'updated_at' => date('Y-m-d H:i:s')
-                            ];
-                            if ($exists) {
-                                update('onu_locations', $payload, 'serial_number = ?', [$serial]);
-                            } else {
-                                $payload['serial_number'] = $serial;
-                                $payload['created_at'] = date('Y-m-d H:i:s');
-                                insert('onu_locations', $payload);
-                            }
-                            
-                            // Synchronize PPPoE Username to GenieACS if applicable
-                            if (!empty($serial)) {
-                                genieacsSetParameter($serial, 'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.Username', $serial);
-                                if ($pppoePassword !== '') {
-                                    genieacsSetParameter($serial, 'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.Password', $pppoePassword);
-                                }
-                            }
-                        } catch (Exception $e) {
-                            // Do not block customer creation if ONU sync fails
-                            logError('ONU sync (add customer) failed: ' . $e->getMessage());
-                        }
-                    }
+                $id = insert('customers', $data);
+                if ($id) {
                     setFlash('success', 'Pelanggan berhasil ditambahkan');
-                    logActivity('ADD_CUSTOMER', "Name: " . $data['name']);
-                    
-                    // Notify Technician if assigned
-                    if (!empty($data['installed_by'])) {
-                        $tech = fetchOne("SELECT phone, name FROM technician_users WHERE id = ?", [$data['installed_by']]);
-                        if ($tech && !empty($tech['phone'])) {
-                            require_once '../includes/whatsapp.php';
-                            $msg = "🔔 *TUGAS INSTALASI BARU*\n\n";
-                            $msg .= "Pelanggan: " . $data['name'] . "\n";
-                            $msg .= "Kontak (WA): " . $data['phone'] . "\n";
-                            $msg .= "Alamat: " . ($data['address'] ?: '-') . "\n";
-                            $pkg = fetchOne("SELECT name FROM packages WHERE id = ?", [$data['package_id']]);
-                            $msg .= "Paket: " . ($pkg['name'] ?? '-') . "\n";
-                            $msg .= "Maps: https://www.google.com/maps?q={$data['lat']},{$data['lng']}\n\n";
-                            $msg .= "Mohon segera diproses. Terima kasih.";
-                            
-                            sendWhatsAppMessage($tech['phone'], $msg);
-                        }
-                    }
                 } else {
                     setFlash('error', 'Gagal menambahkan pelanggan');
                 }
-                redirect('customers.php');
                 break;
-                
+
             case 'edit':
-                $customerId = (int)$_POST['customer_id'];
+                $id = (int)$_POST['customer_id'];
                 $data = [
                     'name' => sanitize($_POST['name']),
                     'phone' => sanitize($_POST['phone']),
@@ -179,572 +127,532 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'address' => sanitize($_POST['address']),
                     'lat' => (!isset($_POST['lat']) || trim($_POST['lat']) === '') ? null : (string) str_replace(',', '.', trim($_POST['lat'])),
                     'lng' => (!isset($_POST['lng']) || trim($_POST['lng']) === '') ? null : (string) str_replace(',', '.', trim($_POST['lng'])),
-                    'installed_by' => !empty($_POST['installed_by']) ? (int)$_POST['installed_by'] : null,
-                    'olt_id'         => (int)($_POST['olt_id'] ?? 0),
-                    'onu_sn'         => strtoupper(sanitize($_POST['onu_sn'] ?? '')),
-                    'olt_pon_port'   => (int)($_POST['olt_pon_port'] ?? 0),
-                    'onu_id'         => (int)($_POST['onu_id'] ?? 0),
+                    'installed_by' => (int)($_POST['installed_by'] ?? 0),
+                    'olt_id' => (int)($_POST['olt_id'] ?? 0),
+                    'onu_sn' => sanitize($_POST['onu_sn'] ?? ''),
+                    'olt_pon_port' => (int)($_POST['olt_pon_port'] ?? 0),
+                    'onu_id' => (int)($_POST['onu_id'] ?? 0),
                     'updated_at' => date('Y-m-d H:i:s')
                 ];
                 
-                if (update('customers', $data, 'id = ?', [$customerId])) {
-                    // Sync to onu_locations if requested
-                    $saveOnu = isset($_POST['save_onu']) && $_POST['save_onu'] == '1';
-                    $odpId = isset($_POST['odp_id']) && $_POST['odp_id'] !== '' ? (int) $_POST['odp_id'] : null;
-                    if ($saveOnu) {
-                        try {
-                            // Get PPPoE username for this customer
-                            $customer = fetchOne("SELECT pppoe_username FROM customers WHERE id = ?", [$customerId]);
-                            if ($customer && !empty($customer['pppoe_username'])) {
-                                $serial = $customer['pppoe_username'];
-                                $exists = fetchOne("SELECT id FROM onu_locations WHERE serial_number = ?", [$serial]);
-                                $payload = [
-                                    'name' => $data['name'],
-                                    'lat' => $data['lat'],
-                                    'lng' => $data['lng'],
-                                    'odp_id' => $odpId,
-                                    'updated_at' => date('Y-m-d H:i:s')
-                                ];
-                                if ($exists) {
-                                    update('onu_locations', $payload, 'serial_number = ?', [$serial]);
-                                } else {
-                                    $payload['serial_number'] = $serial;
-                                    $payload['created_at'] = date('Y-m-d H:i:s');
-                                    insert('onu_locations', $payload);
-                                }
-
-                                // Synchronize PPPoE Username to GenieACS if applicable
-                                genieacsSetParameter($serial, 'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.Username', $serial);
-                            }
-                        } catch (Exception $e) {
-                            logError('ONU sync (edit customer) failed: ' . $e->getMessage());
-                        }
-                    }
-                    setFlash('success', 'Pelanggan berhasil diperbarui');
-                    logActivity('UPDATE_CUSTOMER', "ID: {$customerId}");
+                if (update('customers', $data, 'id = ?', [$id])) {
+                    setFlash('success', 'Data pelanggan berhasil diperbarui');
                 } else {
-                    setFlash('error', 'Gagal memperbarui pelanggan');
+                    setFlash('error', 'Gagal memperbarui data pelanggan');
                 }
-                redirect('customers.php');
                 break;
-                
+
             case 'delete':
-                $customerId = (int)$_POST['customer_id'];
-                if (delete('customers', 'id = ?', [$customerId])) {
+                $id = (int)$_POST['customer_id'];
+                if (delete('customers', 'id = ?', [$id])) {
                     setFlash('success', 'Pelanggan berhasil dihapus');
-                    logActivity('DELETE_CUSTOMER', "ID: {$customerId}");
                 } else {
                     setFlash('error', 'Gagal menghapus pelanggan');
                 }
-                redirect('customers.php');
-                break;
-                
-            case 'unisolate':
-                $customerId = (int)$_POST['customer_id'];
-                if (unisolateCustomer($customerId)) {
-                    setFlash('success', 'Pelanggan berhasil di-unisolate');
-                } else {
-                    setFlash('error', 'Gagal meng-unisolate pelanggan');
-                }
-                redirect('customers.php');
                 break;
         }
+        redirect('customers.php');
     }
 }
 
-// Get data with pagination
-$page = (int)($_GET['page'] ?? 1);
-$perPage = defined('ITEMS_PER_PAGE') ? ITEMS_PER_PAGE : 20;
-$offset = ($page - 1) * $perPage;
+// Fetch all packages for dropdown
+$packages = fetchAll("SELECT id, name, price FROM packages ORDER BY price ASC");
 
-$customersTableExists = tableExists('customers');
-$packagesTableExists = tableExists('packages');
-$routersTableExists = tableExists('routers');
+// Fetch routers
+$routers = fetchAll("SELECT id, name, host FROM routers ORDER BY name ASC");
 
-// Get technicians
-$technicians = fetchAll("SELECT * FROM technician_users WHERE status = 'active' ORDER BY name ASC");
+// Fetch OLTs
+$olts = fetchAll("SELECT id, name FROM olt_configs ORDER BY name ASC");
 
+// Fetch Technicians
+$technicians = fetchAll("SELECT id, name, username FROM technician_users WHERE status = 'active' ORDER BY name ASC");
 
-if ($customersTableExists) {
-    $totalCustomers = fetchOne("SELECT COUNT(*) as total FROM customers")['total'] ?? 0;
-    $totalPages = ceil($totalCustomers / $perPage);
+// Pagination settings
+$limit = 50;
+$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+$offset = ($page - 1) * $limit;
 
-    $selectParts = [
-        'c.*',
-        $packagesTableExists ? 'p.name as package_name' : "'Tanpa Paket' as package_name",
-        $packagesTableExists ? 'p.price as package_price' : '0 as package_price',
-        $routersTableExists ? 'r.name as router_name' : "'' as router_name",
-        "(SELECT odp_id FROM onu_locations WHERE serial_number = c.pppoe_username LIMIT 1) as onu_odp_id"
-    ];
+// Filter and Search
+$search = isset($_GET['search']) ? sanitize($_GET['search']) : '';
+$whereClause = "1=1";
+$params = [];
 
-    $joinParts = [];
-    if ($packagesTableExists) {
-        $joinParts[] = 'LEFT JOIN packages p ON c.package_id = p.id';
-    }
-    if ($routersTableExists) {
-        $joinParts[] = 'LEFT JOIN routers r ON c.router_id = r.id';
-    }
-
-    $customers = fetchAll("
-        SELECT " . implode(', ', $selectParts) . "
-        FROM customers c 
-        " . implode("\n        ", $joinParts) . "
-        ORDER BY c.created_at DESC
-        LIMIT $perPage OFFSET $offset
-    ");
-} else {
-    $totalCustomers = 0;
-    $totalPages = 0;
-    $customers = [];
+if (!empty($search)) {
+    $whereClause .= " AND (name LIKE ? OR phone LIKE ? OR pppoe_username LIKE ?)";
+    $params[] = "%$search%";
+    $params[] = "%$search%";
+    $params[] = "%$search%";
 }
 
-$packages = $packagesTableExists ? fetchAll("SELECT * FROM packages ORDER BY name") : [];
-$routers = $routersTableExists ? getAllRouters() : [];
+// Total records for pagination
+$totalRecords = fetchOne("SELECT COUNT(*) as count FROM customers WHERE $whereClause", $params)['count'];
+$totalPages = ceil($totalRecords / $limit);
 
-ob_start();
+// Fetch customers
+$customers = fetchAll("
+    SELECT c.*, p.name as package_name, p.price as package_price, r.name as router_name, t.name as technician_name
+    FROM customers c
+    LEFT JOIN packages p ON c.package_id = p.id
+    LEFT JOIN routers r ON c.router_id = r.id
+    LEFT JOIN technician_users t ON c.installed_by = t.id
+    WHERE $whereClause
+    ORDER BY c.created_at DESC
+    LIMIT $limit OFFSET $offset
+", $params);
+
 ?>
 
-<!-- Stats -->
-<div class="stats-grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 30px;">
-    <div class="stat-card">
-        <div class="stat-icon cyan">
-            <i class="fas fa-users"></i>
-        </div>
-        <div class="stat-info">
-            <h3><?php echo (int) $totalCustomers; ?></h3>
-            <p>Total Pelanggan</p>
-        </div>
-    </div>
-    
-    <?php
-    $activeCount = fetchOne("SELECT COUNT(*) as total FROM customers WHERE status = 'active'")['total'] ?? 0;
-    $isolatedCount = fetchOne("SELECT COUNT(*) as total FROM customers WHERE status = 'isolated'")['total'] ?? 0;
-    
-    // Calculate unpaid customers for current month
-    // Logic: Active customers who don't have a 'paid' invoice for current month
-    $currentMonth = date('m');
-    $currentYear = date('Y');
-    $unpaidCount = fetchOne("
-        SELECT COUNT(*) as total 
-        FROM customers c 
-        WHERE c.status = 'active' 
-        AND NOT EXISTS (
-            SELECT 1 FROM invoices i 
-            WHERE i.customer_id = c.id 
-            AND MONTH(i.due_date) = ? 
-            AND YEAR(i.due_date) = ? 
-            AND i.status = 'paid'
-        )
-    ", [$currentMonth, $currentYear])['total'] ?? 0;
-    ?>
-    <div class="stat-card">
-        <div class="stat-icon green">
-            <i class="fas fa-check-circle"></i>
-        </div>
-        <div class="stat-info">
-            <h3><?php echo $activeCount; ?></h3>
-            <p>Aktif</p>
-        </div>
-    </div>
-    
-    <div class="stat-card">
-        <div class="stat-icon red">
-            <i class="fas fa-ban"></i>
-        </div>
-        <div class="stat-info">
-            <h3><?php echo $isolatedCount; ?></h3>
-            <p>Terisolir</p>
-        </div>
-    </div>
-
-    <div class="stat-card">
-        <div class="stat-icon orange">
-            <i class="fas fa-clock"></i>
-        </div>
-        <div class="stat-info">
-            <h3><?php echo $unpaidCount; ?></h3>
-            <p>Belum Lunas</p>
-        </div>
-    </div>
-</div>
-
 <style>
-    /* Make stats grid responsive for 4 cards */
-    .stats-grid {
-        grid-template-columns: repeat(4, 1fr) !important;
-        gap: 15px;
+    :root {
+        --neon-cyan: #00d2ff;
+        --neon-blue: #3a7bd5;
+        --bg-dark: #0a0e17;
+        --bg-card: #141e2d;
+        --text-primary: #e0e6ed;
+        --text-secondary: #94a3b8;
+        --border-color: rgba(255, 255, 255, 0.1);
     }
-    
-    @media (max-width: 768px) {
-        .stats-grid {
-            grid-template-columns: repeat(2, 1fr) !important;
-        }
-        .stat-card {
-            padding: 15px;
-        }
-        .stat-icon {
-            width: 40px;
-            height: 40px;
-            font-size: 1.2rem;
-        }
-        .stat-info h3 {
-            font-size: 1.5rem;
-        }
-        .stat-info p {
-            font-size: 0.8rem;
-        }
-    .olt-box { padding: 16px; background: rgba(0,210,255,0.04); border: 1px solid rgba(0,210,255,0.15); border-radius: 10px; margin-top: 10px; }
-    .onu-tag { display:inline-block; background:rgba(0,210,255,0.1); border:1px solid rgba(0,210,255,0.3); color:#00d2ff; padding:2px 8px; border-radius:5px; font-family:monospace; font-size:12px; }
-    #map-picker, #edit-map-picker { height: 300px; width: 100%; margin-bottom: 20px; border-radius: 10px; border: 1px solid var(--border-color); }
-    .collapse-content { display: none; padding-top: 15px; }
-    .collapse-content.show { display: block; }
-    .btn-toggle { cursor: pointer; transition: 0.3s; }
-    .btn-toggle.active { transform: rotate(180deg); }
-    
-    /* Provisioning Binding UI */
-    .svc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0; }
-    .svc-label { background: #111; border: 1px solid #333; padding: 10px; border-radius: 8px; cursor: pointer; transition: 0.2s; display: flex; flex-direction: column; gap: 8px; }
-    .svc-label:hover { border-color: #00d2ff; background: #161616; }
-    .svc-label input[type="checkbox"] { transform: scale(1.2); }
-    .svc-label span { font-size: 13px; font-weight: bold; color: #fff; }
-    .svc-label small { color: #666; font-weight: normal; font-size: 10px; }
-    .binding-box { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 5px; padding-top: 5px; border-top: 1px solid #222; }
-    .bind-item { font-size: 9px; background: #222; color: #888; padding: 2px 4px; border-radius: 4px; text-align: center; border: 1px solid #333; cursor: pointer; }
+
+    .card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        border-radius: 12px;
+        padding: 24px;
+        margin-bottom: 24px;
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+        color: var(--text-primary);
+        font-size: 0.9rem;
+    }
+
+    .form-control {
+        width: 100%;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 10px 14px;
+        color: var(--text-primary);
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: var(--neon-cyan);
+        box-shadow: 0 0 0 2px rgba(0, 210, 255, 0.2);
+        background: rgba(255, 255, 255, 0.08);
+    }
+
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border: none;
+        font-size: 0.9rem;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, var(--neon-cyan), var(--neon-blue));
+        color: white;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0, 210, 255, 0.4);
+    }
+
+    .btn-secondary {
+        background: rgba(255, 255, 255, 0.1);
+        color: var(--text-primary);
+    }
+
+    .btn-secondary:hover {
+        background: rgba(255, 255, 255, 0.15);
+    }
+
+    .table-container {
+        overflow-x: auto;
+        border-radius: 12px;
+        border: 1px solid var(--border-color);
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        color: var(--text-primary);
+    }
+
+    th {
+        background: rgba(255, 255, 255, 0.03);
+        padding: 16px;
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-secondary);
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    td {
+        padding: 16px;
+        border-bottom: 1px solid var(--border-color);
+        font-size: 0.9rem;
+    }
+
+    tr:hover {
+        background: rgba(255, 255, 255, 0.02);
+    }
+
+    .badge {
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .badge-active { background: rgba(0, 255, 65, 0.1); color: #00ff41; }
+    .badge-inactive { background: rgba(255, 49, 49, 0.1); color: #ff3131; }
+
+    .status-dot {
+        height: 8px;
+        width: 8px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 6px;
+    }
+
+    .olt-box {
+        background: rgba(0, 210, 255, 0.05);
+        border: 1px solid rgba(0, 210, 255, 0.1);
+        padding: 15px;
+        border-radius: 10px;
+        margin-top: 10px;
+    }
+
+    .prov-log-box {
+        margin-top: 10px;
+        padding: 10px;
+        background: #000;
+        color: #00ff41;
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 11px;
+        border-radius: 4px;
+        max-height: 150px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        border: 1px solid #333;
+    }
+
+    .svc-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+        margin-bottom: 15px;
+    }
+    .svc-label {
+        font-size: 12px;
+        background: rgba(255,255,255,0.03);
+        padding: 8px;
+        border-radius: 6px;
+        border: 1px solid rgba(255,255,255,0.05);
+    }
+    .binding-box {
+        margin-top: 8px;
+        padding-top: 8px;
+        border-top: 1px dashed rgba(255,255,255,0.1);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+    .bind-item {
+        font-size: 9px;
+        padding: 2px 4px;
+        background: rgba(0,0,0,0.3);
+        border-radius: 3px;
+        border: 1px solid #444;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 2px;
+    }
+    .bind-item.active {
+        border-color: #00ff41;
+        background: rgba(0,255,65,0.1);
+    }
     .bind-item input { display: none; }
-    .bind-item.active { background: #00d2ff22; color: #00d2ff; border-color: #00d2ff44; }
-    .bind-item.disabled { opacity: 0.2; cursor: not-allowed; text-decoration: line-through; }
-    .prov-log-box { background:#000; color:#00ff41; font-family:'Consolas',monospace; font-size:12px; padding:16px; border-radius:8px; min-height:150px; max-height:300px; overflow-y:auto; border:1px solid #1a3a1a; white-space:pre-wrap; word-break:break-all; margin-top:15px; }
+
+    .add-form-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: pointer;
+        padding: 10px;
+        border-radius: 8px;
+        transition: background 0.3s;
+    }
+    .add-form-header:hover {
+        background: rgba(255,255,255,0.05);
+    }
+    .add-form-content {
+        display: none;
+        margin-top: 20px;
+    }
+    .add-form-content.show {
+        display: block;
+    }
+    .icon-toggle {
+        transition: transform 0.3s;
+    }
+    .icon-toggle.active {
+        transform: rotate(180deg);
+    }
 </style>
 
-<!-- Add Customer Form -->
 <div class="card">
-    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleAddForm()">
-        <h3 class="card-title"><i class="fas fa-user-plus"></i> Tambah Pelanggan</h3>
-        <button type="button" class="btn btn-secondary btn-sm" id="btn-toggle-add">
-            <i class="fas fa-chevron-down btn-toggle" id="icon-toggle-add"></i>
-        </button>
+    <div class="add-form-header" onclick="toggleAddForm()">
+        <h2 style="margin:0; font-size: 1.25rem; color: var(--neon-cyan);">
+            <i class="fas fa-user-plus"></i> Tambah Pelanggan Baru
+        </h2>
+        <i class="fas fa-chevron-down icon-toggle" id="icon-toggle-add"></i>
     </div>
     
-    <div id="add-form-content" class="collapse-content">
-        <div style="padding: 0 1.5rem 1.5rem 1.5rem;">
-    
-    <form method="POST">
-        <input type="hidden" name="action" value="add">
-        <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
-        
-        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; max-width: 100%;">
-            <div class="form-group">
-                <label class="form-label">Nama Pelanggan</label>
-                <input type="text" name="name" id="add_customer_name" class="form-control" required placeholder="Nama Lengkap">
-            </div>
+    <div class="add-form-content" id="add-form-content">
+        <form method="POST">
+            <input type="hidden" name="action" value="add">
+            <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
             
-            <div class="form-group">
-                <label class="form-label">Nomor HP (WhatsApp)</label>
-                <input type="text" name="phone" class="form-control" required placeholder="08xxxxxxxxxx">
-            </div>
-            
-            <div class="form-group" style="grid-column: 1 / -1;">
-                <label class="form-label">Username PPPoE</label>
-                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                    <input type="text" name="pppoe_username" id="pppoe_username_input" class="form-control" required placeholder="Pilih atau ketik username" style="flex: 1 1 200px; min-width: 0;">
-                    <button type="button" class="btn btn-secondary" onclick="openPppoeUserModal()" style="flex: 0 0 auto; white-space: nowrap;">Pilih dari MikroTik</button>
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+                <div class="form-group">
+                    <label class="form-label">Nama Pelanggan</label>
+                    <input type="text" name="name" id="add_customer_name" class="form-control" required placeholder="Nama Lengkap">
                 </div>
-                <small style="color: var(--text-muted);">Pilih username PPPoE dari user MikroTik untuk menghindari salah input</small>
-            </div>
-
-            <div class="form-group" style="grid-column: 1 / -1;">
-                <label class="form-label">Password PPPoE</label>
-                <input type="text" name="pppoe_password" class="form-control" value="12345678" placeholder="Password PPPoE">
-                <small style="color: var(--text-muted);">Default: 12345678. Digunakan untuk provisioning ke perangkat (GenieACS).</small>
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">Paket Langganan</label>
-                <select name="package_id" class="form-control" required style="color: var(--text-primary); background: var(--bg-card);">
-                    <option value="">Pilih Paket</option>
-                    <?php foreach ($packages as $pkg): ?>
-                        <option value="<?php echo $pkg['id']; ?>">
-                            <?php echo htmlspecialchars($pkg['name']); ?> (<?php echo formatCurrency($pkg['price']); ?>)
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label class="form-label">Router / MikroTik</label>
-                <select name="router_id" class="form-control" required style="color: var(--text-primary); background: var(--bg-card);">
-                    <option value="0">Default Router</option>
-                    <?php foreach ($routers as $r): ?>
-                        <option value="<?php echo $r['id']; ?>">
-                            <?php echo htmlspecialchars($r['name']); ?> (<?php echo htmlspecialchars($r['host']); ?>)
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-
-            <div class="form-group" style="grid-column: 1 / -1;">
-                <label class="form-label" style="font-weight: bold; color: var(--neon-cyan);">Status Pemasangan</label>
-                <div style="display: flex; gap: 20px; margin-top: 5px;">
-                    <label style="display: flex; align-items: center; gap: 8px;">
-                        <input type="radio" name="install_status" value="installed" checked onchange="toggleTechDropdown()">
-                        <span>Sudah Terpasang</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 8px;">
-                        <input type="radio" name="install_status" value="pending" onchange="toggleTechDropdown()">
-                        <span>Belum Terpasang (Tugaskan Teknisi)</span>
-                    </label>
+                
+                <div class="form-group">
+                    <label class="form-label">Nomor HP (WhatsApp)</label>
+                    <input type="text" name="phone" class="form-control" required placeholder="08xxxxxxxxxx">
                 </div>
-            </div>
-
-            <div class="form-group" id="techDropdownContainer" style="display: none; padding: 15px; background: rgba(0,255,136,0.1); border: 1px solid var(--neon-green); border-radius: 8px; grid-column: 1 / -1;">
-                <label class="form-label">Tugaskan Teknisi Instalasi</label>
-                <select name="installed_by" class="form-control" style="color: var(--text-primary); background: var(--bg-card);">
-                    <option value="">-- Pilih Teknisi --</option>
-                    <?php foreach ($technicians as $tech): ?>
-                        <option value="<?php echo $tech['id']; ?>"><?php echo htmlspecialchars($tech['name']); ?></option>
-                    <?php endforeach; ?>
-                </select>
-                <small style="color: var(--text-muted); display: block; margin-top: 5px;">
-                    <i class="fab fa-whatsapp"></i> Teknisi otomatis akan mendapat tugas via WhatsApp dengan detail kontak dan lokasi maps.
-                </small>
-            </div>
-            
-            <script>
-                function toggleTechDropdown() {
-                    const status = document.querySelector('input[name="install_status"]:checked').value;
-                    const container = document.getElementById('techDropdownContainer');
-                    if (status === 'pending') {
-                        container.style.display = 'block';
-                    } else {
-                        container.style.display = 'none';
-                        document.querySelector('select[name="installed_by"]').value = '';
-                    }
-                }
-            </script>
-            
-            <div class="form-group">
-                <label class="form-label">Tanggal Isolir (1-28)</label>
-                <input type="number" name="isolation_date" class="form-control" value="20" min="1" max="28" required>
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">Alamat</label>
-                <textarea name="address" class="form-control" rows="2" placeholder="Alamat rumah"></textarea>
-            </div>
-        </div>
-        
-        <div class="form-group">
-            <label class="form-label">Lokasi (Latitude, Longitude)</label>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                <input type="text" name="lat" class="form-control" placeholder="Latitude" readonly>
-                <input type="text" name="lng" class="form-control" placeholder="Longitude" readonly>
-            </div>
-            <small style="color: var(--text-muted);">Klik pada peta untuk set lokasi</small>
-        </div>
-        
-        <div style="height: 300px; margin-top: 15px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border-color);" id="map-picker"></div>
-
-        <div class="form-group olt-box" style="margin-top: 15px; grid-column: 1 / -1;">
-            <label class="form-label" style="color:var(--neon-cyan,#00d2ff);display:block;margin-bottom:12px;"><i class="fas fa-microchip"></i> Data ONU / OLT</label>
-            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
-                <div><label class="form-label">OLT</label>
-                    <select name="olt_id" class="form-control" style="background: var(--bg-card);">
-                        <option value="0">-- Tanpa OLT --</option>
-                        <?php $olts = fetchAll("SELECT id, name FROM olt_configs ORDER BY name ASC"); foreach ($olts as $o): ?>
-                            <option value="<?php echo $o['id']; ?>"><?php echo htmlspecialchars($o['name']); ?></option>
+                
+                <div class="form-group">
+                    <label class="form-label">Username PPPoE (MikroTik)</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" name="pppoe_username" id="pppoe_username_input" class="form-control" placeholder="Biarkan kosong jika belum ada">
+                        <button type="button" class="btn btn-secondary" onclick="openPppoeUserModal()">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Paket Langganan</label>
+                    <select name="package_id" class="form-control" required style="color: var(--text-primary); background: var(--bg-card);">
+                        <option value="">Pilih Paket</option>
+                        <?php foreach ($packages as $pkg): ?>
+                            <option value="<?php echo $pkg['id']; ?>">
+                                <?php echo htmlspecialchars($pkg['name']); ?> (<?php echo formatCurrency($pkg['price']); ?>)
+                            </option>
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <div><label class="form-label">Serial Number (SN)</label>
-                    <div style="display: flex; gap: 8px;">
-                        <input type="text" name="onu_sn" id="add_onu_sn" class="form-control" placeholder="Contoh: FHTTC098844B">
-                        <button type="button" class="btn btn-secondary" onclick="startScanner('add_onu_sn')" title="Scan Barcode SN">
-                            <i class="fas fa-camera"></i>
-                        </button>
-                    </div>
+
+                <div class="form-group">
+                    <label class="form-label">Router / MikroTik</label>
+                    <select name="router_id" class="form-control" required style="color: var(--text-primary); background: var(--bg-card);">
+                        <option value="0">Default Router</option>
+                        <?php foreach ($routers as $r): ?>
+                            <option value="<?php echo $r['id']; ?>">
+                                <?php echo htmlspecialchars($r['name']); ?> (<?php echo htmlspecialchars($r['host']); ?>)
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
                 </div>
-                <div><label class="form-label">PON Port (0/x)</label>
-                    <input type="number" name="olt_pon_port" class="form-control" placeholder="1-8" min="1" max="8">
+                
+                <div class="form-group">
+                    <label class="form-label">Tanggal Isolir (1-28)</label>
+                    <input type="number" name="isolation_date" class="form-control" min="1" max="28" value="20" required>
                 </div>
-                <div><label class="form-label">ONU ID</label>
-                    <input type="number" name="onu_id" class="form-control" placeholder="Nomor ONU di port">
+                
+                <div class="form-group" style="grid-column: span 2;">
+                    <label class="form-label">Alamat</label>
+                    <textarea name="address" class="form-control" rows="2" placeholder="Alamat rumah"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Teknisi Pemasang</label>
+                    <select name="installed_by" class="form-control" style="background: var(--bg-card);">
+                        <option value="0">-- Pilih Teknisi --</option>
+                        <?php foreach ($technicians as $tech): ?>
+                            <option value="<?php echo $tech['id']; ?>"><?php echo htmlspecialchars($tech['name']); ?></option>
+                        <?php endforeach; ?>
+                    </select>
                 </div>
             </div>
 
-            <!-- OLT Provisioning Services (Add Customer) -->
-            <div style="margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
-                <label style="color:#aaa;font-size:12px;display:block;margin-bottom:6px;">Layanan yang dikonfigurasi saat provisioning:</label>
-                <input type="hidden" name="prov_acs_url" value="http://172.16.200.3:7547">
-                <div class="svc-grid">
-                    <div class="svc-label">
-                        <div style="display:flex; align-items:center; gap:8px;">
-                            <input type="checkbox" name="services[]" value="acs" checked>
-                            <span><i class="fas fa-broadcast-tower" style="color:#00d2ff"></i> TR-069 / ACS<br><small>VLAN 101 DHCP</small></span>
+            <!-- OLT DATA (ADD) -->
+            <div class="form-group olt-box">
+                <label class="form-label" style="color:var(--neon-cyan,#00d2ff);display:block;margin-bottom:12px;"><i class="fas fa-microchip"></i> Registrasi ONU / OLT (Opsional)</label>
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+                    <div><label class="form-label">OLT</label>
+                        <select name="olt_id" class="form-control" style="background: var(--bg-card);">
+                            <option value="0">-- Tanpa OLT --</option>
+                            <?php foreach ($olts as $o): ?>
+                                <option value="<?php echo $o['id']; ?>"><?php echo htmlspecialchars($o['name']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div><label class="form-label">Serial Number (SN)</label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" name="onu_sn" id="add_onu_sn" class="form-control" placeholder="Contoh: FHTTC098844B">
+                            <button type="button" class="btn btn-secondary" onclick="startScanner('add_onu_sn')" title="Scan Barcode SN">
+                                <i class="fas fa-camera"></i>
+                            </button>
                         </div>
                     </div>
-                    <div class="svc-label">
-                        <div style="display:flex; align-items:center; gap:8px;">
-                            <input type="checkbox" name="services[]" value="wifi" checked>
-                            <span><i class="fas fa-wifi" style="color:#00d2ff"></i> WiFi SSID 2<br><small>Jinom_Hotspot</small></span>
-                        </div>
+                    <div><label class="form-label">PON Port (0/x)</label>
+                        <input type="number" name="olt_pon_port" class="form-control" min="1" max="8">
                     </div>
-                    <div class="svc-label">
-                        <div style="display:flex; align-items:center; gap:8px;">
-                            <input type="checkbox" name="services[]" value="pppoe" checked>
-                            <span><i class="fas fa-globe" style="color:#00d2ff"></i> PPPoE (VLAN 100)</span>
-                        </div>
-                        <div class="binding-box">
-                            <?php for($i=1;$i<=4;$i++): ?>
-                            <label class="bind-item active"><input type="checkbox" name="p_bind[]" value="LAN<?php echo $i; ?>" checked>L<?php echo $i; ?></label>
-                            <?php endfor; ?>
-                            <?php for($i=1;$i<=8;$i++): ?>
-                            <label class="bind-item active"><input type="checkbox" name="p_bind[]" value="SSID<?php echo $i; ?>" checked>W<?php echo $i; ?></label>
-                            <?php endfor; ?>
-                        </div>
-                    </div>
-                    <div class="svc-label">
-                        <div style="display:flex; align-items:center; gap:8px;">
-                            <input type="checkbox" name="services[]" value="hotspot">
-                            <span><i class="fas fa-server" style="color:#00d2ff"></i> Bridge (VLAN 200)</span>
-                        </div>
-                        <div class="binding-box">
-                            <?php for($i=1;$i<=4;$i++): ?>
-                            <label class="bind-item"><input type="checkbox" name="b_bind[]" value="LAN<?php echo $i; ?>">L<?php echo $i; ?></label>
-                            <?php endfor; ?>
-                            <?php for($i=1;$i<=8;$i++): ?>
-                            <label class="bind-item"><input type="checkbox" name="b_bind[]" value="SSID<?php echo $i; ?>">W<?php echo $i; ?></label>
-                            <?php endfor; ?>
-                        </div>
+                    <div><label class="form-label">ONU ID</label>
+                        <input type="number" name="onu_id" class="form-control" placeholder="Nomor ONU di port">
                     </div>
                 </div>
             </div>
+            
+            <div class="form-group">
+                <label class="form-label">Lokasi (Latitude, Longitude)</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <input type="text" name="lat" class="form-control" placeholder="Latitude" readonly>
+                    <input type="text" name="lng" class="form-control" placeholder="Longitude" readonly>
+                </div>
+                <small style="color: var(--text-secondary); margin-top: 5px; display: block;">Klik pada peta untuk menentukan lokasi rumah pelanggan</small>
             </div>
-            <small style="color: var(--text-muted); margin-top: 8px; display: block;">Mapping ini digunakan untuk Auto-Provisioning dan monitoring LOS.</small>
-        </div>
-        
-        <button type="submit" class="btn btn-primary" style="margin-top: 20px;">
-            <i class="fas fa-save"></i> Simpan Pelanggan
-        </button>
-    </form>
+            
+            <div id="map-picker" style="height: 300px; margin-bottom: 20px; border-radius: 12px; border: 1px solid var(--border-color);"></div>
+            
+            <button type="submit" class="btn btn-primary" style="width: 100%;">
+                <i class="fas fa-save"></i> Simpan Pelanggan
+            </button>
+        </form>
+    </div>
 </div>
 
-<!-- Customers Table -->
 <div class="card">
-    <div class="card-header">
-        <h3 class="card-title"><i class="fas fa-users"></i> Daftar Pelanggan</h3>
-        <div style="display: flex; gap: 10px;">
-            <input type="text" id="searchCustomer" class="form-control" placeholder="Cari pelanggan..." style="width: 250px;">
-            <a href="export.php" class="btn btn-primary btn-sm">
-                <i class="fas fa-file-excel"></i> Export/Import
-            </a>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
+        <h2 style="margin: 0; font-size: 1.25rem; color: var(--neon-cyan);">
+            <i class="fas fa-users"></i> Daftar Pelanggan
+        </h2>
+        <div style="display: flex; gap: 10px; flex: 1; max-width: 400px;">
+            <input type="text" id="searchCustomer" class="form-control" placeholder="Cari pelanggan (nama, HP, user)...">
         </div>
     </div>
     
-    <table class="data-table" id="customerTable">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Nama & Kontak</th>
-                <th>Paket & Router</th>
-                <th>ONU Info</th>
-                <th>Status</th>
-                <th>PPPoE</th>
-                <th>Aksi</th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php if (empty($customers)): ?>
+    <div class="table-container">
+        <table id="customerTable">
+            <thead>
                 <tr>
-                    <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 30px;" data-label="Data">
-                        Belum ada data pelanggan
-                    </td>
+                    <th>Pelanggan</th>
+                    <th>PPPoE User</th>
+                    <th>Paket</th>
+                    <th>Router</th>
+                    <th>Alamat</th>
+                    <th>Pemasang</th>
+                    <th style="width: 100px;">Aksi</th>
                 </tr>
-            <?php else: ?>
-                <?php foreach ($customers as $c): ?>
-                <tr>
-                    <td data-label="ID">#<?php echo $c['id']; ?></td>
-                    <td data-label="Nama & Kontak">
-                        <strong><?php echo htmlspecialchars($c['name']); ?></strong><br>
-                        <small><i class="fab fa-whatsapp"></i> <?php echo htmlspecialchars($c['phone']); ?></small>
-                    </td>
-                    <td data-label="Paket & Router">
-                        <?php echo htmlspecialchars($c['package_name'] ?? 'Tanpa Paket'); ?><br>
-                        <small style="color: var(--neon-cyan);">
-                            <i class="fas fa-server"></i> <?php echo htmlspecialchars($c['router_name'] ?? 'Default Router'); ?>
-                        </small>
-                    </td>
-                    <td data-label="ONU Info">
-                        <?php if (!empty($c['onu_sn'])): ?>
-                            <span class="onu-tag"><?php echo htmlspecialchars($c['onu_sn']); ?></span>
-                            <br><small style="color:#888">P:<?php echo $c['olt_pon_port']; ?> / ID:<?php echo $c['onu_id']; ?></small>
-                        <?php else: ?>
-                            <span style="color:#555">-</span>
-                        <?php endif; ?>
-                    </td>
-                    <td data-label="Status">
-                        <?php if ($c['status'] === 'active'): ?>
-                            <span class="badge badge-success">Aktif</span>
-                        <?php else: ?>
-                            <span class="badge badge-warning">Isolir</span>
-                        <?php endif; ?>
-                    </td>
-                    <td data-label="PPPoE">
-                        <code style="background: rgba(255,255,255,0.1); padding: 2px 4px; border-radius: 4px;">
-                            <?php echo htmlspecialchars($c['pppoe_username']); ?>
-                        </code>
-                    </td>
-                    <td data-label="Tgl Isolir">
-                        <span class="badge badge-info">Tgl <?php echo $c['isolation_date']; ?></span>
-                    </td>
-                    <td data-label="Aksi">
-                        <a href="pay_process.php?id=<?php echo $c['id']; ?>" class="btn btn-success btn-sm" title="Bayar Tagihan">
-                            <i class="fas fa-money-bill-wave"></i>
-                        </a>
-                        <button class="btn btn-secondary btn-sm" onclick="editCustomer(<?php echo htmlspecialchars(json_encode($c)); ?>)" title="Edit">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <form method="POST" style="display: inline;" onsubmit="return confirm('Apakah Anda yakin ingin menghapus pelanggan ini? Data yang dihapus tidak dapat dikembalikan.');">
-                            <input type="hidden" name="action" value="delete">
-                            <input type="hidden" name="customer_id" value="<?php echo $c['id']; ?>">
-                            <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
-                            <button type="submit" class="btn btn-danger btn-sm" title="Hapus">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </form>
-                        <?php if ($c['status'] === 'isolated'): ?>
-                            <form method="POST" style="display: inline;">
-                                <input type="hidden" name="action" value="unisolate">
-                                <input type="hidden" name="customer_id" value="<?php echo $c['id']; ?>">
-                                <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
-                                <button type="submit" class="btn btn-success btn-sm" title="Buka Isolir">
-                                    <i class="fas fa-unlock"></i>
-                                </button>
-                            </form>
-                        <?php endif; ?>
-                    </td>
-                </tr>
-                <?php endforeach; ?>
-            <?php endif; ?>
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                <?php if (empty($customers)): ?>
+                    <tr>
+                        <td colspan="7" style="text-align: center; padding: 30px; color: var(--text-secondary);">
+                            Tidak ada data pelanggan ditemukan.
+                        </td>
+                    </tr>
+                <?php else: ?>
+                    <?php foreach ($customers as $customer): ?>
+                        <tr>
+                            <td>
+                                <div style="font-weight: 600; color: var(--text-primary);">
+                                    <?php echo htmlspecialchars($customer['name']); ?>
+                                </div>
+                                <div style="font-size: 0.8rem; color: var(--text-secondary);">
+                                    <i class="fab fa-whatsapp"></i> <?php echo htmlspecialchars($customer['phone']); ?>
+                                </div>
+                            </td>
+                            <td>
+                                <code style="background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px; color: var(--neon-cyan)">
+                                    <?php echo htmlspecialchars($customer['pppoe_username'] ?: '-'); ?>
+                                </code>
+                            </td>
+                            <td>
+                                <div style="font-weight: 500;"><?php echo htmlspecialchars($customer['package_name'] ?: 'N/A'); ?></div>
+                                <div style="font-size: 0.8rem; color: var(--text-secondary);">
+                                    Isolir Tgl <?php echo $customer['isolation_date'] ?: 20; ?>
+                                </div>
+                            </td>
+                            <td>
+                                <div style="font-size: 0.85rem; color: var(--text-secondary);">
+                                    <?php echo htmlspecialchars($customer['router_name'] ?: 'Default'); ?>
+                                </div>
+                            </td>
+                            <td>
+                                <div style="font-size: 0.85rem; max-width: 15rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="<?php echo htmlspecialchars($customer['address']); ?>">
+                                    <?php echo htmlspecialchars($customer['address'] ?: '-'); ?>
+                                </div>
+                            </td>
+                            <td>
+                                <div style="font-size: 0.85rem; color: var(--text-secondary);">
+                                    <i class="fas fa-tools" style="font-size:0.75rem"></i> <?php echo htmlspecialchars($customer['technician_name'] ?: '-'); ?>
+                                </div>
+                            </td>
+                            <td>
+                                <div style="display: flex; gap: 8px;">
+                                    <button onclick='editCustomer(<?php echo json_encode($customer); ?>)' class="btn btn-secondary" style="padding: 6px 12px;" title="Edit">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <form method="POST" style="display: inline;" onsubmit="return confirm('Apakah Anda yakin ingin menghapus pelanggan ini?')">
+                                        <input type="hidden" name="action" value="delete">
+                                        <input type="hidden" name="customer_id" value="<?php echo $customer['id']; ?>">
+                                        <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+                                        <button type="submit" class="btn btn-secondary" style="padding: 6px 12px; color: #ff3131;">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
     
-    <!-- Pagination -->
     <?php if ($totalPages > 1): ?>
-    <div style="display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 20px;">
+    <div style="display: flex; justify-content: center; gap: 8px; margin-top: 24px;">
         <a href="?page=1" class="btn btn-secondary btn-sm" <?php echo $page === 1 ? 'disabled style="opacity: 0.5;"' : ''; ?>>
             <i class="fas fa-angle-double-left"></i>
         </a>
-        <a href="?page=<?php echo max(1, $page - 1); ?>" class="btn btn-secondary btn-sm" <?php echo $page === 1 ? 'disabled style="opacity: 0.5;"' : ''; ?>>
-            <i class="fas fa-angle-left"></i>
+        <a href="?page=<?php echo max(1, $page-1); ?>" class="btn btn-secondary btn-sm" <?php echo $page === 1 ? 'disabled style="opacity: 0.5;"' : ''; ?>>
+            <i class="fas fa-chevron-left"></i>
         </a>
         
-        <span style="color: var(--text-secondary);">
+        <span style="display: flex; align-items: center; padding: 0 15px; font-size: 0.9rem; color: var(--text-secondary);">
             Halaman <?php echo $page; ?> dari <?php echo $totalPages; ?>
-            (Total: <?php echo $totalCustomers; ?> pelanggan)
         </span>
         
-        <a href="?page=<?php echo min($totalPages, $page + 1); ?>" class="btn btn-secondary btn-sm" <?php echo $page === $totalPages ? 'disabled style="opacity: 0.5;"' : ''; ?>>
-            <i class="fas fa-angle-right"></i>
+        <a href="?page=<?php echo min($totalPages, $page+1); ?>" class="btn btn-secondary btn-sm" <?php echo $page === $totalPages ? 'disabled style="opacity: 0.5;"' : ''; ?>>
+            <i class="fas fa-chevron-right"></i>
         </a>
         <a href="?page=<?php echo $totalPages; ?>" class="btn btn-secondary btn-sm" <?php echo $page === $totalPages ? 'disabled style="opacity: 0.5;"' : ''; ?>>
             <i class="fas fa-angle-double-right"></i>
@@ -957,9 +865,7 @@ let pppoeUsers = [];
 
 function openPppoeUserModal() {
     const modal = document.getElementById('pppoeUserModal');
-    if (!modal) {
-        return;
-    }
+    if (!modal) return;
     modal.style.display = 'flex';
     
     const list = document.getElementById('pppoeUserList');
@@ -997,9 +903,7 @@ function openPppoeUserModal() {
 
 function renderPppoeUserList(users) {
     const list = document.getElementById('pppoeUserList');
-    if (!list) {
-        return;
-    }
+    if (!list) return;
     
     if (!users || users.length === 0) {
         list.innerHTML = '<div style="padding: 10px; color: var(--text-secondary);">Tidak ada user PPPoE ditemukan</div>';
@@ -1010,9 +914,7 @@ function renderPppoeUserList(users) {
     
     users.forEach(user => {
         const username = user.name || user['name'];
-        if (!username) {
-            return;
-        }
+        if (!username) return;
         
         const item = document.createElement('button');
         item.type = 'button';
@@ -1024,9 +926,7 @@ function renderPppoeUserList(users) {
         item.textContent = username;
         item.onclick = function() {
             const input = document.getElementById('pppoe_username_input') || document.querySelector('input[name="pppoe_username"]');
-            if (input) {
-                input.value = username;
-            }
+            if (input) input.value = username;
             closePppoeUserModal();
         };
         
@@ -1036,9 +936,7 @@ function renderPppoeUserList(users) {
 
 function closePppoeUserModal() {
     const modal = document.getElementById('pppoeUserModal');
-    if (modal) {
-        modal.style.display = 'none';
-    }
+    if (modal) modal.style.display = 'none';
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -1057,44 +955,21 @@ document.addEventListener('DOMContentLoaded', function() {
     const modal = document.getElementById('pppoeUserModal');
     if (modal) {
         modal.addEventListener('click', function(e) {
-            if (e.target === modal) {
-                closePppoeUserModal();
-            }
+            if (e.target === modal) closePppoeUserModal();
         });
     }
 });
 
 function initMap() {
-    // Add map
+    if (map) return;
     map = L.map('map-picker').setView([-6.200000, 106.816666], 13);
-    
-    // Base layers
-    var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap'
-    });
-    
-    var googleSat = L.tileLayer('https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', {
-        maxZoom: 20,
-        subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
-    });
-
-    // Add default layer
-    osm.addTo(map);
-
-    // Layer control
-    var baseMaps = {
-        "OpenStreetMap": osm,
-        "Satelit": googleSat
-    };
-    L.control.layers(baseMaps).addTo(map);
+    }).addTo(map);
     
     map.on('click', function(e) {
-        if (marker) {
-            map.removeLayer(marker);
-        }
-        
+        if (marker) map.removeLayer(marker);
         marker = L.marker(e.latlng).addTo(map);
-        
         document.querySelector('input[name="lat"]').value = e.latlng.lat.toFixed(6);
         document.querySelector('input[name="lng"]').value = e.latlng.lng.toFixed(6);
     });
@@ -1102,69 +977,34 @@ function initMap() {
 
 function initEditMap() {
     if (editMap) return;
-    
     editMap = L.map('edit-map-picker').setView([-6.200000, 106.816666], 13);
-    
-    // Base layers
-    var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap'
-    });
-    
-    var googleSat = L.tileLayer('https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', {
-        maxZoom: 20,
-        subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
-    });
-
-    // Add default layer
-    osm.addTo(editMap);
-
-    // Layer control
-    var baseMaps = {
-        "OpenStreetMap": osm,
-        "Satelit": googleSat
-    };
-    L.control.layers(baseMaps).addTo(editMap);
+    }).addTo(editMap);
     
     editMap.on('click', function(e) {
-        if (editMarker) {
-            editMap.removeLayer(editMarker);
-        }
-        
+        if (editMarker) editMap.removeLayer(editMarker);
         editMarker = L.marker(e.latlng).addTo(editMap);
-        
         document.getElementById('edit_lat').value = e.latlng.lat.toFixed(6);
         document.getElementById('edit_lng').value = e.latlng.lng.toFixed(6);
     });
 }
 
-// Search functionality
 document.getElementById('searchCustomer').addEventListener('input', function(e) {
     const search = e.target.value.toLowerCase();
     const rows = document.querySelectorAll('#customerTable tbody tr');
-    
     rows.forEach(row => {
         const text = row.textContent.toLowerCase();
         row.style.display = text.includes(search) ? '' : 'none';
     });
 });
 
-// Edit customer
 function editCustomer(customer) {
-    // If id is passed (number or string), fetch data (backward compatibility)
     if (typeof customer !== 'object') {
         fetch(`../api/customers.php?id=${customer}`)
             .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    editCustomer(data.data);
-                } else {
-                    alert('Gagal mengambil data pelanggan: ' + data.message);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Terjadi kesalahan saat mengambil data pelanggan');
-            });
+            .then(data => { if (data.success) editCustomer(data.data); })
+            .catch(console.error);
         return;
     }
 
@@ -1178,44 +1018,21 @@ function editCustomer(customer) {
     document.getElementById('edit_address').value = customer.address || '';
     document.getElementById('edit_lat').value = customer.lat || '';
     document.getElementById('edit_lng').value = customer.lng || '';
-    
-    // Set technician
-    const techSelect = document.getElementById('edit_installed_by');
-    if (techSelect) {
-        techSelect.value = customer.installed_by || '';
-    }
-
-    // Set OLT fields
     document.getElementById('edit_olt_id').value = customer.olt_id || 0;
     document.getElementById('edit_onu_sn').value = customer.onu_sn || '';
     document.getElementById('edit_pon_port').value = customer.olt_pon_port || '';
     document.getElementById('edit_onu_id').value = customer.onu_id || '';
 
-    // Reset Prov Log
     const provLog = document.getElementById('prov_log');
-    if (provLog) {
-        provLog.style.display = 'none';
-        provLog.textContent = '';
-    }
+    if (provLog) { provLog.style.display = 'none'; provLog.textContent = ''; }
 
-    // Set ODP
-    const odpSelect = document.getElementById('edit_odp_select');
-    if (odpSelect) {
-        odpSelect.value = customer.onu_odp_id || '';
-    }
-    
-    // Show modal
     document.getElementById('editCustomerModal').style.display = 'flex';
-    
-    // Initialize map if needed and set view
     setTimeout(() => {
         initEditMap();
         editMap.invalidateSize();
-        
         if (customer.lat && customer.lng) {
             const latlng = [customer.lat, customer.lng];
             editMap.setView(latlng, 15);
-            
             if (editMarker) editMap.removeLayer(editMarker);
             editMarker = L.marker(latlng).addTo(editMap);
         }
@@ -1225,8 +1042,6 @@ function editCustomer(customer) {
 function closeEditModal() {
     document.getElementById('editCustomerModal').style.display = 'none';
 }
-
-});
 
 async function doProvision() {
     const olt_id  = document.getElementById('edit_olt_id').value;
@@ -1245,13 +1060,11 @@ async function doProvision() {
         return;
     }
 
-    // Kumpulkan services yang dicentang
     const services = [];
     ['acs','pppoe','hotspot','wifi'].forEach(s => {
         if (document.getElementById('svc_' + s)?.checked) services.push(s);
     });
 
-    // Get Bindings (from edit modal)
     const p_bind = Array.from(document.querySelectorAll('input[name="edit_p_bind[]"]:checked')).map(el => el.value);
     const b_bind = Array.from(document.querySelectorAll('input[name="edit_b_bind[]"]:checked')).map(el => el.value);
 
@@ -1281,17 +1094,6 @@ async function doProvision() {
     }
 }
 
-// Close modal when clicking outside
-document.getElementById('editCustomerModal').addEventListener('click', function(e) {
-    if (e.target === this) {
-        closeEditModal();
-    }
-});
-
-// Initialize map when page loads
-setTimeout(initMap, 500);
-
-// Load ODP list for dropdowns
 function loadOdpOptions() {
     fetch('../api/onu_locations.php')
         .then(r => r.json())
@@ -1302,8 +1104,7 @@ function loadOdpOptions() {
             const editSel = document.getElementById('edit_odp_select');
             const makeOptions = (sel) => {
                 if (!sel) return;
-                // keep first option
-                sel.innerHTML = '<option value=\"\">-- Pilih ODP --</option>';
+                sel.innerHTML = '<option value="">-- Pilih ODP --</option>';
                 odps.forEach(o => {
                     const opt = document.createElement('option');
                     opt.value = o.id;
@@ -1328,20 +1129,15 @@ function toggleAddForm() {
     icon.classList.toggle('active');
     
     if (content.classList.contains('show')) {
-        setTimeout(() => {
-            initMap();
-            map.invalidateSize();
-        }, 100);
+        setTimeout(() => { initMap(); map.invalidateSize(); }, 100);
     }
 }
 
-// Name to Username logic
 const addNameInput = document.getElementById('add_customer_name');
 if (addNameInput) {
     addNameInput.addEventListener('input', function(e) {
         const name = e.target.value;
         if (!name) return;
-        
         let username = name.toLowerCase().replace(/\s+/g, '');
         checkAndSetUsername(username);
     });
@@ -1359,13 +1155,13 @@ function checkAndSetUsername(username) {
                 if (input) input.value = username;
             }
         })
-        .catch(e => console.error('Check user failed:', e));
+        .catch(console.error);
 }
 
 function startScanner(targetId) {
     document.getElementById('scannerModal').style.display = 'flex';
     html5QrCode = new Html5Qrcode("reader");
-    const qrCodeSuccessCallback = (decodedText, decodedResult) => {
+    const qrCodeSuccessCallback = (decodedText) => {
         document.getElementById(targetId).value = decodedText.trim().toUpperCase();
         stopScanner();
     };
@@ -1387,7 +1183,6 @@ function stopScanner() {
 }
 </script>
 
-<!-- Scanner Modal -->
 <div id="scannerModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; justify-content:center; align-items:center; flex-direction:column;">
     <div style="background:#111; padding:20px; border-radius:12px; width:90%; max-width:500px; text-align:center; border: 1px solid #00d2ff;">
         <h3 style="color:#00d2ff; margin-bottom:15px;"><i class="fas fa-barcode"></i> Scan Serial Number</h3>
