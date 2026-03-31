@@ -1,7 +1,7 @@
 <?php
 /**
- * OLT Smart Terminal (V8.14)
- * Stateful & Context-Aware 
+ * OLT Tank Terminal (V8.15)
+ * Extreme Prompt Detection & Debug Mode
  */
 
 error_reporting(E_ALL);
@@ -14,56 +14,51 @@ session_start();
 
 $olts = fetchAll("SELECT * FROM olt_configs ORDER BY name ASC");
 
-// Handle Context Storage
-if (!isset($_SESSION['olt_ctx'])) $_SESSION['olt_ctx'] = [];
-
 if (isset($_GET['ajax_cmd'])) {
     $olt_id = (int)$_GET['olt_id'];
     $cmd = trim($_GET['ajax_cmd']);
     $selected_olt = fetchOne("SELECT * FROM olt_configs WHERE id = ?", [$olt_id]);
     
-    // Manage Context
-    if (!isset($_SESSION['olt_ctx'][$olt_id])) $_SESSION['olt_ctx'][$olt_id] = [];
-    
-    // Special Command Handlers
-    if ($cmd == 'exit') {
-        array_pop($_SESSION['olt_ctx'][$olt_id]);
-        echo "Exiting sub-menu...";
-        exit;
-    }
-    if ($cmd == 'clear') {
-        $_SESSION['olt_ctx'][$olt_id] = [];
-        echo "Context Cleared.";
+    if (!$selected_olt) {
+        echo "Error: OLT target hilang.";
         exit;
     }
 
     $client = new OltTelnetClient($selected_olt['host'], $selected_olt['port']);
     try {
+        $diag = "--- DIAGNOSTIC START ---\n";
+        
+        // 1. Connection
         $client->connect($selected_olt['username'], $selected_olt['password']);
-        if (!empty($selected_olt['enable_password'])) $client->enable($selected_olt['enable_password']);
+        $diag .= "Login Success.\n";
         
-        // Anti-Noise for session
-        $client->execute("no logging console");
+        // 2. Strict Super Enable
+        $diag .= "Requesting Enable Mode...\n";
+        $client->write("enable\r\n");
+        $resE = $client->readUntil("/Password:|#\s*$/i", 2);
         
-        // Re-apply Context
-        foreach ($_SESSION['olt_ctx'][$olt_id] as $ctx) {
-            $client->execute($ctx);
+        if (stripos($resE, "Password:") !== false) {
+            $diag .= "Password Prompt Detected. Sending Enable Password...\n";
+            $client->write($selected_olt['enable_password'] . "\r\n");
+            $resE = $client->readUntil("/[>#]\s*$/i", 3);
         }
         
-        // Execute NEW Command
+        if (preg_match("/#\s*$/", $resE)) {
+            $diag .= "Privilege Mode ACTIVE (#).\n";
+            // SILENCE THE NOISE IMMEDIATELY
+            $client->execute("no logging console");
+            $client->execute("terminal length 0");
+        } else {
+            $diag .= "WARNING: Stuck at User Mode (>). Commands might fail.\n";
+        }
+
+        // 3. Execute Command with high timeout
         $res = $client->execute($cmd);
         
-        // Update Context if we enter sub-menus
-        if (preg_match('/(configure terminal|config|interface|vlan)/i', $cmd)) {
-            if (stripos($res, "%") === false) {
-                $_SESSION['olt_ctx'][$olt_id][] = $cmd;
-            }
-        }
-        
-        echo $res;
+        echo $res . "\n\n--- SESSION INFO ---\n" . $diag;
         $client->disconnect();
     } catch (Exception $e) {
-        echo "Error: " . $e->getMessage();
+        echo "CRITICAL ERROR: " . $e->getMessage();
     }
     exit;
 }
@@ -73,86 +68,69 @@ if (isset($_GET['ajax_cmd'])) {
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>OLT Smart Terminal v8.14</title>
+    <title>OLT Tank Terminal v8.15</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        body { background: #0c0c0c; color: #00ff00; font-family: 'Consolas', monospace; padding: 20px; }
-        .card { background: #1a1a1a; border-radius: 10px; padding: 20px; border: 1px solid #333; max-width: 1100px; margin: auto; }
-        #terminal { background: #000; height: 500px; overflow-y: auto; padding: 15px; border: 1px solid #00ff0033; margin-bottom: 15px; white-space: pre-wrap; color: #39FF14; text-shadow: 0 0 5px #39FF14; }
-        .input-group { display: flex; gap: 10px; border-top: 1px solid #333; padding-top: 15px; font-size: 18px; }
-        input[type="text"] { flex: 1; background: #000; border: 1px solid #444; color: #00ff00; padding: 12px; outline: none; border-radius: 5px; font-weight: bold; }
-        select { background: #222; color: #fff; border: 1px solid #444; padding: 10px; border-radius: 5px; }
-        .btn { background: #238636; color: #fff; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
-        .btn-red { background: #da3633; }
-        .prompt { color: #58a6ff; font-weight: bold; }
+        body { background: #050505; color: #00ff41; font-family: 'Courier New', monospace; padding: 20px; }
+        .card { background: #111; border-radius: 5px; padding: 20px; border: 2px solid #003b00; max-width: 1200px; margin: auto; box-shadow: 0 0 20px rgba(0,255,65,0.2); }
+        #terminal { background: #000; height: 500px; overflow-y: auto; padding: 15px; border: 1px solid #003b00; white-space: pre-wrap; font-size: 13px; color: #00ff41; line-height: 1.4; }
+        .input-area { display: flex; gap: 10px; margin-top: 15px; background: #001100; padding: 10px; border-radius: 4px; }
+        input[type="text"] { flex: 1; background: transparent; border: none; color: #00ff41; font-size: 18px; outline: none; font-family: inherit; }
+        select { background: #000; color: #00ff41; border: 1px solid #003b00; padding: 5px; }
+        .btn { background: #003b00; color: #00ff41; border: 1px solid #00ff41; padding: 10px 25px; cursor: pointer; font-weight: bold; }
+        .btn:hover { background: #00ff41; color: #000; }
+        .diag-msg { color: #888; font-style: italic; }
     </style>
 </head>
 <body>
     <div class="card">
-        <h2 style="color:#00ff00; margin-top:0;"><i class="fas fa-microchip"></i> Smart Terminal v8.14</h2>
-        <p style="color:#888;">Terminal ini pendaftarannya (X_X)... terminal ini "ingat" kalau Bapak masuk ke mode `config` atau `interface`. Ketik <b>clear</b> untuk reset.</p>
-        
-        <div id="terminal">> Ahsan-Network (Stateless Proxy Active) Ready...</div>
+        <h2 style="color:#00ff41; margin-top:0;"><i class="fas fa-biohazard"></i> OLT TANK TERMINAL v8.15</h2>
+        <div id="terminal">--- TANK MODE READY ---
+Tujuan: Menembus mode Admin (#) & Mematikan pesan Syslog.</div>
 
-        <div class="input-group">
+        <div class="input-area">
             <select id="olt_id">
                 <?php foreach($olts as $o): ?>
                 <option value="<?php echo $o['id']; ?>"><?php echo htmlspecialchars($o['name']); ?></option>
                 <?php endforeach; ?>
             </select>
-            <span class="prompt" id="live_prompt">#</span>
-            <input type="text" id="cmd_input" placeholder="Ketik perintah... (Enter)" autofocus>
-            <button class="btn" onclick="sendCmd()">ENTER</button>
-            <button class="btn btn-red" onclick="resetCtx()">RESET</button>
+            <span style="color: #00ff41; font-weight: bold;">root@OLT#</span>
+            <input type="text" id="cmdInput" placeholder="Ketik perintah (Lalu Enter)..." autofocus>
+            <button class="btn" onclick="sendCmd()">TEMBAK</button>
         </div>
     </div>
 
     <script>
-        const terminal = document.getElementById('terminal');
-        const cmdInput = document.getElementById('cmd_input');
-        const oltSelect = document.getElementById('olt_id');
-        const livePrompt = document.getElementById('live_prompt');
+        const term = document.getElementById('terminal');
+        const input = document.getElementById('cmdInput');
+        const oltId = document.getElementById('olt_id');
 
-        function appendOutput(text) {
-            terminal.innerText += text + "\n";
-            terminal.scrollTop = terminal.scrollHeight;
-        }
-
-        async function resetCtx() {
-            const oltId = oltSelect.value;
-            await fetch(`?ajax_cmd=clear&olt_id=${oltId}`);
-            appendOutput("\n[SYSTEM] Context Cleared. Session Reset.");
-            livePrompt.innerText = "#";
+        function append(txt) {
+            term.innerText += "\n" + txt;
+            term.scrollTop = term.scrollHeight;
         }
 
         async function sendCmd() {
-            const cmd = cmdInput.value.trim();
-            const oltId = oltSelect.value;
-            if (!cmd) return;
-
-            appendOutput(`\n${livePrompt.innerText} ${cmd}`);
-            cmdInput.value = '';
-            cmdInput.disabled = true;
+            const cmd = input.value.trim();
+            if(!cmd) return;
+            
+            append(`\n> ${cmd}`);
+            input.value = '';
+            input.disabled = true;
 
             try {
-                const response = await fetch(`?ajax_cmd=${encodeURIComponent(cmd)}&olt_id=${oltId}`);
-                const text = await response.text();
-                
-                // Update Prompt visual based on command
-                if (cmd.includes('config')) livePrompt.innerText = "(config)#";
-                if (cmd.includes('interface')) livePrompt.innerText = "(config-if)#";
-                if (cmd === 'exit') livePrompt.innerText = "#";
-
-                appendOutput(text);
-            } catch (e) {
-                appendOutput("\nError: Communication Timeout.");
+                const r = await fetch(`?ajax_cmd=${encodeURIComponent(cmd)}&olt_id=${oltId.value}`);
+                const t = await r.text();
+                append(t);
+            } catch(e) {
+                append("Error: Connection timeout.");
             } finally {
-                cmdInput.disabled = false;
-                cmdInput.focus();
+                input.disabled = false;
+                input.focus();
             }
         }
 
-        cmdInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendCmd(); });
+        input.addEventListener('keypress', (e) => { if(e.key === 'Enter') sendCmd(); });
     </script>
 </body>
 </html>
