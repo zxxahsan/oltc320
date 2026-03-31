@@ -270,7 +270,13 @@ function vsolProvisionWan($olt_id, $port, $onu_id, $vlan, $pppoe_user, $pppoe_pa
             "onu $onu_id pri wan_adv index 2 route mode internet mtu 1492",
             "onu $onu_id pri wan_adv index 2 route ipv4 pppoe proxy disable user $pppoe_user pwd $pppoe_pass mode auto nat enable",
             "onu $onu_id pri wan_adv index 2 vlan tag wan_vlan $vlan 0",
-            "onu $onu_id pri wan_adv index 2 bind lan1 ssid1 ssid2",
+            "onu $onu_id pri wan_adv index 2 bind ssid1",
+            
+            // Hotspot Bridge (Index 3) - VLAN 200
+            "onu $onu_id pri wan_adv add bridge",
+            "onu $onu_id pri wan_adv index 3 bridge mode other mtu 1500",
+            "onu $onu_id pri wan_adv index 3 vlan tag wan_vlan 200 0",
+            "onu $onu_id pri wan_adv index 3 bind lan1 ssid2",
             
             // WiFi SSID 2 for Hotspot
             "onu $onu_id pri wifi_ssid 2 name Jinom_Hotspot hide disable auth_mode open encrypt_type none",
