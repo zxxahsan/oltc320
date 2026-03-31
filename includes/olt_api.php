@@ -378,8 +378,12 @@ function vsolFindOnuBySn($olt_id, $sn) {
     if (!$olt) return ['success' => false, 'message' => 'OLT not found'];
 
     try {
-        $client = new OltTelnetClient($olt['host'], $olt['port'], $olt['username'], $olt['password']);
-        $client->connect();
+        $client = new OltTelnetClient($olt['host'], $olt['port'], 5);
+        $client->connect($olt['username'], $olt['password']);
+        
+        if (!empty($olt['enable_password'])) {
+            $client->enable($olt['enable_password']);
+        }
         
         // Try global SN search first
         $client->write("show gpon onu sn-item $sn\n");
@@ -423,10 +427,10 @@ function vsolFindOnuBySn($olt_id, $sn) {
             ];
         }
 
-        return ['success' => false, 'message' => "SN $sn not found on OLT", 'raw' => $resp];
+        return ['success' => false, 'message' => "SN $sn tidak ditemukan di OLT ini.", 'raw' => $resp];
 
     } catch (Exception $e) {
-        if ($client) $client->disconnect();
+        if (isset($client)) $client->disconnect();
         return ['success' => false, 'message' => 'Telnet Error: ' . $e->getMessage()];
     }
 }
