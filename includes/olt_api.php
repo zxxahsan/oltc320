@@ -385,20 +385,34 @@ function vsolFindOnuBySn($olt_id, $sn) {
             $client->enable($olt['enable_password']);
         }
         
-        // Try global SN search first
-        $client->write("show onu sn-list | include $sn\n");
+        // Try global search (V-SOL V1.3.x dialect)
+        $client->write("show gpon onu sn-info $sn\n");
         $resp = $client->readUntil("/[>#]/", 5);
 
-        // Try uncfg list
+        // Try hyphenated state (Common in older FW)
         if (strpos($resp, '0/') === false) {
-            $client->write("show onu uncfg\n");
+            $client->write("show gpon onu-state\n");
+            $resp .= "\n" . $client->readUntil("/[>#]/", 10);
+        }
+
+        // Try hyphenated config
+        if (strpos($resp, '0/') === false) {
+            $client->write("show gpon onu-cfg\n");
+            $resp .= "\n" . $client->readUntil("/[>#]/", 10);
+        }
+
+        // Try uncfg with hyphen
+        if (strpos($resp, '0/') === false) {
+            $client->write("show gpon uncfg-onu\n");
             $resp .= "\n" . $client->readUntil("/[>#]/", 5);
         }
 
-        // AGGRESSIVE: Try state list
+        // FALLBACK: Auto-discovery of commands if all above failed
         if (strpos($resp, '0/') === false) {
-            $client->write("show onu state\n");
-            $resp .= "\n" . $client->readUntil("/[>#]/", 10);
+             $client->write("show ?\n");
+             $resp .= "\n--- SHOW HELP ---\n" . $client->readUntil("/[>#]/", 2);
+             $client->write("show gpon ?\n");
+             $resp .= "\n--- SHOW GPON HELP ---\n" . $client->readUntil("/[>#]/", 2);
         }
 
         $client->disconnect();
@@ -407,25 +421,25 @@ function vsolFindOnuBySn($olt_id, $sn) {
         $port = null;
         $onu_id = null;
 
-        // Pattern 1: Table list format (Index | Port | SN)
-        if (preg_match('/(\d+)\s+0\/(\d+)\s+'.$sn.'/i', $resp, $m)) {
-            $port = $m[2];
-            $onu_id = $m[1];
-        }
-        // Pattern 2: Global search/state format (Port ONU_ID ... SN)
-        elseif (preg_match('/0\/(\d+)\s+(\d+)\s+.*?'.$sn.'/i', $resp, $m)) {
-            $port = $m[1];
-            $onu_id = $m[2];
-        }
-        // Pattern 3: GPON OLT PON Port: 0/8, ONU ID: 40
-        elseif (preg_match('/Port:\s*0\/(\d+),\s*ONU ID:\s*(\d+)/i', $resp, $m)) {
+        // Pattern 1: GPON OLT PON Port: 0/8, ONU ID: 40
+        if (preg_match('/Port:\s*0\/(\d+),\s*ONU ID:\s*(\d+)/i', $resp, $m)) {
             $port = $m[1];
             $onu_id = $m[2];
         } 
-        // Pattern 4: Interface style (0/8:40)
+        // Pattern 2: Interface style (0/8:40)
         elseif (preg_match('/0\/(\d+):(\d+)/i', $resp, $m)) {
             $port = $m[1];
             $onu_id = $m[2];
+        }
+        // Pattern 3: Table list format (Index | Port | SN)
+        elseif (preg_match('/(\d+)\s+0\/(\d+)\s+'.$sn.'/i', $resp, $m)) {
+            $port = $m[2];
+            $onu_id = $m[1];
+        }
+        // Pattern 4: Global search/state format (Port ONU_ID ... SN)
+        elseif (preg_match('/(\d+)\s+0\/(\d+)\s+.*?'.$sn.'/i', $resp, $m) || preg_match('/0\/(\d+)\s+(\d+)\s+.*?'.$sn.'/i', $resp, $m)) {
+            $port = isset($m[2]) ? (strpos($m[0], '0/') === 0 ? $m[1] : $m[2]) : null;
+            $onu_id = isset($m[2]) ? (strpos($m[0], '0/') === 0 ? $m[2] : $m[1]) : null;
         }
 
         if ($port !== null && $onu_id !== null) {
