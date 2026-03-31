@@ -92,16 +92,35 @@ function parseConfig() {
     // === CLEAN THE TEXT ===
     // 1. Remove ANSI escape codes
     let text = rawText.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, '');
-    // 2. Remove telnet IAC sequences
+    // 2. Remove telnet IAC sequences  
     text = text.replace(/[\xFF][\xFB-\xFF]./g, '');
-    // 3. Normalize line endings
-    text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 
-    const lines = text.split('\n');
+    // === DEBUG: Show first char codes to detect separator type ===
+    let charSample = '';
+    for (let i = 0; i < Math.min(300, text.length); i++) {
+        const c = text.charCodeAt(i);
+        if (c < 32 || c > 126) charSample += `[${c}]`;
+    }
+
+    // 3. Normalize ALL possible line endings (including Unicode separators)
+    text = text.replace(/\r\n/g, '\n')
+               .replace(/\r/g, '\n')
+               .replace(/\u0085/g, '\n')   // NEL
+               .replace(/\u2028/g, '\n')   // Line Separator
+               .replace(/\u2029/g, '\n');  // Paragraph Separator
+
+    // Also try splitting on any whitespace run if still 1 line
+    let lines = text.split('\n');
+    if (lines.length <= 2 && text.includes('interface')) {
+        // Fallback: split on 'interface' keyword as delimiter detection
+        lines = text.replace(/(\binterface\b)/g, '\n$1').split('\n');
+    }
+
     const debugInfo = {
         totalLines: lines.length,
         gponFound: [],
-        onuAddFound: 0
+        onuAddFound: 0,
+        charSample: charSample.substring(0, 200)
     };
 
     const onus = {};
@@ -162,9 +181,11 @@ function parseConfig() {
 
     // === DEBUG OUTPUT ===
     const dbg = document.getElementById('debug_box');
-    dbg.textContent = `Debug: ${debugInfo.totalLines} baris terbaca | `
-        + `GPON port ditemukan: [${debugInfo.gponFound.join(', ')}] | `
-        + `Baris "onu add": ${debugInfo.onuAddFound}`;
+    dbg.innerHTML = `Debug: ${debugInfo.totalLines} baris terbaca | `
+        + `GPON port: [${debugInfo.gponFound.join(', ')||'tidak ada'}] | `
+        + `"onu add": ${debugInfo.onuAddFound}<br>`
+        + `Char codes (non-printable): <b>${debugInfo.charSample || '(tidak ada)'}</b><br>`
+        + `Total karakter: ${rawText.length}`;
     dbg.style.display = 'block';
 
     allData = Object.values(onus).sort((a,b) => a.port - b.port || a.id - b.id);
