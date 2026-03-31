@@ -349,7 +349,7 @@ async function findOnOlt() {
                 logBox.innerHTML += `\n✓ Data pelanggan "${cust.name}" juga ditemukan di database.`;
             }
         } else {
-            logBox.innerHTML = `<span class="err">✗ SN Tidak Ditemukan di OLT.</span>\n  Pesan: ${data.message}\n\nPastikan ONU sudah tercolok dan SN benar (biasanya 12-16 karakter).`;
+            logBox.innerHTML = `<span class="err">✗ SN Tidak Ditemukan di OLT.</span>\n  Pesan: ${data.message}\n\nPastikan ONU sudah tercolok dan SN benar.\n\n<details><summary style="cursor:pointer;color:#888;">Tampilkan Log Mentah (Raw Output)</summary><pre style="font-size:10px;margin-top:10px;color:#666;border:1px solid #222;padding:5px;">${data.raw || 'Tidak ada data raw.'}</pre></details>`;
         }
     } catch(e) {
         logBox.textContent = '✗ Error: ' + e.message;

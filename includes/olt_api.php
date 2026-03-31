@@ -389,10 +389,16 @@ function vsolFindOnuBySn($olt_id, $sn) {
         $client->write("show gpon onu sn-item $sn\n");
         $resp = $client->readUntil("/[>#]/", 3);
 
-        // Try unconfigured list if not found
+        // Try unconfigured list
         if (strpos($resp, '0/') === false) {
             $client->write("show gpon onu unconfigured\n");
             $resp .= "\n" . $client->readUntil("/[>#]/", 5);
+        }
+
+        // AGGRESSIVE: Try state list (for online/configured)
+        if (strpos($resp, '0/') === false) {
+            $client->write("show gpon onu state\n");
+            $resp .= "\n" . $client->readUntil("/[>#]/", 8);
         }
 
         $client->disconnect();
@@ -412,16 +418,14 @@ function vsolFindOnuBySn($olt_id, $sn) {
             $onu_id = $m[2];
         }
         // Pattern 3: Table list format (Index | Port | SN)
-        // e.g. " 1 0/8 GPON0123... Unconfigured"
         elseif (preg_match('/(\d+)\s+0\/(\d+)\s+'.$sn.'/i', $resp, $m)) {
             $port = $m[2];
             $onu_id = $m[1];
         }
-        // Pattern 4: Global search format
-        elseif (preg_match('/PON ID:\s*0\/(\d+).*?SN:\s*'.$sn.'/i', $resp, $m)) {
+        // Pattern 4: Global search/state format
+        elseif (preg_match('/0\/(\d+)\s+(\d+)\s+.*?'.$sn.'/i', $resp, $m)) {
             $port = $m[1];
-            // Might need another lookup for ONU ID if it's unconfigured
-            if (preg_match('/ONU ID:\s*(\d+)/i', $resp, $mi)) $onu_id = $mi[1];
+            $onu_id = $m[2];
         }
 
         if ($port !== null && $onu_id !== null) {
