@@ -4,6 +4,10 @@
  * Standalone investigation tool for raw OLT CLI output
  */
 
+set_time_limit(30); // Prevent infinite loading
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
 require_once '../includes/auth.php';
 requireAdminLogin();
 require_once '../includes/olt_api.php';

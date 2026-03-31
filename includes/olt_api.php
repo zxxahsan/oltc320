@@ -98,10 +98,12 @@ class OltTelnetClient {
         $wait = $timeout ?? $this->timeout;
         
         while (!feof($this->socket)) {
+            // Check if connection is still alive periodically
             $char = fgetc($this->socket);
             if ($char === false) {
-                usleep(5000); 
                 if (time() - $start > $wait) break;
+                // If stream is blocking but not closed, wait a bit
+                usleep(5000); 
                 continue;
             }
             
