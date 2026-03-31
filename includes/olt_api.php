@@ -385,15 +385,10 @@ function vsolFindOnuBySn($olt_id, $sn) {
             $client->enable($olt['enable_password']);
         }
         
-        // v1.10 BRUTE FORCE: Download full config as CLI grep is missing
+        // v1.11 PERFECTED BRUTE FORCE:
+        // OLT V1.3.9R requires case-insensitive matching and 'onu add ... sn' pattern.
         $client->write("show running-config\n");
-        $resp = $client->readUntil("/[>#]/", 30);
-
-        // Also get version for fingerprinting
-        $client->write("show version\n");
-        $resp .= "\n--- VERSION ---\n" . $client->readUntil("/[>#]/", 5);
-        $client->write("show system\n");
-        $resp .= "\n--- SYSTEM ---\n" . $client->readUntil("/[>#]/", 5);
+        $resp = $client->readUntil("/[>#]/", 45); // Increased timeout for large config
 
         $client->disconnect();
 
@@ -408,22 +403,29 @@ function vsolFindOnuBySn($olt_id, $sn) {
             $line = trim($line);
             
             // Detect Port context: interface gpon 0/x
-            if (preg_match('/interface\s+gpon\s+0\/(\d+)/i', $line, $m)) {
-                $current_port = $m[1];
+            if (preg_match('/interface\s+gpon\s+0\/(\d+)/i', $line, $mt)) {
+                $current_port = $mt[1];
             }
             
-            // Detect ONU ID and SN: onu 40 sn-item GPON...
-            if (preg_match('/onu\s+(\d+)\s+sn-item\s+'.$sn.'/i', $line, $m)) {
+            // Pattern 1: onu add 40 profile Jinom sn GPON001ef919
+            if (preg_match('/onu\s+add\s+(\d+).*?sn\s+('.$sn.')/i', $line, $m)) {
                 $onu_id = $m[1];
                 $port = $current_port;
-                break; // Found it!
+                break;
+            }
+            // Pattern 2: onu 40 sn-item GPON...
+            if (preg_match('/onu\s+(\d+)\s+sn-item\s+('.$sn.')/i', $line, $m)) {
+                $onu_id = $m[1];
+                $port = $current_port;
+                break;
             }
             
-            // Fallback: If SN is in a different format in this config
+            // Fallback: If SN is in a different format in this config (case-insensitive)
             if (stripos($line, $sn) !== false) {
-                 if (preg_match('/onu\s+(\d+)/i', $line, $mi)) $onu_id = $mi[1];
-                 $port = $current_port;
-                 // Don't break yet, might find a better match
+                 if (preg_match('/onu\s+(\d+)/i', $line, $mi)) {
+                     $onu_id = $mi[1];
+                     $port = $current_port;
+                 }
             }
         }
 
@@ -432,11 +434,11 @@ function vsolFindOnuBySn($olt_id, $sn) {
                 'success' => true, 
                 'port' => $port, 
                 'onu_id' => $onu_id,
-                'message' => "Found SN $sn at Port 0/$port ID $onu_id (v1.10)"
+                'message' => "Found SN $sn at Port 0/$port ID $onu_id (v1.11)"
             ];
         }
 
-        return ['success' => false, 'message' => "SN $sn tidak ditemukan di running-config (v1.10).", 'raw' => $resp];
+        return ['success' => false, 'message' => "SN $sn tidak ditemukan di running-config (v1.11).", 'raw' => $resp];
 
     } catch (Exception $e) {
         if (isset($client)) $client->disconnect();
