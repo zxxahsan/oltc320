@@ -28,12 +28,12 @@ try {
         echo "Success: Entered enable mode!\n\n";
     }
 
-    // Deep investigation of show commands
+    // The Gold Standard: show running-config
     $test_commands = [
-        "show ?",
-        "show gpon ?",
-        "show gpon onu",
-        "show gpon onu unauthentication",
+        "terminal length 0",
+        "list",
+        "show running-config",
+        "show ip interface brief",
         "exit"
     ];
 
