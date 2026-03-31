@@ -136,6 +136,9 @@ ob_start();
                 </div>
             </div>
 
+            <!-- Hidden Target SN for Cleanup Verification -->
+            <input type="hidden" id="f_active_sn" value="">
+
             <hr style="border-color:#222;margin:16px 0;">
 
             <!-- FORM MANUAL -->
@@ -208,7 +211,7 @@ ob_start();
                 </label>
                 <div id="delete_confirm_step" style="display:none;">
                     <p style="font-size:11px; color:#aaa; margin-bottom:10px;">
-                        Tindakan ini akan menghapus **Total** seluruh konfigurasi pada ONU ini (WAN Index 1-8, ACS TR-069, dan WiFi SSID). Pelanggan akan terputus total.
+                        Tindakan ini akan menghapus **Total** seluruh konfigurasi pada ONU ini (WAN Index 1-8, ACS TR-069, dan Nama SSID). WiFi 2.4G/5G akan tetap aktif.
                     </p>
                     
                     <div class="form-group">
@@ -311,6 +314,7 @@ function fillFromCustomer(c) {
     document.getElementById('f_port').value      = c.olt_pon_port || '';
     document.getElementById('f_onu_id').value    = c.onu_id || '';
     document.getElementById('f_pppoe_user').value = c.pppoe_username || '';
+    document.getElementById('f_active_sn').value  = c.onu_sn || '';
     document.getElementById('search_cust').value = c.name;
     document.getElementById('cust_dropdown').style.display = 'none';
 
@@ -347,6 +351,7 @@ async function findOnOlt() {
         if (data.success) {
             document.getElementById('f_port').value = data.port;
             document.getElementById('f_onu_id').value = data.onu_id;
+            document.getElementById('f_active_sn').value = sn;
             logBox.innerHTML = `<span class="ok">✓ SN Ditemukan!</span>\n  Port: 0/${data.port}\n  ONU ID: ${data.onu_id}\n\nSilakan lengkapi data lainnya dan klik "KIRIM KE OLT".`;
             
             // Try to lookup customer by SN locally too
@@ -380,7 +385,7 @@ function toggleDeleteArea(show) {
 // ── Validasi Cleanup
 function validateCleanup() {
     const snInput  = document.getElementById('f_confirm_sn').value.trim().toUpperCase();
-    const targetSn = document.getElementById('search_cust').value.trim().toUpperCase();
+    const targetSn = document.getElementById('f_active_sn').value.trim().toUpperCase();
     const isChecked = document.getElementById('chk_delete_sure').checked;
     const btn = document.getElementById('btn_delete_final');
 
@@ -405,9 +410,9 @@ async function doDeleteWan() {
 
     if (!olt_id || !port || !onu_id) { alert('Pilih OLT, Port, dan ID terlebih dahulu!'); return; }
     
-    // Final check for SN match
+    // Final check for SN match against hidden field
     const snInput = document.getElementById('f_confirm_sn').value.trim().toUpperCase();
-    const targetSn = document.getElementById('search_cust').value.trim().toUpperCase();
+    const targetSn = document.getElementById('f_active_sn').value.trim().toUpperCase();
     if (snInput !== targetSn) { alert('SN Konfirmasi tidak cocok!'); return; }
 
     if (!confirm('PERINGATAN TERAKHIR: Anda akan MENGHAPUS TOTAL (WIPE) konfigurasi ONU ini. Lanjut?')) return;

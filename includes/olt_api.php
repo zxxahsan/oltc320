@@ -481,14 +481,12 @@ function vsolDeleteOnuWanConfigs($olt_id, $port, $onu_id) {
         $client->readUntil("/[>#]/", 1);
         $log[] = "✓ Konfigurasi ACS TR-069 dibersihkan.";
 
-        // 3. Hapus Setting WiFi (SSID 1, 2, 5, 6)
+        // 3. Hapus Setting WiFi (HANYA SSID, jangan matikan switch)
         foreach ([1, 2, 5, 6] as $ssid) {
-            $client->write("no onu {$onu_id} pri wifi_switch $ssid\n");
-            $client->readUntil("/[>#]/", 1);
             $client->write("no onu {$onu_id} pri wifi_ssid $ssid\n");
             $client->readUntil("/[>#]/", 1);
         }
-        $log[] = "✓ Konfigurasi WiFi SSID dibersihkan.";
+        $log[] = "✓ Nama WiFi (SSID) dibersihkan (Switch WiFi tetap ON).";
 
         $client->write("onu {$onu_id} pri wan_adv commit\n");
         $client->readUntil("/[>#]/", 5);
