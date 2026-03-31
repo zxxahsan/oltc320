@@ -6,9 +6,9 @@
 
 // Database Configuration
 define('DB_HOST', 'localhost');
-define('DB_NAME', 'gembok_simple2');
-define('DB_USER', 'root');
-define('DB_PASS', '');
+define('DB_NAME', 'bill_db');
+define('DB_USER', 'zul');
+define('DB_PASS', 'zulahsan07');
 
 // MikroTik Configuration
 define('MIKROTIK_HOST', '192.168.88.1');
@@ -18,7 +18,7 @@ define('MIKROTIK_PORT', 8728);
 
 // Application Configuration
 define('APP_NAME', 'GEMBOK');
-define('APP_URL', 'http://localhost/gembok-simple2');
+define('APP_URL', 'http://localhost/gembokcontainer');
 define('APP_VERSION', '3.0.1');
 define('GEMBOK_UPDATE_VERSION_URL', 'https://raw.githubusercontent.com/zxxahsan/bill/main/version.txt');
 

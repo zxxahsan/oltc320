@@ -1332,25 +1332,29 @@ function syncHotspotSalesStatus()
  * Parse Mikhmon-style on-login script for validity metadata
  */
 function parseMikhmonOnLogin($script) {
-    $data = ['validity' => '-', 'price' => 0];
+    $data = [
+        'validity' => '-',
+        'price' => 0,
+        'selling_price' => 0,
+        'timelimit' => '',
+        'mode' => 'none'
+    ];
+    
     if (empty($script)) return $data;
     
-    // 1. Handle Comma-Separated Mikhmon v3 format (e.g. ,up,5000,1d,5000,,disable)
-    if (strpos($script, ',') !== false) {
-        $parts = explode(',', $script);
-        // Indices: [1]=mode, [2]=price, [3]=validity
-        if (isset($parts[2]) && is_numeric($parts[2])) {
-            $data['price'] = (int)$parts[2];
-        }
-        if (isset($parts[3]) && !empty($parts[3])) {
-            $data['validity'] = $parts[3];
-        }
-        if ($data['price'] > 0 || ($data['validity'] !== '-' && !empty($data['validity']))) {
-            return $data;
-        }
+    // 1. Handle Comma-Separated Mikhmon v3 format
+    if (strpos($script, '# ,') !== false) {
+        $metaPart = explode('# ,', $script);
+        $parts = explode(',', end($metaPart));
+        if (isset($parts[0])) $data['mode'] = trim($parts[0]);
+        if (isset($parts[1]) && is_numeric($parts[1])) $data['price'] = (int)$parts[1];
+        if (isset($parts[2])) $data['validity'] = trim($parts[2]);
+        if (isset($parts[3]) && is_numeric($parts[3])) $data['selling_price'] = (int)$parts[3];
+        if (isset($parts[5])) $data['timelimit'] = trim($parts[5]);
+        return $data;
     }
 
-    // 2. Handle Key=Value format (e.g. set validity=1d; set price=5000;)
+    // 2. Fallback: Handle Key=Value format
     if (preg_match('/validity=([^;|\s,]+)/', $script, $matches)) {
         $data['validity'] = trim($matches[1], '"\'');
     }
