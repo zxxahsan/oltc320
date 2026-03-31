@@ -62,9 +62,35 @@ fclose($lock);
  */
 function genieacsTagDevice($sn, $tag) {
     $acsUrl = defined('GENIEACS_URL') ? GENIEACS_URL : 'http://172.16.200.3:7557';
-    $url = rtrim($acsUrl, '/') . "/devices/" . urlencode($sn) . "/tags/" . urlencode($tag);
+    $baseUrl = rtrim($acsUrl, '/');
     
-    $ch = curl_init($url);
+    // 1. Check if device exists and already has the tag
+    $checkUrl = "$baseUrl/devices?query=" . urlencode(json_encode(['_id' => $sn])) . "&projection=_tags";
+    
+    $ch = curl_init($checkUrl);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    
+    if ($httpCode === 200 && !empty($response)) {
+        $devices = json_decode($response, true);
+        if (!empty($devices) && is_array($devices)) {
+            $device = $devices[0];
+            if (isset($device['_tags']) && is_array($device['_tags'])) {
+                if (in_array($tag, $device['_tags'])) {
+                    // Tag already exists, ignore/skip
+                    return true; 
+                }
+            }
+        }
+    }
+
+    // 2. Add tag if not present
+    $tagUrl = "$baseUrl/devices/" . urlencode($sn) . "/tags/" . urlencode($tag);
+    
+    $ch = curl_init($tagUrl);
     curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_TIMEOUT, 10);

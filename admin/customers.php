@@ -203,9 +203,10 @@ if (!empty($search)) {
 $totalRecords = fetchOne("SELECT COUNT(*) as count FROM customers WHERE $whereClause", $params)['count'];
 $totalPages = ceil($totalRecords / $limit);
 
-// Fetch customers
+// Fetch customers with tagging status
 $customers = fetchAll("
-    SELECT c.*, p.name as package_name, p.price as package_price, r.name as router_name, t.name as technician_name
+    SELECT c.*, p.name as package_name, p.price as package_price, r.name as router_name, t.name as technician_name,
+    (SELECT status FROM task_queue WHERE task_type = 'acs_tag' AND JSON_EXTRACT(payload, '$.tag') = CAST(c.id AS CHAR) ORDER BY created_at DESC LIMIT 1) as tag_status
     FROM customers c
     LEFT JOIN packages p ON c.package_id = p.id
     LEFT JOIN routers r ON c.router_id = r.id
@@ -531,14 +532,71 @@ $customers = fetchAll("
                             <button type="button" class="btn btn-secondary" onclick="startScanner('add_onu_sn')" title="Scan Barcode SN">
                                 <i class="fas fa-camera"></i>
                             </button>
+                            <button type="button" class="btn btn-secondary" onclick="findOnOlt('add')" id="btn_find_olt_add" title="Cari Port & ID di OLT">
+                                <i class="fas fa-search-plus"></i>
+                            </button>
                         </div>
                     </div>
                     <div><label class="form-label">PON Port (0/x)</label>
-                        <input type="number" name="olt_pon_port" class="form-control" min="1" max="8">
+                        <input type="number" name="olt_pon_port" id="add_pon_port" class="form-control" min="1" max="8">
                     </div>
                     <div><label class="form-label">ONU ID</label>
-                        <input type="number" name="onu_id" class="form-control" placeholder="Nomor ONU di port">
+                        <input type="number" name="onu_id" id="add_onu_id" class="form-control" placeholder="Nomor ONU di port">
                     </div>
+                </div>
+
+                <!-- PROVISIONING PANEL (ADD FORM) -->
+                <div style="margin-top:15px;padding:12px;background:rgba(0,255,65,0.03);border:1px solid rgba(0,255,65,0.1);border-radius:8px;">
+                    <label style="color:#00ff41;display:block;margin-bottom:10px;font-size:12px;font-weight:bold;"><i class="fas fa-rocket"></i> Provisioning ONU (Opsional)</label>
+                    <div class="svc-grid">
+                        <div class="svc-label">
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <input type="checkbox" id="add_svc_acs" value="acs" checked>
+                                <span>TR-069<br><small>VLAN 101</small></span>
+                            </div>
+                            <label style="display:flex; align-items:center; gap:5px; margin-top:5px; font-size:10px; color:#888;">
+                                <input type="checkbox" id="add_confirm_tag" checked> Kirim Tag ke ACS
+                            </label>
+                        </div>
+                        <div class="svc-label">
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <input type="checkbox" id="add_svc_wifi" value="wifi" checked>
+                                <span>WiFi SSID 2<br><small>Jinom_Hotspot</small></span>
+                            </div>
+                        </div>
+                        <div class="svc-label" style="grid-column: span 2;">
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <input type="checkbox" id="add_svc_pppoe" value="pppoe" checked>
+                                <span>PPPoE (VLAN 100)</span>
+                            </div>
+                            <div class="binding-box">
+                                <?php for($i=1;$i<=4;$i++): ?>
+                                <label class="bind-item active"><input type="checkbox" name="add_p_bind[]" value="LAN<?php echo $i; ?>" checked onchange="syncBindings('add')">L<?php echo $i; ?></label>
+                                <?php endfor; ?>
+                                <?php for($i=1;$i<=8;$i++): ?>
+                                <label class="bind-item active"><input type="checkbox" name="add_p_bind[]" value="SSID<?php echo $i; ?>" checked onchange="syncBindings('add')">W<?php echo $i; ?></label>
+                                <?php endfor; ?>
+                            </div>
+                        </div>
+                        <div class="svc-label" style="grid-column: span 2;">
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <input type="checkbox" id="add_svc_hotspot" value="hotspot">
+                                <span>Bridge (VLAN 200)</span>
+                            </div>
+                            <div class="binding-box">
+                                <?php for($i=1;$i<=4;$i++): ?>
+                                <label class="bind-item"><input type="checkbox" name="add_b_bind[]" value="LAN<?php echo $i; ?>" onchange="syncBindings('add')">L<?php echo $i; ?></label>
+                                <?php endfor; ?>
+                                <?php for($i=1;$i<=8;$i++): ?>
+                                <label class="bind-item"><input type="checkbox" name="add_b_bind[]" value="SSID<?php echo $i; ?>" onchange="syncBindings('add')">W<?php echo $i; ?></label>
+                                <?php endfor; ?>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="add_prov_log" class="prov-log-box" style="display:none;margin-top:10px;"></div>
+                    <button type="button" class="btn btn-sm" style="background:#00ff41;color:#000;width:100%;margin-top:8px;" onclick="doProvision('add')">
+                        <i class="fas fa-bolt"></i> PROVISIONING SEKARANG
+                    </button>
                 </div>
             </div>
             
@@ -597,8 +655,16 @@ $customers = fetchAll("
                                 <div style="font-weight: 600; color: var(--text-primary);">
                                     <?php echo htmlspecialchars($customer['name']); ?>
                                 </div>
-                                <div style="font-size: 0.8rem; color: var(--text-secondary);">
+                                <div style="font-size: 0.8rem; color: var(--text-secondary); display: flex; align-items: center; gap: 6px;">
                                     <i class="fab fa-whatsapp"></i> <?php echo htmlspecialchars($customer['phone']); ?>
+                                    <?php 
+                                        $tagColor = '#444'; 
+                                        $tagTitle = 'Belum/Tidak ditag ke ACS';
+                                        if ($customer['tag_status'] === 'completed') { $tagColor = '#00ff41'; $tagTitle = 'Terkonfirmasi di ACS'; }
+                                        elseif ($customer['tag_status'] === 'pending' || $customer['tag_status'] === 'processing') { $tagColor = '#ffaa00'; $tagTitle = 'Menunggu konfirmasi ACS (5 menit)'; }
+                                        elseif ($customer['tag_status'] === 'failed') { $tagColor = '#ff3131'; $tagTitle = 'Gagal konfirmasi ACS'; }
+                                    ?>
+                                    <i class="fas fa-tag" style="color:<?php echo $tagColor; ?>; font-size: 10px;" title="<?php echo $tagTitle; ?>"></i>
                                 </div>
                             </td>
                             <td>
@@ -915,43 +981,45 @@ function openPppoeUserModal() {
         });
 }
 
-async function findOnOlt() {
-    const olt_id = document.getElementById('edit_olt_id').value;
-    const sn     = document.getElementById('edit_onu_sn').value.trim();
-    const btn    = document.getElementById('btn_find_olt');
-    const logBox = document.getElementById('prov_log');
+async function findOnOlt(mode = 'edit') {
+    const olt_id = document.getElementById(mode + '_olt_id').value;
+    const sn     = document.getElementById(mode + '_onu_sn').value.trim();
+    const btn    = document.getElementById('btn_find_olt' + (mode === 'add' ? '_add' : ''));
+    const logBox = document.getElementById(mode + '_prov_log');
 
     if (!olt_id || olt_id == 0) { alert('Pilih OLT terlebih dahulu!'); return; }
     if (!sn || sn.length < 8) { alert('Masukkan Serial Number (min 8 karakter)!'); return; }
 
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-    logBox.style.display = 'block';
-    logBox.textContent = `⏳ Mencari SN: ${sn} di OLT...`;
+    if (logBox) {
+        logBox.style.display = 'block';
+        logBox.textContent = `⏳ Mencari SN: ${sn} di OLT...`;
+    }
 
     try {
         const r = await fetch(`customers.php?ajax_action=find_sn&olt_id=${olt_id}&sn=${sn}`);
         const data = await r.json();
         
         if (data.success) {
-            document.getElementById('edit_pon_port').value = data.port;
-            document.getElementById('edit_onu_id').value = data.onu_id;
-            logBox.innerHTML = `<span style="color:#00ff41">✓ SN Ditemukan!</span>\n  Port: 0/${data.port}\n  ONU ID: ${data.onu_id}\n\nSilakan klik "KIRIM KE OLT" untuk provisioning.`;
+            document.getElementById(mode + '_pon_port').value = data.port;
+            document.getElementById(mode + '_onu_id').value = data.onu_id;
+            if (logBox) logBox.innerHTML = `<span style="color:#00ff41">✓ SN Ditemukan!</span>\n  Port: 0/${data.port}\n  ONU ID: ${data.onu_id}`;
         } else {
-            logBox.innerHTML = `<span style="color:#ff3131">✗ SN Tidak Ditemukan di OLT.</span>\n  Pesan: ${data.message}`;
+            if (logBox) logBox.innerHTML = `<span style="color:#ff3131">✗ SN Tidak Ditemukan di OLT.</span>\n  Pesan: ${data.message}`;
         }
     } catch(e) {
-        logBox.textContent = '✗ Error: ' + e.message;
+        if (logBox) logBox.textContent = '✗ Error: ' + e.message;
     } finally {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-search-plus"></i>';
     }
 }
 
-// Port Binding Sync (v1.17)
-function syncBindings() {
-    const p_binds = document.querySelectorAll('input[name="edit_p_bind[]"]');
-    const b_binds = document.querySelectorAll('input[name="edit_b_bind[]"]');
+// Port Binding Sync (v1.17) - Refactored for Multi-mode
+function syncBindings(mode = 'edit') {
+    const p_binds = document.querySelectorAll(`input[name="${mode}_p_bind[]"]`);
+    const b_binds = document.querySelectorAll(`input[name="${mode}_b_bind[]"]`);
 
     const updateLabel = (el) => {
         const lbl = el.parentElement;
@@ -968,177 +1036,35 @@ function syncBindings() {
     });
 }
 
-function renderPppoeUserList(users) {
-    const list = document.getElementById('pppoeUserList');
-    if (!list) return;
-    
-    if (!users || users.length === 0) {
-        list.innerHTML = '<div style="padding: 10px; color: var(--text-secondary);">Tidak ada user PPPoE ditemukan</div>';
-        return;
-    }
-    
-    list.innerHTML = '';
-    
-    users.forEach(user => {
-        const username = user.name || user['name'];
-        if (!username) return;
-        
-        const item = document.createElement('button');
-        item.type = 'button';
-        item.className = 'btn btn-secondary';
-        item.style.display = 'block';
-        item.style.width = '100%';
-        item.style.textAlign = 'left';
-        item.style.marginBottom = '8px';
-        item.textContent = username;
-        item.onclick = function() {
-            const input = document.getElementById('pppoe_username_input') || document.querySelector('input[name="pppoe_username"]');
-            if (input) input.value = username;
-            closePppoeUserModal();
-        };
-        
-        list.appendChild(item);
-    });
-}
+// Global provisioning trigger
+async function doProvision(mode = 'edit') {
+    const olt_id  = document.getElementById(mode + '_olt_id').value;
+    const port    = document.getElementById(mode + '_pon_port').value;
+    const onu_id  = document.getElementById(mode + '_onu_id').value;
+    const pppoe_u = (mode === 'edit') ? document.getElementById('edit_pppoe_username').value : document.getElementById('pppoe_username_input').value;
+    const pppoe_p = document.getElementById(mode === 'edit' ? 'prov_pppoe_pass' : 'add_pppoe_pass')?.value || '12345678';
+    const acs_url = 'http://172.16.200.3:7547';
 
-function closePppoeUserModal() {
-    const modal = document.getElementById('pppoeUserModal');
-    if (modal) modal.style.display = 'none';
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    const searchInput = document.getElementById('pppoeUserSearch');
-    if (searchInput) {
-        searchInput.addEventListener('input', function(e) {
-            const term = e.target.value.toLowerCase();
-            const filtered = (pppoeUsers || []).filter(user => {
-                const username = user.name || user['name'] || '';
-                return username.toLowerCase().includes(term);
-            });
-            renderPppoeUserList(filtered);
-        });
-    }
-    
-    const modal = document.getElementById('pppoeUserModal');
-    if (modal) {
-        modal.addEventListener('click', function(e) {
-            if (e.target === modal) closePppoeUserModal();
-        });
-    }
-});
-
-function initMap() {
-    if (map) return;
-    map = L.map('map-picker').setView([-6.200000, 106.816666], 13);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap'
-    }).addTo(map);
-    
-    map.on('click', function(e) {
-        if (marker) map.removeLayer(marker);
-        marker = L.marker(e.latlng).addTo(map);
-        document.querySelector('input[name="lat"]').value = e.latlng.lat.toFixed(6);
-        document.querySelector('input[name="lng"]').value = e.latlng.lng.toFixed(6);
-    });
-}
-
-function initEditMap() {
-    if (editMap) return;
-    editMap = L.map('edit-map-picker').setView([-6.200000, 106.816666], 13);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap'
-    }).addTo(editMap);
-    
-    editMap.on('click', function(e) {
-        if (editMarker) editMap.removeLayer(editMarker);
-        editMarker = L.marker(e.latlng).addTo(editMap);
-        document.getElementById('edit_lat').value = e.latlng.lat.toFixed(6);
-        document.getElementById('edit_lng').value = e.latlng.lng.toFixed(6);
-    });
-}
-
-document.getElementById('searchCustomer').addEventListener('input', function(e) {
-    const search = e.target.value.toLowerCase();
-    const rows = document.querySelectorAll('#customerTable tbody tr');
-    rows.forEach(row => {
-        const text = row.textContent.toLowerCase();
-        row.style.display = text.includes(search) ? '' : 'none';
-    });
-});
-
-function editCustomer(customer) {
-    if (typeof customer !== 'object') {
-        fetch(`../api/customers.php?id=${customer}`)
-            .then(response => response.json())
-            .then(data => { if (data.success) editCustomer(data.data); })
-            .catch(console.error);
-        return;
-    }
-
-    document.getElementById('edit_customer_id').value = customer.id;
-    document.getElementById('edit_name').value = customer.name;
-    document.getElementById('edit_phone').value = customer.phone;
-    document.getElementById('edit_pppoe_username').value = customer.pppoe_username;
-    document.getElementById('edit_package_id').value = customer.package_id;
-    document.getElementById('edit_router_id').value = customer.router_id || 0;
-    document.getElementById('edit_isolation_date').value = customer.isolation_date || 20;
-    document.getElementById('edit_address').value = customer.address || '';
-    document.getElementById('edit_lat').value = customer.lat || '';
-    document.getElementById('edit_lng').value = customer.lng || '';
-    document.getElementById('edit_olt_id').value = customer.olt_id || 0;
-    document.getElementById('edit_onu_sn').value = customer.onu_sn || '';
-    document.getElementById('edit_pon_port').value = customer.olt_pon_port || '';
-    document.getElementById('edit_onu_id').value = customer.onu_id || '';
-
-    const provLog = document.getElementById('prov_log');
-    if (provLog) { provLog.style.display = 'none'; provLog.textContent = ''; }
-
-    document.getElementById('editCustomerModal').style.display = 'flex';
-    setTimeout(() => {
-        initEditMap();
-        editMap.invalidateSize();
-        if (customer.lat && customer.lng) {
-            const latlng = [customer.lat, customer.lng];
-            editMap.setView(latlng, 15);
-            if (editMarker) editMap.removeLayer(editMarker);
-            editMarker = L.marker(latlng).addTo(editMap);
-        }
-    }, 100);
-}
-
-function closeEditModal() {
-    document.getElementById('editCustomerModal').style.display = 'none';
-}
-
-async function doProvision() {
-    const olt_id  = document.getElementById('edit_olt_id').value;
-    const port    = document.getElementById('edit_pon_port').value;
-    const onu_id  = document.getElementById('edit_onu_id').value;
-    const pppoe_u = document.getElementById('edit_pppoe_username').value;
-    const pppoe_p = document.getElementById('prov_pppoe_pass').value;
-    const acs_url = document.getElementById('prov_acs_url').value;
-
-    const logBox = document.getElementById('prov_log');
-    logBox.style.display = 'block';
+    const logBox = document.getElementById(mode + '_prov_log');
+    if (logBox) logBox.style.display = 'block';
     
     if (!olt_id || olt_id == 0 || !port || !onu_id) {
-        logBox.textContent = '✗ Error: Pastikan OLT, PON Port, dan ONU ID sudah diisi.';
-        alert('Pastikan OLT, PON Port, dan ONU ID sudah diisi terlebih dahulu!');
+        alert('Pastikan OLT, PON Port, dan ONU ID sudah diisi!');
         return;
     }
 
     const services = [];
     ['acs','pppoe','hotspot','wifi'].forEach(s => {
-        if (document.getElementById('svc_' + s)?.checked) services.push(s);
+        if (document.getElementById(mode + '_svc_' + s)?.checked) services.push(s);
     });
 
-    const p_bind = Array.from(document.querySelectorAll('input[name="edit_p_bind[]"]:checked')).map(el => el.value);
-    const b_bind = Array.from(document.querySelectorAll('input[name="edit_b_bind[]"]:checked')).map(el => el.value);
+    const p_bind = Array.from(document.querySelectorAll(`input[name="${mode}_p_bind[]"]:checked`)).map(el => el.value);
+    const b_bind = Array.from(document.querySelectorAll(`input[name="${mode}_b_bind[]"]:checked`)).map(el => el.value);
+    
+    // Check confirmation tag checkbox
+    const confirmTag = document.getElementById(mode + '_confirm_tag')?.checked;
 
-    logBox.textContent = '⏳ Menghubungkan ke OLT... Mohon tunggu (~15-30 detik)\n' +
-                         '   Port: 0/' + port + ' | ONU ID: ' + onu_id + '\n' +
-                         '   User: ' + pppoe_u + '\n' +
-                         '   Services: ' + services.join(', ');
+    if (logBox) logBox.textContent = `⏳ Menghubungkan ke OLT... (~15-30 detik)\n   Target: ${olt_id} Port: ${port} ID: ${onu_id}`;
 
     const fd = new FormData();
     fd.append('olt_id', olt_id);
@@ -1147,6 +1073,8 @@ async function doProvision() {
     fd.append('pppoe_user', pppoe_u);
     fd.append('pppoe_pass', pppoe_p);
     fd.append('acs_url', acs_url);
+    if (!confirmTag) fd.append('skip_tag', '1'); // Pass opt-out if needed (backend logic update below)
+    
     services.forEach(s => fd.append('services[]', s));
     p_bind.forEach(b => fd.append('pppoe_bind[]', b));
     b_bind.forEach(b => fd.append('hotspot_bind[]', b));
@@ -1154,10 +1082,12 @@ async function doProvision() {
     try {
         const r = await fetch('customers.php?ajax_action=provision', { method: 'POST', body: fd });
         const data = await r.json();
-        logBox.textContent = data.log || 'Tidak ada log yang dikembalikan.';
-        logBox.scrollTop = logBox.scrollHeight;
+        if (logBox) {
+            logBox.textContent = data.log || 'Selesai.';
+            logBox.scrollTop = logBox.scrollHeight;
+        }
     } catch(e) {
-        logBox.textContent = '✗ Gagal terhubung: ' + e.message;
+        if (logBox) logBox.textContent = '✗ Error: ' + e.message;
     }
 }
 
