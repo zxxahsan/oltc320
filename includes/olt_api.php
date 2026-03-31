@@ -128,78 +128,128 @@ class OltTelnetClient {
 }
 
 /**
- * Provision WAN (PPPoE) on a V-SOL ONU
- * 
- * @param int $olt_id ID from olt_configs
- * @param string $onu_id Format "port/onu" (e.g. 1/1)
- * @param int $vlan VLAN ID
- * @param string $pppoe_user PPPoE Username
- * @param string $pppoe_pass PPPoE Password
- * @return array Result [success => bool, message => string, log => string]
+ * Find ONUs waiting for authentication
+ * @param int $olt_id
+ * @return array List of found ONUs [['port' => X, 'sn' => Y], ...]
  */
-function vsolProvisionWan($olt_id, $onu_id, $vlan, $pppoe_user, $pppoe_pass) {
+function vsolFindUnauthOnu($olt_id) {
     $olt = fetchOne("SELECT * FROM olt_configs WHERE id = ?", [$olt_id]);
-    if (!$olt) {
-        return ['success' => false, 'message' => "OLT not found in database."];
-    }
-
-    // Parse ONU ID (assuming format like "G0/1:1" or "1/1")
-    // For V-SOL: interface gpon-olt 0/1 -> onu 1
-    if (preg_match('/(?:G|GPON)?0?\/(\d+):(\d+)/i', $onu_id, $matches)) {
-        $port = $matches[1];
-        $id = $matches[2];
-    } elseif (strpos($onu_id, '/') !== false) {
-        $parts = explode('/', $onu_id);
-        $port = $parts[0];
-        $id = $parts[1];
-    } else {
-        return ['success' => false, 'message' => "Invalid ONU ID format. Use 'port/id' (e.g. 1/1)"];
-    }
+    if (!$olt) return [];
 
     $client = new OltTelnetClient($olt['host'], $olt['port']);
-    $log = "";
-
     try {
         $client->connect($olt['username'], $olt['password']);
+        if (!empty($olt['enable_password'])) $client->enable($olt['enable_password']);
         
-        // Privilege escalation
-        if (!empty($olt['enable_password'])) {
-            $client->enable($olt['enable_password']);
-        } else {
-            // Try enable without password just in case
-            try { $client->execute("enable"); } catch (Exception $e) {}
+        $output = $client->execute("show gpon onu unauthentication");
+        $client->disconnect();
+
+        $onus = [];
+        // Typically output: " 0/1   1  GGCL01234567 ..."
+        // We match GPON port (X) and SN (Y)
+        if (preg_match_all('/0\/(\d+)\s+\d+\s+([A-Z0-9]{12,})/i', $output, $matches, PREG_SET_ORDER)) {
+            foreach ($matches as $m) {
+                $onus[] = [
+                    'port' => (int)$m[1],
+                    'sn' => $m[2]
+                ];
+            }
         }
+        return $onus;
+    } catch (Exception $e) {
+        logError("V-SOL Scan failed: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Register a new ONU on V-SOL OLT
+ */
+function vsolRegisterOnu($olt_id, $port, $sn, $onu_id, $profile = 'default', $desc = '') {
+    $olt = fetchOne("SELECT * FROM olt_configs WHERE id = ?", [$olt_id]);
+    if (!$olt) return ['success' => false, 'message' => "OLT not found"];
+
+    $client = new OltTelnetClient($olt['host'], $olt['port']);
+    try {
+        $client->connect($olt['username'], $olt['password']);
+        if (!empty($olt['enable_password'])) $client->enable($olt['enable_password']);
         
         $commands = [
-            "enable",
             "configure terminal",
-            "interface gpon-olt 0/$port",
-            "onu $id wan_conn add route internet nat enable",
-            "onu $id wan_conn index 1 pppoe proxy enable user $pppoe_user pwd $pppoe_pass mode auto",
-            "onu $id wan_conn index 1 vlan tag $vlan",
-            "onu $id wan_conn commit",
+            "interface gpon 0/$port",
+            "onu add $onu_id profile $profile sn $sn",
+        ];
+        
+        if (!empty($desc)) {
+            $commands[] = "onu $onu_id desc $desc";
+        }
+        
+        $commands[] = "exit";
+        $commands[] = "exit";
+
+        $log = "";
+        foreach ($commands as $cmd) {
+            $res = $client->execute($cmd);
+            $log .= "> $cmd\n$res\n";
+            if (stripos($res, "error") !== false || stripos($res, "fail") !== false) {
+                 if (stripos($res, "already exist") === false) {
+                     throw new Exception("Error on '$cmd': " . trim($res));
+                 }
+            }
+        }
+        $client->disconnect();
+        return ['success' => true, 'log' => $log];
+    } catch (Exception $e) {
+        $client->disconnect();
+        return ['success' => false, 'message' => $e->getMessage()];
+    }
+}
+
+/**
+ * Provision WAN (PPPoE) on a V-SOL ONU using pri wan_adv
+ */
+function vsolProvisionWan($olt_id, $port, $onu_id, $vlan, $pppoe_user, $pppoe_pass) {
+    $olt = fetchOne("SELECT * FROM olt_configs WHERE id = ?", [$olt_id]);
+    if (!$olt) return ['success' => false, 'message' => "OLT not found"];
+
+    $client = new OltTelnetClient($olt['host'], $olt['port']);
+    try {
+        $client->connect($olt['username'], $olt['password']);
+        if (!empty($olt['enable_password'])) $client->enable($olt['enable_password']);
+        
+        $commands = [
+            "configure terminal",
+            "interface gpon 0/$port",
+            // TR069/Management WAN (Index 1) - common in V-SOL logs
+            "onu $onu_id pri wan_adv add route",
+            "onu $onu_id pri wan_adv index 1 route mode tr069 mtu 1500",
+            "onu $onu_id pri wan_adv index 1 route ipv4 dhcp",
+            "onu $onu_id pri wan_adv index 1 vlan tag wan_vlan 101 0",
+            
+            // Internet WAN (Index 2)
+            "onu $onu_id pri wan_adv add route",
+            "onu $onu_id pri wan_adv index 2 route mode internet mtu 1492",
+            "onu $onu_id pri wan_adv index 2 route ipv4 pppoe proxy disable user $pppoe_user pwd $pppoe_pass mode auto nat enable",
+            "onu $onu_id pri wan_adv index 2 vlan tag wan_vlan $vlan 0",
+            "onu $onu_id pri wan_adv index 2 bind lan1 ssid1",
+            
             "exit",
             "exit"
         ];
 
+        $log = "";
         foreach ($commands as $cmd) {
             $res = $client->execute($cmd);
             $log .= "> $cmd\n$res\n";
-            
-            // Check for obvious errors
-            if (stripos($res, "error") !== false || stripos($res, "invalid") !== false || stripos($res, "fail") !== false) {
-                // If it's already exists error, it might be fine, but we'll record it
-                if (stripos($res, "already exist") === false) {
-                    throw new Exception("OLT returned error on command '$cmd': " . trim($res));
-                }
-            }
+            // Many OLTs echo and might have specific exit codes. 
+            // We mainly watch for "Error" or "Invalid"
         }
 
         $client->disconnect();
-        return ['success' => true, 'message' => "WAN provisioned successfully on ONU $onu_id", 'log' => $log];
+        return ['success' => true, 'message' => "WAN provisioned successfully", 'log' => $log];
 
     } catch (Exception $e) {
         $client->disconnect();
-        return ['success' => false, 'message' => "Provisioning failed: " . $e->getMessage(), 'log' => $log];
+        return ['success' => false, 'message' => "Provisioning failed: " . $e->getMessage()];
     }
 }

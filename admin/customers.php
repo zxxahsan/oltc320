@@ -6,7 +6,20 @@
 require_once '../includes/auth.php';
 requireAdminLogin();
 
+require_once '../includes/olt_api.php';
+
 $pageTitle = 'Pelanggan';
+
+// AJAX Handler for OLT Scanning
+if (isset($_GET['ajax_action'])) {
+    if ($_GET['ajax_action'] === 'scan_onu') {
+        header('Content-Type: application/json');
+        $olt_id = (int)$_GET['olt_id'];
+        $found = vsolFindUnauthOnu($olt_id);
+        echo json_encode($found);
+        exit;
+    }
+}
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -48,10 +61,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'lng' => (!isset($_POST['lng']) || trim($_POST['lng']) === '') ? null : (string) str_replace(',', '.', trim($_POST['lng'])),
                     'installed_by' => !empty($_POST['installed_by']) ? (int)$_POST['installed_by'] : null,
                     'portal_password' => generateRandomString(4, 'numeric'),
+                    'olt_id' => (int)($_POST['olt_id'] ?? 0),
+                    'onu_sn' => sanitize($_POST['onu_sn'] ?? ''),
+                    'olt_pon_port' => (int)($_POST['olt_pon_port'] ?? 0),
+                    'onu_id' => (int)($_POST['onu_id'] ?? 0),
                     'created_at' => date('Y-m-d H:i:s')
                 ];
                 
                 if ($newCustomerId = insert('customers', $data)) {
+                    // OLT Automation if OLT is selected
+                    if ($data['olt_id'] > 0 && !empty($data['onu_sn'])) {
+                        try {
+                            $onu_id = $data['onu_id'];
+                            $pon = $data['olt_pon_port'];
+                            $sn = $data['onu_sn'];
+                            $vlan = 100; // Standard Internet VLAN based on logs
+                            
+                            // 1. Register ONU
+                            $regRes = vsolRegisterOnu($data['olt_id'], $pon, $sn, $onu_id, 'Jinom', $data['name']);
+                            
+                            // 2. Provision WAN (PPPoE)
+                            if ($regRes['success']) {
+                                vsolProvisionWan($data['olt_id'], $pon, $onu_id, $vlan, $data['pppoe_username'], $pppoePassword);
+                            }
+                        } catch (Exception $e) {
+                            logError("OLT Automation (add customer) failed: " . $e->getMessage());
+                        }
+                    }
                     // Auto-sync Map coordinates using the phone identifier
                     try {
                         $phoneObj = trim((string)$data['phone']);
@@ -232,12 +268,13 @@ if (tableExists('onu_locations')) {
     }
 }
 
-// Get technicians
-$technicians = fetchAll("SELECT * FROM technician_users WHERE status = 'active' ORDER BY name ASC");
-
 // Get billing lead time
 $leadDays = (int)getSetting('invoice_generate_days', 7);
 if ($leadDays < 1) $leadDays = 1;
+
+// Get OLTs and Packages for the form
+$olts = fetchAll("SELECT id, name FROM olt_configs ORDER BY name ASC");
+$packages = fetchAll("SELECT * FROM packages ORDER BY price ASC");
 
 
 if ($customersTableExists) {
@@ -407,14 +444,49 @@ ob_start();
                 <small style="color: var(--text-muted);">Jika diisi, password ini akan dikirim ke perangkat (GenieACS). Aplikasi tidak bisa membaca password dari MikroTik.</small>
             </div>
             
+            <div class="form-group" style="grid-column: 1 / -1; margin-top: 10px; padding: 15px; background: rgba(0,210,255,0.05); border: 1px solid rgba(0,210,255,0.1); border-radius: 8px;">
+                <label class="form-label" style="color: var(--neon-cyan);"><i class="fas fa-microchip"></i> OLT Provisioning (V-SOL)</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-top: 10px;">
+                    <div>
+                        <label class="form-label">Pilih OLT</label>
+                        <select name="olt_id" id="olt_selector" class="form-control" style="background: var(--bg-card);">
+                            <option value="0">-- Lewati OLT --</option>
+                            <?php foreach ($olts as $o): ?>
+                                <option value="<?php echo $o['id']; ?>"><?php echo htmlspecialchars($o['name']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label">Scan / Serial Number</label>
+                        <div style="display: flex; gap: 5px;">
+                            <select id="onu_sn_selector" name="onu_sn" class="form-control" style="flex: 1; background: var(--bg-card);">
+                                <option value="">-- Manual/Pilih --</option>
+                            </select>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="scanOltOnu()">
+                                <i id="scan-icon" class="fas fa-search"></i> Scan
+                            </button>
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">
+                        <div>
+                            <label class="form-label">ONU ID</label>
+                            <input type="number" name="onu_id" id="onu_id_input" class="form-control" placeholder="ID" min="1" max="128">
+                        </div>
+                        <div>
+                            <label class="form-label">PON</label>
+                            <input type="number" name="olt_pon_port" id="olt_pon_port_input" class="form-control" placeholder="Port" min="1" max="16">
+                        </div>
+                    </div>
+                </div>
+                <small style="color: var(--text-muted);">Isi OLT jika ingin pelanggan terdaftar otomatis ke OLT V-SOL.</small>
+            </div>
+
             <div class="form-group">
                 <label class="form-label">Paket Langganan</label>
                 <select name="package_id" class="form-control" required style="color: var(--text-primary); background: var(--bg-card);">
                     <option value="">Pilih Paket</option>
                     <?php foreach ($packages as $pkg): ?>
-                        <option value="<?php echo $pkg['id']; ?>">
-                            <?php echo htmlspecialchars($pkg['name']); ?> (<?php echo formatCurrency($pkg['price']); ?>)
-                        </option>
+                        <option value="<?php echo $pkg['id']; ?>"><?php echo htmlspecialchars($pkg['name']); ?> (Rp <?php echo number_format($pkg['price'], 0, ',', '.'); ?>)</option>
                     <?php endforeach; ?>
                 </select>
             </div>
@@ -1130,6 +1202,57 @@ function loadOdpOptions() {
         })
         .catch(() => {});
 }
+
+function scanOltOnu() {
+    const oltId = document.getElementById('olt_selector').value;
+    if (oltId === '0') {
+        alert('Silakan pilih OLT terlebih dahulu.');
+        return;
+    }
+
+    const icon = document.getElementById('scan-icon');
+    const select = document.getElementById('onu_sn_selector');
+    
+    icon.className = 'fas fa-spinner fa-spin';
+    select.innerHTML = '<option value=\"\">-- Memindai... --</option>';
+
+    fetch(`customers.php?ajax_action=scan_onu&olt_id=${oltId}`)
+        .then(r => r.json())
+        .then(data => {
+            select.innerHTML = '<option value=\"\">-- Pilih Serial Number --</option>';
+            if (data.length === 0) {
+                alert('Tidak ditemukan ONU baru (unconfigured) pada OLT ini.');
+            } else {
+                data.forEach(onu => {
+                    const opt = document.createElement('option');
+                    opt.value = onu.sn;
+                    opt.textContent = onu.sn + ' (PON: ' + onu.port + ')';
+                    opt.dataset.port = onu.port;
+                    select.appendChild(opt);
+                });
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Gagal memindai OLT. Pastikan koneksi OLT lancar.');
+            select.innerHTML = '<option value=\"\">-- Gagal --</option>';
+        })
+        .finally(() => {
+            icon.className = 'fas fa-search';
+        });
+}
+
+// Auto-fill PON port when SN is selected
+document.getElementById('onu_sn_selector').addEventListener('change', function() {
+    const selected = this.options[this.selectedIndex];
+    if (selected && selected.dataset.port) {
+        document.getElementById('olt_pon_port_input').value = selected.dataset.port;
+        // Default ONU ID logic: set to 1 if empty, user can adjust
+        if (!document.getElementById('onu_id_input').value) {
+            document.getElementById('onu_id_input').value = '1';
+        }
+    }
+});
 
 document.addEventListener('DOMContentLoaded', loadOdpOptions);
 </script>

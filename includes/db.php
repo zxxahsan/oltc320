@@ -45,6 +45,14 @@ function getDB() {
                     $pdo->exec("ALTER TABLE hotspot_sales ADD COLUMN router_id INT DEFAULT 0");
                 } catch (\Exception $e) {}
 
+                // Addition: OLT & ONU columns for customers
+                try {
+                    $pdo->exec("ALTER TABLE customers ADD COLUMN IF NOT EXISTS olt_id INT DEFAULT 0 AFTER installed_by");
+                    $pdo->exec("ALTER TABLE customers ADD COLUMN IF NOT EXISTS onu_sn VARCHAR(50) DEFAULT NULL AFTER olt_id");
+                    $pdo->exec("ALTER TABLE customers ADD COLUMN IF NOT EXISTS onu_id INT DEFAULT NULL AFTER onu_sn");
+                    $pdo->exec("ALTER TABLE customers ADD COLUMN IF NOT EXISTS olt_pon_port INT DEFAULT NULL AFTER onu_id");
+                } catch (\Exception $e) {}
+
                 // Sales Topups Table
                 try {
                     $pdo->exec("CREATE TABLE IF NOT EXISTS sales_topups (
