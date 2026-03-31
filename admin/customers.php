@@ -83,9 +83,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 $regRes = vsolRegisterOnu($data['olt_id'], $pon, $sn, $onu_id, 'Jinom', $data['name']);
                             }
                             
-                            // 2. Provision WAN (PPPoE + TR069 + WiFi)
+                            // 2. Provision WAN (Check selected services)
                             if ($regRes['success']) {
-                                vsolProvisionWan($data['olt_id'], $pon, $onu_id, $vlan, $data['pppoe_username'], $pppoePassword);
+                                $services = $_POST['olt_services'] ?? [];
+                                $vsolVlan = 100;
+                                
+                                // Enhanced Provisioning Logic
+                                vsolProvisionUltimate(
+                                    $data['olt_id'], 
+                                    $pon, 
+                                    $onu_id, 
+                                    $vsolVlan, 
+                                    $data['pppoe_username'], 
+                                    $pppoePassword,
+                                    $services
+                                );
                             }
                         } catch (Exception $e) {
                             logError("OLT Automation (add customer) failed: " . $e->getMessage());
@@ -449,39 +461,62 @@ ob_start();
             
             <div class="form-group" style="grid-column: 1 / -1; margin-top: 10px; padding: 15px; background: rgba(0,210,255,0.05); border: 1px solid rgba(0,210,255,0.1); border-radius: 8px;">
                 <label class="form-label" style="color: var(--neon-cyan);"><i class="fas fa-microchip"></i> OLT Provisioning (V-SOL)</label>
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-top: 10px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 10px;">
                     <div>
                         <label class="form-label">Pilih OLT</label>
                         <select name="olt_id" id="olt_selector" class="form-control" style="background: var(--bg-card);">
                             <option value="0">-- Lewati OLT --</option>
-                            <?php foreach ($olts as $o): ?>
-                                <option value="<?php echo $o['id']; ?>"><?php echo htmlspecialchars($o['name']); ?></option>
+                            <?php foreach ($olts as $idx => $o): ?>
+                                <option value="<?php echo $o['id']; ?>" <?php echo $idx === 0 ? 'selected' : ''; ?>><?php echo htmlspecialchars($o['name']); ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>
                     <div>
-                        <label class="form-label">Scan / Serial Number</label>
+                        <label class="form-label">Scan Barcode / SN ONT</label>
                         <div style="display: flex; gap: 5px;">
-                            <input type="text" id="onu_sn_input" name="onu_sn" list="onu_sn_list" class="form-control" placeholder="Scan/Ketik SN" style="flex: 1; background: var(--bg-card); color: var(--text-primary);">
+                            <input type="text" id="onu_sn_input" name="onu_sn" list="onu_sn_list" class="form-control" placeholder="Scan SN dari Box ONT" style="flex: 1; background: var(--bg-card); color: var(--text-primary);">
                             <datalist id="onu_sn_list"></datalist>
-                            <button type="button" class="btn btn-secondary btn-sm" onclick="scanOltOnu()">
-                                <i id="scan-icon" class="fas fa-search"></i> Scan
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="startCameraScan()" title="Scan via Kamera">
+                                <i class="fas fa-camera"></i>
+                            </button>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="scanOltOnu()" title="Scan dari OLT">
+                                <i id="scan-icon" class="fas fa-search"></i>
                             </button>
                         </div>
                     </div>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">
-                        <div>
-                            <label class="form-label">ONU ID</label>
-                            <input type="number" name="onu_id" id="onu_id_input" class="form-control" placeholder="ID" min="1" max="128">
-                        </div>
-                        <div>
-                            <label class="form-label">PON</label>
-                            <input type="number" name="olt_pon_port" id="olt_pon_port_input" class="form-control" placeholder="Port" min="1" max="16">
-                        </div>
-                    </div>
                 </div>
+
+                <!-- Hidden technical fields -->
+                <input type="hidden" name="olt_pon_port" id="olt_pon_port_input">
+                <input type="hidden" name="onu_id" id="onu_id_input">
                 <input type="hidden" name="onu_status" id="onu_status_hidden" value="unconfigured">
-                <small style="color: var(--text-muted);">Isi OLT jika ingin pelanggan terdaftar otomatis ke OLT V-SOL.</small>
+
+                <!-- Service Multi-Selection -->
+                <div style="margin-top: 15px; display: flex; flex-wrap: wrap; gap: 15px; padding: 10px; background: rgba(255,255,255,0.02); border-radius: 5px;">
+                    <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                        <input type="checkbox" name="olt_services[]" value="acs" checked> <span style="font-size: 0.85em;">TR069 (ACS)</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                        <input type="checkbox" name="olt_services[]" value="pppoe" checked> <span style="font-size: 0.85em;">Internet (PPPoE)</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                        <input type="checkbox" name="olt_services[]" value="hotspot" checked> <span style="font-size: 0.85em;">Hotspot (VLAN 200)</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                        <input type="checkbox" name="olt_services[]" value="wifi" checked> <span style="font-size: 0.85em;">WiFi SSID 2</span>
+                    </label>
+                </div>
+                
+                <small style="color: var(--text-muted);">Gunakan kamera untuk memindai SN di box ONT. OLT akan dideteksi secara otomatis.</small>
+            </div>
+
+            <!-- Modal for Camera Scan -->
+            <div id="cameraScanModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; flex-direction:column; align-items:center; justify-content:center;">
+                <div style="background:var(--bg-card); padding:20px; border-radius:10px; width:90%; max-width:500px; text-align:center;">
+                    <h3 style="margin-bottom:15px; color:var(--neon-cyan);">Scan Barcode ONT</h3>
+                    <div id="reader" style="width:100%; min-height:300px; background:#000; border-radius:5px; overflow:hidden;"></div>
+                    <button type="button" class="btn btn-secondary" onclick="stopCameraScan()" style="margin-top:15px;">Batalkan</button>
+                </div>
             </div>
 
             <div class="form-group">
@@ -1206,6 +1241,8 @@ function loadOdpOptions() {
         .catch(() => {});
 }
 
+<script src="https://unpkg.com/html5-qrcode"></script>
+<script>
 function scanOltOnu() {
     const oltId = document.getElementById('olt_selector').value;
     if (oltId === '0') {
@@ -1241,7 +1278,6 @@ function scanOltOnu() {
         .catch(err => {
             console.error(err);
             alert('Gagal memindai OLT.');
-            select.innerHTML = '<option value=\"\">-- Gagal --</option>';
         })
         .finally(() => {
             icon.className = 'fas fa-search';
@@ -1270,6 +1306,42 @@ document.getElementById('onu_sn_input').addEventListener('input', function() {
         document.getElementById('onu_id_input').style.borderColor = '';
     }
 });
+
+let html5QrcodeScanner = null;
+
+function startCameraScan() {
+    document.getElementById('cameraScanModal').style.display = 'flex';
+    html5QrcodeScanner = new Html5Qrcode("reader");
+    const config = { fps: 10, qrbox: { width: 250, height: 150 } };
+
+    html5QrcodeScanner.start(
+        { facingMode: "environment" }, 
+        config,
+        (decodedText) => {
+            document.getElementById('onu_sn_input').value = decodedText;
+            stopCameraScan();
+            // Trigger auto-sync if SN matches OLT scan results
+            document.getElementById('onu_sn_input').dispatchEvent(new Event('input'));
+        },
+        (errorMessage) => {
+            // parse error, ignore
+        }
+    ).catch((err) => {
+        console.error("Camera access error:", err);
+        alert("Gagal mengakses kamera. Pastikan izin kamera diaktifkan.");
+        stopCameraScan();
+    });
+}
+
+function stopCameraScan() {
+    if (html5QrcodeScanner) {
+        html5QrcodeScanner.stop().then(() => {
+            document.getElementById('cameraScanModal').style.display = 'none';
+        }).catch(err => console.error(err));
+    } else {
+        document.getElementById('cameraScanModal').style.display = 'none';
+    }
+}
 
 document.addEventListener('DOMContentLoaded', loadOdpOptions);
 </script>

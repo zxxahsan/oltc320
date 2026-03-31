@@ -302,3 +302,71 @@ function vsolProvisionWan($olt_id, $port, $onu_id, $vlan, $pppoe_user, $pppoe_pa
         return ['success' => false, 'message' => "Provisioning failed: " . $e->getMessage()];
     }
 }
+
+/**
+ * Ultimate Provisioning Wrapper - Executes only selected services
+ */
+function vsolProvisionUltimate($olt_id, $port, $onu_id, $vlan, $pppoe_user, $pppoe_pass, $services = []) {
+    $olt = fetchOne("SELECT * FROM olt_configs WHERE id = ?", [$olt_id]);
+    if (!$olt) return ['success' => false, 'message' => "OLT not found"];
+
+    $client = new OltTelnetClient($olt['host'], $olt['port']);
+    try {
+        $client->connect($olt['username'], $olt['password']);
+        if (!empty($olt['enable_password'])) $client->enable($olt['enable_password']);
+        
+        $commands = [
+            "configure terminal",
+            "interface gpon 0/$port",
+        ];
+
+        // 1. ACS / TR069 Management
+        if (in_array('acs', $services)) {
+            $commands[] = "onu $onu_id pri wan_adv add route";
+            $commands[] = "onu $onu_id pri wan_adv index 1 route mode tr069 mtu 1500";
+            $commands[] = "onu $onu_id pri wan_adv index 1 route ipv4 dhcp";
+            $commands[] = "onu $onu_id pri wan_adv index 1 vlan tag wan_vlan 101 0";
+            $commands[] = "onu $onu_id pri tr069_mng enable acs_server url http://172.16.200.3:7547 username acs password acs certificate disable inform enable inform_interval 200 reverse_connection username acs password acs";
+        }
+
+        // 2. Internet PPPoE
+        if (in_array('pppoe', $services)) {
+            $commands[] = "onu $onu_id pri wan_adv add route";
+            $commands[] = "onu $onu_id pri wan_adv index 2 route mode internet mtu 1492";
+            $commands[] = "onu $onu_id pri wan_adv index 2 route ipv4 pppoe proxy disable user $pppoe_user pwd $pppoe_pass mode auto nat enable";
+            $commands[] = "onu $onu_id pri wan_adv index 2 vlan tag wan_vlan $vlan 0";
+            
+            // Default bind ssid1 for internet
+            $commands[] = "onu $onu_id pri wan_adv index 2 bind ssid1";
+        }
+
+        // 3. Hotspot Bridge
+        if (in_array('hotspot', $services)) {
+            $commands[] = "onu $onu_id pri wan_adv add bridge";
+            $commands[] = "onu $onu_id pri wan_adv index 3 bridge mode other mtu 1500";
+            $commands[] = "onu $onu_id pri wan_adv index 3 vlan tag wan_vlan 200 0";
+            $commands[] = "onu $onu_id pri wan_adv index 3 bind lan1 ssid2";
+        }
+
+        // 4. WiFi SSID 2
+        if (in_array('wifi', $services)) {
+            $commands[] = "onu $onu_id pri wifi_ssid 2 name Jinom_Hotspot hide disable auth_mode open encrypt_type none";
+        }
+
+        $commands[] = "exit";
+        $commands[] = "exit";
+
+        $log = "";
+        foreach ($commands as $cmd) {
+            $res = $client->execute($cmd);
+            $log .= "> $cmd\n$res\n";
+        }
+
+        $client->disconnect();
+        return ['success' => true, 'message' => "Ultimate Provisioning completed", 'log' => $log];
+
+    } catch (Exception $e) {
+        $client->disconnect();
+        return ['success' => false, 'message' => "Ultimate Provisioning failed: " . $e->getMessage()];
+    }
+}
