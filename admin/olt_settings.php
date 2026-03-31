@@ -25,6 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'port' => (int)$_POST['port'],
             'username' => sanitize($_POST['username']),
             'password' => $_POST['password'], // Stored as plain string for automated CLI login
+            'enable_password' => $_POST['enable_password'] ?? '', 
             'type' => sanitize($_POST['type']),
             'protocol' => sanitize($_POST['protocol']),
             'snmp_community' => sanitize($_POST['snmp_community']),
@@ -152,6 +153,11 @@ ob_start();
                     <input type="password" name="password" id="olt_pass" class="form-control" required>
                 </div>
             </div>
+
+            <div class="form-group">
+                <label class="form-label">Enable Password (Optional)</label>
+                <input type="password" name="enable_password" id="olt_enable_pass" class="form-control" placeholder="Leave empty if same as password">
+            </div>
             
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                 <div class="form-group">
@@ -213,6 +219,7 @@ function editOlt(olt) {
     document.getElementById('olt_port').value = olt.port;
     document.getElementById('olt_user').value = olt.username;
     document.getElementById('olt_pass').value = olt.password;
+    document.getElementById('olt_enable_pass').value = olt.enable_password || '';
     document.getElementById('olt_type').value = olt.type;
     document.getElementById('olt_protocol').value = olt.protocol;
     document.getElementById('olt_snmp_community').value = olt.snmp_community || 'public';

@@ -20,7 +20,13 @@ $client = new OltTelnetClient($olt['host'], $olt['port']);
 
 try {
     $client->connect($olt['username'], $olt['password']);
-    echo "Success: Logged in to OLT!\n\n";
+    echo "Success: Logged in to OLT!\n";
+
+    if (!empty($olt['enable_password'])) {
+        echo "Elevating privileges (enable mode)...\n";
+        $client->enable($olt['enable_password']);
+        echo "Success: Entered enable mode!\n\n";
+    }
 
     // Common V-SOL commands to test
     $test_commands = [

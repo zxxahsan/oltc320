@@ -102,6 +102,7 @@ function getDB() {
                 try {
                     $pdo->exec("ALTER TABLE olt_configs ADD COLUMN IF NOT EXISTS snmp_community VARCHAR(50) DEFAULT 'public' AFTER protocol");
                     $pdo->exec("ALTER TABLE olt_configs ADD COLUMN IF NOT EXISTS snmp_version ENUM('1', '2c', '3') DEFAULT '2c' AFTER snmp_community");
+                    $pdo->exec("ALTER TABLE olt_configs ADD COLUMN IF NOT EXISTS enable_password VARCHAR(255) DEFAULT NULL AFTER password");
                 } catch (\Exception $e) {}
 
                 // Default Payment Settings

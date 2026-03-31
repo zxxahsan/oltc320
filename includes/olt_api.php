@@ -52,7 +52,26 @@ class OltTelnetClient {
         return $this->readUntil($wait_for);
     }
 
-    private function write($data) {
+    /**
+     * Enter Privilege Mode (Enable)
+     */
+    public function enable($password = null) {
+        $this->write("enable\n");
+        $res = $this->readUntil("/Password:|#/i");
+        
+        if (stripos($res, "Password:") !== false) {
+            $this->write($password . "\n");
+            $res = $this->readUntil("/#/i");
+        }
+        
+        if (strpos($res, "#") === false) {
+            throw new Exception("Enable mode failed: " . trim($res));
+        }
+        
+        return true;
+    }
+
+    public function write($data) {
         return fwrite($this->socket, $data);
     }
 
@@ -114,6 +133,14 @@ function vsolProvisionWan($olt_id, $onu_id, $vlan, $pppoe_user, $pppoe_pass) {
 
     try {
         $client->connect($olt['username'], $olt['password']);
+        
+        // Privilege escalation
+        if (!empty($olt['enable_password'])) {
+            $client->enable($olt['enable_password']);
+        } else {
+            // Try enable without password just in case
+            try { $client->execute("enable"); } catch (Exception $e) {}
+        }
         
         $commands = [
             "enable",
