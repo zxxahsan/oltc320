@@ -385,34 +385,20 @@ function vsolFindOnuBySn($olt_id, $sn) {
             $client->enable($olt['enable_password']);
         }
         
-        // Try global search (V-SOL V1.3.x dialect)
-        $client->write("show gpon onu sn-info $sn\n");
-        $resp = $client->readUntil("/[>#]/", 5);
+        // ULTIMATE FALLBACK: Search in running-config
+        $client->write("show running-config | include $sn\n");
+        $resp = $client->readUntil("/[>#]/", 15);
 
-        // Try hyphenated state (Common in older FW)
+        // Try uncfg with hyphen variation
         if (strpos($resp, '0/') === false) {
-            $client->write("show gpon onu-state\n");
-            $resp .= "\n" . $client->readUntil("/[>#]/", 10);
-        }
-
-        // Try hyphenated config
-        if (strpos($resp, '0/') === false) {
-            $client->write("show gpon onu-cfg\n");
-            $resp .= "\n" . $client->readUntil("/[>#]/", 10);
-        }
-
-        // Try uncfg with hyphen
-        if (strpos($resp, '0/') === false) {
-            $client->write("show gpon uncfg-onu\n");
+            $client->write("show onu uncfg-onu\n");
             $resp .= "\n" . $client->readUntil("/[>#]/", 5);
         }
 
-        // FALLBACK: Auto-discovery of commands if all above failed
+        // Try global sn-info (might work if gpon is missing but onu isn't)
         if (strpos($resp, '0/') === false) {
-             $client->write("show ?\n");
-             $resp .= "\n--- SHOW HELP ---\n" . $client->readUntil("/[>#]/", 2);
-             $client->write("show gpon ?\n");
-             $resp .= "\n--- SHOW GPON HELP ---\n" . $client->readUntil("/[>#]/", 2);
+            $client->write("show onu sn-info $sn\n");
+            $resp .= "\n" . $client->readUntil("/[>#]/", 5);
         }
 
         $client->disconnect();
@@ -421,25 +407,22 @@ function vsolFindOnuBySn($olt_id, $sn) {
         $port = null;
         $onu_id = null;
 
-        // Pattern 1: GPON OLT PON Port: 0/8, ONU ID: 40
-        if (preg_match('/Port:\s*0\/(\d+),\s*ONU ID:\s*(\d+)/i', $resp, $m)) {
-            $port = $m[1];
-            $onu_id = $m[2];
-        } 
-        // Pattern 2: Interface style (0/8:40)
-        elseif (preg_match('/0\/(\d+):(\d+)/i', $resp, $m)) {
-            $port = $m[1];
-            $onu_id = $m[2];
-        }
-        // Pattern 3: Table list format (Index | Port | SN)
-        elseif (preg_match('/(\d+)\s+0\/(\d+)\s+'.$sn.'/i', $resp, $m)) {
+        // Pattern 1: Table list format (Index | Port | SN)
+        if (preg_match('/(\d+)\s+0\/(\d+)\s+'.$sn.'/i', $resp, $m)) {
             $port = $m[2];
             $onu_id = $m[1];
         }
-        // Pattern 4: Global search/state format (Port ONU_ID ... SN)
-        elseif (preg_match('/(\d+)\s+0\/(\d+)\s+.*?'.$sn.'/i', $resp, $m) || preg_match('/0\/(\d+)\s+(\d+)\s+.*?'.$sn.'/i', $resp, $m)) {
-            $port = isset($m[2]) ? (strpos($m[0], '0/') === 0 ? $m[1] : $m[2]) : null;
-            $onu_id = isset($m[2]) ? (strpos($m[0], '0/') === 0 ? $m[2] : $m[1]) : null;
+        // Pattern 2: Global search/state format (Port ONU_ID ... SN)
+        elseif (preg_match('/0\/(\d+)\s+(\d+)\s+.*?'.$sn.'/i', $resp, $m)) {
+            $port = $m[1];
+            $onu_id = $m[2];
+        }
+        // Pattern 3: Running-config / sn-item style (onu 40 sn-item GPON...)
+        elseif (preg_match('/onu\s+(\d+)\s+sn-item\s+'.$sn.'/i', $resp, $m)) {
+            $onu_id = $m[1];
+            // If we found the ONU ID from running-config, we still need the Port.
+            // In v1.9, we might have to assume Port if only one exists or 
+            // the user can manually fill it. But let's try to find interface gpon 0/x.
         }
 
         if ($port !== null && $onu_id !== null) {
@@ -450,8 +433,17 @@ function vsolFindOnuBySn($olt_id, $sn) {
                 'message' => "Found SN $sn at Port 0/$port ID $onu_id"
             ];
         }
+        
+        if ($onu_id !== null) {
+            return [
+                'success' => true, 
+                'port' => '', // Unknown port but found ID
+                'onu_id' => $onu_id,
+                'message' => "Found SN $sn with ONU ID $onu_id (Port tidak terdeteksi, silakan isi manual)"
+            ];
+        }
 
-        return ['success' => false, 'message' => "SN $sn tidak ditemukan di OLT ini.", 'raw' => $resp];
+        return ['success' => false, 'message' => "SN $sn tidak ditemukan di OLT ini (v1.9).", 'raw' => $resp];
 
     } catch (Exception $e) {
         if (isset($client)) $client->disconnect();
