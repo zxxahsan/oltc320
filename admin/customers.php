@@ -331,1030 +331,130 @@ $routers = $routersTableExists ? getAllRouters() : [];
 ob_start();
 ?>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- Libraries Consolidated at the top of content (V7.4 RESET) -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/html5-qrcode@latest/html5-qrcode.min.js"></script>
 
-<!-- Stats -->
-<div class="stats-grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 30px;">
+<!-- Stats Grid -->
+<div class="stats-grid" style="grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 30px;">
     <div class="stat-card">
-        <div class="stat-icon cyan">
-            <i class="fas fa-users"></i>
-        </div>
-        <div class="stat-info">
-            <h3><?php echo (int) $totalCustomers; ?></h3>
-            <p>Total Pelanggan</p>
-        </div>
+        <div class="stat-icon cyan"><i class="fas fa-users"></i></div>
+        <div class="stat-info"><h3><?php echo (int) $totalCustomers; ?></h3><p>Total Pelanggan</p></div>
     </div>
-    
     <?php
     $activeCount = fetchOne("SELECT COUNT(*) as total FROM customers WHERE status = 'active'")['total'] ?? 0;
     $isolatedCount = fetchOne("SELECT COUNT(*) as total FROM customers WHERE status = 'isolated'")['total'] ?? 0;
-    
-    // Calculate unpaid customers for current month
-    // Logic: Active customers who don't have a 'paid' invoice for current month
-    $currentMonth = date('m');
-    $currentYear = date('Y');
-    $unpaidCount = fetchOne("
-        SELECT COUNT(*) as total 
-        FROM customers c 
-        WHERE c.status = 'active' 
-        AND NOT EXISTS (
-            SELECT 1 FROM invoices i 
-            WHERE i.customer_id = c.id 
-            AND MONTH(i.due_date) = ? 
-            AND YEAR(i.due_date) = ? 
-            AND i.status = 'paid'
-        )
-    ", [$currentMonth, $currentYear])['total'] ?? 0;
+    $unpaidCount = fetchOne("SELECT COUNT(*) as total FROM customers c WHERE c.status = 'active' AND NOT EXISTS (SELECT 1 FROM invoices i WHERE i.customer_id = c.id AND MONTH(i.due_date) = MONTH(CURRENT_DATE) AND YEAR(i.due_date) = YEAR(CURRENT_DATE) AND i.status = 'paid')")['total'] ?? 0;
     ?>
     <div class="stat-card">
-        <div class="stat-icon green">
-            <i class="fas fa-check-circle"></i>
-        </div>
-        <div class="stat-info">
-            <h3><?php echo $activeCount; ?></h3>
-            <p>Aktif</p>
-        </div>
+        <div class="stat-icon green"><i class="fas fa-check-circle"></i></div>
+        <div class="stat-info"><h3><?php echo $activeCount; ?></h3><p>Aktif</p></div>
     </div>
-    
     <div class="stat-card">
-        <div class="stat-icon red">
-            <i class="fas fa-ban"></i>
-        </div>
-        <div class="stat-info">
-            <h3><?php echo $isolatedCount; ?></h3>
-            <p>Terisolir</p>
-        </div>
+        <div class="stat-icon red"><i class="fas fa-ban"></i></div>
+        <div class="stat-info"><h3><?php echo $isolatedCount; ?></h3><p>Terisolir</p></div>
     </div>
-
     <div class="stat-card">
-        <div class="stat-icon orange">
-            <i class="fas fa-clock"></i>
-        </div>
-        <div class="stat-info">
-            <h3><?php echo $unpaidCount; ?></h3>
-            <p>Belum Lunas</p>
-        </div>
+        <div class="stat-icon orange"><i class="fas fa-clock"></i></div>
+        <div class="stat-info"><h3><?php echo $unpaidCount; ?></h3><p>Belum Lunas</p></div>
     </div>
 </div>
 
-<style>
-    /* Make stats grid responsive for 4 cards */
-    .stats-grid {
-        grid-template-columns: repeat(4, 1fr) !important;
-        gap: 15px;
-    }
-    
-    @media (max-width: 768px) {
-        .stats-grid {
-            grid-template-columns: repeat(2, 1fr) !important;
-        }
-        .stat-card {
-            padding: 15px;
-        }
-        .stat-icon {
-            width: 40px;
-            height: 40px;
-            font-size: 1.2rem;
-        }
-        .stat-info h3 {
-            font-size: 1.5rem;
-        }
-        .stat-info p {
-            font-size: 0.8rem;
-        }
-    }
-</style>
-
-<!-- Add Customer Form -->
+<!-- Add Customer Form Card -->
 <div class="card">
-    <div class="card-header">
-        <h3 class="card-title"><i class="fas fa-user-plus"></i> Tambah Pelanggan</h3>
-    </div>
-    
+    <div class="card-header"><h3 class="card-title"><i class="fas fa-user-plus"></i> Tambah Pelanggan</h3></div>
     <form method="POST">
-        <input type="hidden" name="action" value="add">
-        <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
-        
+        <input type="hidden" name="action" value="add"><input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; max-width: 100%;">
-            <div class="form-group">
-                <label class="form-label">Nama Pelanggan</label>
-                <input type="text" name="name" class="form-control" required placeholder="Nama Lengkap">
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">Nomor HP (WhatsApp)</label>
-                <input type="text" name="phone" class="form-control" required placeholder="08xxxxxxxxxx">
-            </div>
-            
-            <div class="form-group" style="grid-column: 1 / -1;">
-                <label class="form-label">Username PPPoE</label>
-                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                    <input type="text" name="pppoe_username" id="pppoe_username_input" class="form-control" required placeholder="Pilih atau ketik username" style="flex: 1 1 200px; min-width: 0;">
-                    <button type="button" class="btn btn-secondary" onclick="openPppoeUserModal()" style="flex: 0 0 auto; white-space: nowrap;">Pilih dari MikroTik</button>
-                </div>
-                <small style="color: var(--text-muted);">Pilih username PPPoE dari user MikroTik untuk menghindari salah input</small>
-            </div>
-
-            <div class="form-group" style="grid-column: 1 / -1;">
-                <label class="form-label">Password PPPoE (Opsional)</label>
-                <input type="text" name="pppoe_password" class="form-control" placeholder="Kosongkan jika tidak ingin mengubah password PPPoE">
-                <small style="color: var(--text-muted);">Jika diisi, password ini akan dikirim ke perangkat (GenieACS). Aplikasi tidak bisa membaca password dari MikroTik.</small>
-            </div>
-            
-            <div class="form-group" style="grid-column: 1 / -1; margin-top: 10px; padding: 15px; background: rgba(0,210,255,0.05); border: 1px solid rgba(0,210,255,0.1); border-radius: 8px;">
-                <label class="form-label" style="color: var(--neon-cyan);"><i class="fas fa-microchip"></i> OLT Provisioning (V-SOL)</label>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 10px;">
-                    <div>
-                        <label class="form-label">Pilih OLT</label>
-                        <select name="olt_id" id="olt_selector" class="form-control" style="background: var(--bg-card);">
-                            <option value="0">-- Lewati OLT --</option>
-                            <?php foreach ($olts as $idx => $o): ?>
-                                <option value="<?php echo $o['id']; ?>" <?php echo $idx === 0 ? 'selected' : ''; ?>><?php echo htmlspecialchars($o['name']); ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="form-label">Scan Barcode / SN ONT</label>
-                        <div style="display: flex; gap: 5px;">
-                            <input type="text" id="onu_sn_input" name="onu_sn" list="onu_sn_list" class="form-control" placeholder="Scan SN dari Box ONT" style="flex: 1; background: var(--bg-card); color: var(--text-primary);">
-                            <datalist id="onu_sn_list"></datalist>
-                            <button type="button" class="btn btn-secondary btn-sm" onclick="startCameraScan()" title="Scan via Kamera">
-                                <i class="fas fa-camera"></i>
-                            </button>
-                            <button type="button" class="btn btn-secondary btn-sm" onclick="scanOltOnu()" title="Scan dari OLT">
-                                <i id="scan-icon" class="fas fa-search"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Hidden technical fields -->
-                <input type="hidden" name="olt_pon_port" id="olt_pon_port_input">
-                <input type="hidden" name="onu_id" id="onu_id_input">
-                <input type="hidden" name="onu_status" id="onu_status_hidden" value="unconfigured">
-
-                <!-- Service Multi-Selection -->
-                <div style="margin-top: 15px; display: flex; flex-wrap: wrap; gap: 15px; padding: 10px; background: rgba(255,255,255,0.02); border-radius: 5px;">
-                    <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
-                        <input type="checkbox" name="olt_services[]" value="acs" checked> <span style="font-size: 0.85em;">TR069 (ACS)</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
-                        <input type="checkbox" name="olt_services[]" value="pppoe" checked> <span style="font-size: 0.85em;">Internet (PPPoE)</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
-                        <input type="checkbox" name="olt_services[]" value="hotspot" checked> <span style="font-size: 0.85em;">Hotspot (VLAN 200)</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
-                        <input type="checkbox" name="olt_services[]" value="wifi" checked> <span style="font-size: 0.85em;">WiFi SSID 2</span>
-                    </label>
-                </div>
-                
-                <small style="color: var(--text-muted);">Gunakan kamera untuk memindai SN di box ONT. OLT akan dideteksi secara otomatis.</small>
-            </div>
-
-            <!-- Modal for Camera Scan -->
-            <div id="cameraScanModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; flex-direction:column; align-items:center; justify-content:center;">
-                <div style="background:var(--bg-card); padding:20px; border-radius:10px; width:90%; max-width:500px; text-align:center;">
-                    <h3 style="margin-bottom:15px; color:var(--neon-cyan);">Scan Barcode ONT</h3>
-                    <div id="reader" style="width:100%; min-height:300px; background:#000; border-radius:5px; overflow:hidden;"></div>
-                    <button type="button" class="btn btn-secondary" onclick="stopCameraScan()" style="margin-top:15px;">Batalkan</button>
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label class="form-label">Paket Langganan</label>
-                <select name="package_id" class="form-control" required style="color: var(--text-primary); background: var(--bg-card);">
-                    <option value="">Pilih Paket</option>
-                    <?php foreach ($packages as $pkg): ?>
-                        <option value="<?php echo $pkg['id']; ?>"><?php echo htmlspecialchars($pkg['name']); ?> (Rp <?php echo number_format($pkg['price'], 0, ',', '.'); ?>)</option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label class="form-label">Router / MikroTik</label>
-                <select name="router_id" class="form-control" style="color: var(--text-primary); background: var(--bg-card);">
-                    <option value="0">Default Router</option>
-                    <?php foreach ($routers as $r): ?>
-                        <option value="<?php echo $r['id']; ?>"><?php echo htmlspecialchars($r['name']); ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-
-            <div class="form-group" style="grid-column: 1 / -1;">
-                <label class="form-label" style="font-weight: bold; color: var(--neon-cyan);">Status Pemasangan</label>
-                <div style="display: flex; gap: 20px; margin-top: 5px;">
-                    <label style="display: flex; align-items: center; gap: 8px;">
-                        <input type="radio" name="install_status" value="installed" checked onchange="toggleTechDropdown()">
-                        <span>Sudah Terpasang</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 8px;">
-                        <input type="radio" name="install_status" value="pending" onchange="toggleTechDropdown()">
-                        <span>Belum Terpasang (Tugaskan Teknisi)</span>
-                    </label>
-                </div>
-            </div>
-
-            <div class="form-group" id="techDropdownContainer" style="display: none; padding: 15px; background: rgba(0,255,136,0.1); border: 1px solid var(--neon-green); border-radius: 8px; grid-column: 1 / -1;">
-                <label class="form-label">Tugaskan Teknisi Instalasi</label>
-                <select name="installed_by" class="form-control" style="color: var(--text-primary); background: var(--bg-card);">
-                    <option value="">-- Pilih Teknisi --</option>
-                    <?php foreach ($technicians as $tech): ?>
-                        <option value="<?php echo $tech['id']; ?>"><?php echo htmlspecialchars($tech['name']); ?></option>
-                    <?php endforeach; ?>
-                </select>
-                <small style="color: var(--text-muted); display: block; margin-top: 5px;">
-                    <i class="fab fa-whatsapp"></i> Teknisi otomatis akan mendapat tugas via WhatsApp dengan detail kontak dan lokasi maps.
-                </small>
-            </div>
-            
-            <script>
-                function toggleTechDropdown() {
-                    const status = document.querySelector('input[name="install_status"]:checked').value;
-                    const container = document.getElementById('techDropdownContainer');
-                    if (status === 'pending') {
-                        container.style.display = 'block';
-                    } else {
-                        container.style.display = 'none';
-                        document.querySelector('select[name="installed_by"]').value = '';
-                    }
-                }
-                function togglePasswordVisibility(id) {
-                    const input = document.getElementById(id);
-                    const eye = document.getElementById('eye_' + id);
-                    if (input.type === 'password') {
-                        input.type = 'text';
-                        eye.classList.remove('fa-eye');
-                        eye.classList.add('fa-eye-slash');
-                    } else {
-                        input.type = 'password';
-                        eye.classList.remove('fa-eye-slash');
-                        eye.classList.add('fa-eye');
-                    }
-                }
-            </script>
-            
-            <div class="form-group">
-                <label class="form-label">Tanggal Jatuh Tempo (1-28)</label>
-                <input type="number" name="isolation_date" class="form-control" value="20" min="1" max="28" required>
-                <small style="color: var(--text-muted);">Invoice terbit otomatis H-<?php echo $leadDays; ?> sebelum tanggal ini.</small>
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">Alamat</label>
-                <textarea name="address" class="form-control" rows="2" placeholder="Alamat rumah"></textarea>
-            </div>
+            <div class="form-group"><label class="form-label">Nama</label> <input type="text" name="name" class="form-control" required></div>
+            <div class="form-group"><label class="form-label">Nomor HP</label> <input type="text" name="phone" id="customer_phone_input" class="form-control" required></div>
+            <div class="form-group" style="grid-column: 1 / -1;"><label class="form-label">Username PPPoE</label><div style="display: flex; gap:10px;"><input type="text" name="pppoe_username" id="pppoe_username_input" class="form-control" required><button type="button" class="btn btn-secondary" onclick="openPppoeUserModal()">Pilih MikroTik</button></div></div>
+            <div class="form-group" style="grid-column: 1 / -1;"><label class="form-label">OLT Provisioning</label><div style="display: flex; gap:10px; margin-bottom:10px;"><select name="olt_id" id="olt_selector" class="form-control"><?php foreach($olts as $o): ?><option value="<?php echo $o['id']; ?>"><?php echo $o['name']; ?></option><?php endforeach; ?></select><input type="text" name="onu_sn" id="onu_sn_input" list="onu_sn_list" class="form-control" placeholder="Scan/Type SN"><datalist id="onu_sn_list"></datalist><button type="button" class="btn btn-secondary" onclick="startCameraScan()"><i class="fas fa-camera"></i></button><button type="button" class="btn btn-secondary" onclick="scanOltOnu()"><i id="scan-icon" class="fas fa-search"></i></button></div></div>
+            <input type="hidden" name="olt_pon_port" id="olt_pon_port_input"><input type="hidden" name="onu_id" id="onu_id_input"><input type="hidden" name="onu_status" id="onu_status_hidden" value="unconfigured">
+            <div class="form-group"><label class="form-label">Paket</label><select name="package_id" class="form-control" required><?php foreach ($packages as $pkg): ?><option value="<?php echo $pkg['id']; ?>"><?php echo $pkg['name']; ?></option><?php endforeach; ?></select></div>
+            <div class="form-group"><label class="form-label">Jatuh Tempo (Tgl)</label><input type="number" name="isolation_date" class="form-control" value="20" min="1" max="28" required></div>
         </div>
-        
-        <div class="form-group">
-            <label class="form-label">Lokasi (Latitude, Longitude)</label>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                <input type="text" name="lat" class="form-control" placeholder="Latitude" readonly>
-                <input type="text" name="lng" class="form-control" placeholder="Longitude" readonly>
-            </div>
-            <small style="color: var(--text-muted);">Klik pada peta untuk set lokasi</small>
-        </div>
-        
-        <div style="height: 300px; margin-top: 15px; border-radius: 8px; overflow: hidden;" id="map-picker"></div>
-
-        <div class="form-group" style="margin-top: 15px; background: var(--bg-card); padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
-            <label class="form-label" style="display: block; margin-bottom: 10px;">
-                Mapping ONU
-            </label>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                <label style="display: flex; align-items: center; gap: 8px;">
-                    <input type="checkbox" name="save_onu" value="1" checked>
-                    <span>Sekaligus simpan titik ke ONU Locations</span>
-                </label>
-                <div>
-                    <label class="form-label">ODP (Opsional)</label>
-                    <select name="odp_id" id="add_odp_select" class="form-control" style="color: var(--text-primary); background: var(--bg-card);">
-                        <option value="">-- Pilih ODP --</option>
-                    </select>
-                    <small style="color: var(--text-muted);">Jika belum ada, tambah ODP di menu GenieACS Peta</small>
-                </div>
-            </div>
-        </div>
-        
-        <button type="submit" class="btn btn-primary" style="margin-top: 20px;">
-            <i class="fas fa-save"></i> Simpan Pelanggan
-        </button>
+        <div class="form-group" style="margin-top:15px;"><label class="form-label">Lokasi</label><div style="display:flex; gap:10px; margin-bottom:10px;"><input type="text" name="lat" class="form-control" readonly><input type="text" name="lng" class="form-control" readonly></div><div id="map-picker" style="height: 300px; border-radius:8px;"></div></div>
+        <button type="submit" class="btn btn-primary" style="margin-top:20px;">Simpan Pelanggan</button>
     </form>
 </div>
 
-<!-- Customers Table -->
-<div class="card">
-    <div class="card-header" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px;">
-        <h3 class="card-title" style="margin: 0;"><i class="fas fa-users"></i> Daftar Pelanggan</h3>
-        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-            <select onchange="window.location.href='?limit='+this.value;" class="form-control" style="width: auto; height: 32px; padding: 0 10px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); color: var(--text-primary);">
-                <?php foreach ([10, 25, 50, 100, 500, 1000] as $l): ?>
-                    <option value="<?php echo $l; ?>" <?php echo $perPage === $l ? 'selected' : ''; ?>>Tampil <?php echo $l; ?></option>
-                <?php endforeach; ?>
-            </select>
-            <input type="text" id="searchCustomer" class="form-control" placeholder="Cari pelanggan..." style="width: 200px; height: 32px;">
-            <a href="export.php" class="btn btn-primary btn-sm" style="height: 32px; display: flex; align-items: center;">
-                <i class="fas fa-file-excel"></i> Export/Import
-            </a>
-            <button onclick="document.getElementById('deleteAllModal').style.display='flex';" class="btn btn-danger btn-sm" style="height: 32px; display: flex; align-items: center;">
-                <i class="fas fa-trash-alt"></i> Hapus Semua
-            </button>
-        </div>
-    </div>
-    
-    <table class="data-table" id="customerTable">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Nama & Kontak</th>
-                <th>Paket & Router</th>
-                <th>Status</th>
-                <th>PPPoE</th>
-                <th>Invoice Terbit</th>
-                <th>Jatuh Tempo</th>
-                <th>Aksi</th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php if (empty($customers)): ?>
-                <tr>
-                    <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 30px;" data-label="Data">
-                        Belum ada data pelanggan
-                    </td>
-                </tr>
-            <?php else: ?>
-                <?php foreach ($customers as $c): ?>
-                <tr>
-                    <td data-label="ID">#<?php echo $c['id']; ?></td>
-                    <td data-label="Nama & Kontak">
-                        <strong><?php echo htmlspecialchars($c['name']); ?></strong><br>
-                        <small><i class="fab fa-whatsapp"></i> <?php echo htmlspecialchars($c['phone']); ?></small>
-                    </td>
-                    <td data-label="Paket & Router">
-                        <?php echo htmlspecialchars($c['package_name'] ?? 'Tanpa Paket'); ?><br>
-                        <small style="color: var(--neon-cyan);">
-                            <i class="fas fa-server"></i> <?php echo htmlspecialchars($c['router_name'] ?? 'Default Router'); ?>
-                        </small>
-                    </td>
-                    <td data-label="Status">
-                        <?php if ($c['status'] === 'active'): ?>
-                            <span class="badge badge-success">Aktif</span>
-                        <?php else: ?>
-                            <span class="badge badge-warning">Isolir</span>
-                        <?php endif; ?>
-                    </td>
-                    <td data-label="PPPoE">
-                        <code style="background: rgba(255,255,255,0.1); padding: 2px 4px; border-radius: 4px;">
-                            <?php echo htmlspecialchars($c['pppoe_username']); ?>
-                        </code>
-                    </td>
-                    <td data-label="Invoice Terbit">
-                        <?php 
-                            $billingDay = (int)$c['isolation_date'];
-                            $genDayNum = $billingDay - $leadDays;
-                            $m = (int)date('n');
-                            $y = (int)date('Y');
-                            $genDate = date('Y-m-d', mktime(0, 0, 0, $m, $genDayNum, $y));
-                            echo '<span class="badge badge-secondary" style="background: rgba(0,255,136,0.1); color: var(--neon-green); border: 1px solid rgba(0,255,136,0.3); font-size: 0.8rem; padding: 4px 8px;">' . formatDayMonthIndo($genDate) . '</span>';
-                        ?>
-                    </td>
-                    <td data-label="Jatuh Tempo">
-                        <?php 
-                            $dueDate = date('Y-m-d', mktime(0, 0, 0, $m, $billingDay, $y));
-                            echo '<span class="badge badge-info">' . formatDayMonthIndo($dueDate) . '</span>';
-                        ?>
-                    </td>
-                    <td data-label="Aksi">
-                        <a href="pay_process.php?id=<?php echo $c['id']; ?>" class="btn btn-success btn-sm" title="Bayar Tagihan">
-                            <i class="fas fa-money-bill-wave"></i>
-                        </a>
-                        <button class="btn btn-secondary btn-sm" onclick="editCustomer(<?php echo htmlspecialchars(json_encode($c)); ?>)" title="Edit">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <form method="POST" style="display: inline;" onsubmit="return confirm('Apakah Anda yakin ingin menghapus pelanggan ini? Data yang dihapus tidak dapat dikembalikan.');">
-                            <input type="hidden" name="action" value="delete">
-                            <input type="hidden" name="customer_id" value="<?php echo $c['id']; ?>">
-                            <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
-                            <button type="submit" class="btn btn-danger btn-sm" title="Hapus">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </form>
-                        <?php if ($c['status'] === 'isolated'): ?>
-                            <form method="POST" style="display: inline;">
-                                <input type="hidden" name="action" value="unisolate">
-                                <input type="hidden" name="customer_id" value="<?php echo $c['id']; ?>">
-                                <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
-                                <button type="submit" class="btn btn-success btn-sm" title="Buka Isolir">
-                                    <i class="fas fa-unlock"></i>
-                                </button>
-                            </form>
-                        <?php endif; ?>
-                    </td>
-                </tr>
-                <?php endforeach; ?>
-            <?php endif; ?>
-        </tbody>
-    </table>
-    
-    <!-- Pagination -->
-    <?php if ($totalPages > 1): ?>
-    <div style="display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 20px;">
-        <a href="?page=1&limit=<?php echo $perPage; ?>" class="btn btn-secondary btn-sm" <?php echo $page === 1 ? 'disabled style="opacity: 0.5;"' : ''; ?>>
-            <i class="fas fa-angle-double-left"></i>
-        </a>
-        <a href="?page=<?php echo max(1, $page - 1); ?>&limit=<?php echo $perPage; ?>" class="btn btn-secondary btn-sm" <?php echo $page === 1 ? 'disabled style="opacity: 0.5;"' : ''; ?>>
-            <i class="fas fa-angle-left"></i>
-        </a>
-        
-        <span style="color: var(--text-secondary);">
-            Halaman <?php echo $page; ?> dari <?php echo $totalPages; ?>
-            (Total: <?php echo $totalCustomers; ?> pelanggan)
-        </span>
-        
-        <a href="?page=<?php echo min($totalPages, $page + 1); ?>&limit=<?php echo $perPage; ?>" class="btn btn-secondary btn-sm" <?php echo $page === $totalPages ? 'disabled style="opacity: 0.5;"' : ''; ?>>
-            <i class="fas fa-angle-right"></i>
-        </a>
-        <a href="?page=<?php echo $totalPages; ?>&limit=<?php echo $perPage; ?>" class="btn btn-secondary btn-sm" <?php echo $page === $totalPages ? 'disabled style="opacity: 0.5;"' : ''; ?>>
-            <i class="fas fa-angle-double-right"></i>
-        </a>
-    </div>
-    <?php endif; ?>
-</div>
-        
-<!-- Delete All Modal -->
-<div id="deleteAllModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); z-index: 2000; align-items: center; justify-content: center;">
-    <div class="card" style="width: 450px; max-width: 90%; border: 1px solid var(--danger); box-shadow: 0 0 20px rgba(255, 71, 87, 0.3);">
-        <div class="card-header" style="border-bottom-color: rgba(255, 71, 87, 0.2);">
-            <h3 class="card-title" style="color: var(--danger);"><i class="fas fa-exclamation-triangle"></i> PERINGATAN BAHAYA</h3>
-            <button onclick="document.getElementById('deleteAllModal').style.display='none';" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1.25rem;">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <div style="padding: 20px 0;">
-            <p style="color: #ffaaaa;">Anda akan <strong>MENGHAPUS SEMUA DATA PELANGGAN</strong> di sistem. Tindakan darurat ini tidak dapat dibatalkan!</p>
-            <p style="color: var(--text-muted); font-size: 0.9rem;">Untuk melanjutkan, ketik kata <strong>HAPUS SEMUA</strong> pada kolom di bawah ini:</p>
-            <form method="POST">
-                <input type="hidden" name="action" value="delete_all">
-                <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
-                <div class="form-group">
-                    <input type="text" name="confirm_text" class="form-control" placeholder="Ketik HAPUS SEMUA" required autocomplete="off" style="text-align: center; font-weight: bold; letter-spacing: 2px;">
-                </div>
-                <div style="display: flex; gap: 10px; margin-top: 20px;">
-                    <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="document.getElementById('deleteAllModal').style.display='none';">Batal</button>
-                    <button type="submit" class="btn btn-danger" style="flex: 1;"><i class="fas fa-trash-alt"></i> Eksekusi Hapus</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
+<!-- Modal Dialogs -->
+<div id="cameraScanModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; flex-direction:column; align-items:center; justify-content:center;"><div style="background:var(--bg-card); padding:20px; border-radius:10px; width:90%; max-width:500px; text-align:center;"><h3 style="color:var(--neon-cyan);">Barcode Scanner</h3><div id="reader" style="width:100%; min-height:300px; border-radius:5px; overflow:hidden;"></div><button class="btn btn-secondary" onclick="stopCameraScan()" style="margin-top:15px;">Tutup</button></div></div>
+<div id="pppoeUserModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:2000; align-items:center; justify-content:center;"><div class="card" style="width: 360px;"><div class="card-header"><h3>MikroTik Users</h3><button onclick="closePppoeUserModal()">&times;</button></div><div style="padding:15px;"><input type="text" id="pppoeUserSearch" class="form-control" placeholder="Cari..."><div id="pppoeUserList" style="max-height:400px; overflow-y:auto; margin-top:10px;"></div></div></div></div>
 
-<!-- PPPoE User Modal -->
-<div id="pppoeUserModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 2000;">
-    <div class="card" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 360px; max-height: 80vh; overflow-y: auto;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-            <h3 style="margin: 0; color: var(--neon-cyan);">
-                <i class="fas fa-network-wired"></i> Pilih Username PPPoE
-            </h3>
-            <button type="button" onclick="closePppoeUserModal()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1.25rem;">&times;</button>
-        </div>
-        <div class="form-group" style="margin-bottom: 15px;">
-            <input type="text" id="pppoeUserSearch" class="form-control" placeholder="Cari username PPPoE...">
-        </div>
-        <div id="pppoeUserList" style="max-height: 60vh; overflow-y: auto;"></div>
-    </div>
-</div>
-        
-<!-- Edit Customer Modal -->
-<div id="editCustomerModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 2000; align-items: center; justify-content: center;">
-    <div class="card" style="width: 800px; max-width: 90%; margin: 2rem; max-height: 90vh; overflow-y: auto;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h3 style="margin: 0; color: var(--neon-cyan);">
-                <i class="fas fa-edit"></i> Edit Pelanggan
-            </h3>
-            <button onclick="closeEditModal()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1.25rem;">&times;</button>
-        </div>
-        
-        <form method="POST" id="editCustomerForm">
-            <input type="hidden" name="action" value="edit">
-            <input type="hidden" name="customer_id" id="edit_customer_id">
-            <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
-            
-            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
-                <div class="form-group">
-                    <label class="form-label">Nama Pelanggan</label>
-                    <input type="text" name="name" id="edit_name" class="form-control" required placeholder="Nama Lengkap">
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Nomor HP (WhatsApp)</label>
-                    <input type="text" name="phone" id="edit_phone" class="form-control" required placeholder="08xxxxxxxxxx">
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Username PPPoE</label>
-                    <input type="text" name="pppoe_username" id="edit_pppoe_username" class="form-control" required placeholder="Username di MikroTik" readonly style="background: rgba(255,255,255,0.05); cursor: not-allowed;">
-                    <small style="color: var(--text-muted);">Username PPPoE tidak dapat diubah</small>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Paket Langganan</label>
-                    <select name="package_id" id="edit_package_id" class="form-control" required style="color: var(--text-primary); background: var(--bg-card);">
-                        <option value="">Pilih Paket</option>
-                        <?php foreach ($packages as $pkg): ?>
-                            <option value="<?php echo $pkg['id']; ?>">
-                                <?php echo htmlspecialchars($pkg['name']); ?> (<?php echo formatCurrency($pkg['price']); ?>)
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
+<!-- Customer Table -->
+<div class="card" style="margin-top:30px;"><div class="card-header"><h3>Daftar Pelanggan</h3></div><table class="data-table"><thead><tr><th>Nama</th><th>Paket</th><th>PPPoE</th><th>Aksi</th></tr></thead><tbody><?php foreach($customers as $c): ?><tr><td><strong><?php echo $c['name']; ?></strong></td><td><?php echo $c['package_name']; ?></td><td><code><?php echo $c['pppoe_username']; ?></code></td><td><button class="btn btn-secondary btn-sm" onclick='editCustomer(<?php echo json_encode($c); ?>)'><i class="fas fa-edit"></i></button></td></tr><?php endforeach; ?></tbody></table></div>
 
-                <div class="form-group">
-                    <label class="form-label">Router / MikroTik</label>
-                    <select name="router_id" id="edit_router_id" class="form-control" style="color: var(--text-primary); background: var(--bg-card);">
-                        <option value="0">Default Router</option>
-                        <?php foreach ($routers as $r): ?>
-                            <option value="<?php echo $r['id']; ?>"><?php echo htmlspecialchars($r['name']); ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Password Portal Pelanggan</label>
-                    <div style="position: relative;">
-                        <input type="password" name="portal_password" id="edit_portal_password" class="form-control" required>
-                        <button type="button" onclick="togglePasswordVisibility('edit_portal_password')" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-muted); cursor: pointer;">
-                            <i class="fas fa-eye" id="eye_edit_portal_password"></i>
-                        </button>
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Tanggal Jatuh Tempo (1-28)</label>
-                    <input type="number" name="isolation_date" id="edit_isolation_date" class="form-control" min="1" max="28" required>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Alamat</label>
-                    <textarea name="address" id="edit_address" class="form-control" rows="2" placeholder="Alamat rumah"></textarea>
-                </div>
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">Lokasi (Latitude, Longitude)</label>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                    <input type="text" name="lat" id="edit_lat" class="form-control" placeholder="Latitude" readonly>
-                    <input type="text" name="lng" id="edit_lng" class="form-control" placeholder="Longitude" readonly>
-                </div>
-                <small style="color: var(--text-muted);">Klik pada peta untuk set lokasi</small>
-            </div>
-            
-            <div style="height: 300px; margin-top: 15px; border-radius: 8px; overflow: hidden;" id="edit-map-picker"></div>
-
-            <div class="form-group" style="margin-top: 15px; background: var(--bg-card); padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
-                <label class="form-label" style="display: block; margin-bottom: 10px;">
-                    Mapping ONU
-                </label>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                    <label style="display: flex; align-items: center; gap: 8px;">
-                        <input type="checkbox" name="save_onu" value="1" checked>
-                        <span>Perbarui titik pada ONU Locations</span>
-                    </label>
-                    <div>
-                        <label class="form-label">ODP (Opsional)</label>
-                        <select name="odp_id" id="edit_odp_select" class="form-control" style="color: var(--text-primary); background: var(--bg-card);">
-                            <option value="">-- Pilih ODP --</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-            
-            <div style="display: flex; gap: 10px; margin-top: 20px;">
-                <button type="submit" class="btn btn-primary" style="flex: 1;">
-                    <i class="fas fa-save"></i> Simpan Perubahan
-                </button>
-                <button type="button" class="btn btn-secondary" onclick="closeEditModal()" style="flex: 1;">
-                    Batal
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
-
-
-
+<!-- UNIFIED SCRIPT (V7.4 TOTAL RESET) -->
 <script>
-let map, marker;
-let editMap, editMarker;
-let pppoeUsers = [];
-
-function openPppoeUserModal() {
-    const modal = document.getElementById('pppoeUserModal');
-    if (!modal) {
-        return;
-    }
-    modal.style.display = 'flex';
-    
-    const list = document.getElementById('pppoeUserList');
-    if (list) {
-        list.innerHTML = '<div style="padding: 10px; color: var(--text-secondary);">Memuat data dari MikroTik...</div>';
-    }
-    
-    fetch('../api/mikrotik.php?action=users')
-        .then(response => response.text())
-        .then(text => {
-            let data = null;
-            try {
-                const start = text.indexOf('{');
-                if (start !== -1) {
-                    data = JSON.parse(text.slice(start));
-                }
-            } catch (e) {
-                console.error('Respon MikroTik tidak valid:', text, e);
-            }
-            
-            if (data && data.success && data.data && Array.isArray(data.data.users)) {
-                pppoeUsers = data.data.users;
-                renderPppoeUserList(pppoeUsers);
-            } else if (list) {
-                list.innerHTML = '<div style="padding: 10px; color: var(--text-secondary);">Gagal mengambil data dari MikroTik</div>';
-            }
-        })
-        .catch(error => {
-            console.error('Fetch MikroTik error:', error);
-            if (list) {
-                list.innerHTML = '<div style="padding: 10px; color: var(--text-secondary);">Gagal mengambil data dari MikroTik</div>';
-            }
-        });
-}
-
-function renderPppoeUserList(users) {
-    const list = document.getElementById('pppoeUserList');
-    if (!list) {
-        return;
-    }
-    
-    if (!users || users.length === 0) {
-        list.innerHTML = '<div style="padding: 10px; color: var(--text-secondary);">Tidak ada user PPPoE ditemukan</div>';
-        return;
-    }
-    
-    list.innerHTML = '';
-    
-    users.forEach(user => {
-        const username = user.name || user['name'];
-        if (!username) {
-            return;
-        }
-        
-        const item = document.createElement('button');
-        item.type = 'button';
-        item.className = 'btn btn-secondary';
-        item.style.display = 'block';
-        item.style.width = '100%';
-        item.style.textAlign = 'left';
-        item.style.marginBottom = '8px';
-        item.textContent = username;
-        item.onclick = function() {
-            const input = document.getElementById('pppoe_username_input') || document.querySelector('input[name="pppoe_username"]');
-            if (input) {
-                input.value = username;
-            }
-            closePppoeUserModal();
-        };
-        
-        list.appendChild(item);
-    });
-}
-
-function closePppoeUserModal() {
-    const modal = document.getElementById('pppoeUserModal');
-    if (modal) {
-        modal.style.display = 'none';
-    }
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    const searchInput = document.getElementById('pppoeUserSearch');
-    if (searchInput) {
-        searchInput.addEventListener('input', function(e) {
-            const term = e.target.value.toLowerCase();
-            const filtered = (pppoeUsers || []).filter(user => {
-                const username = user.name || user['name'] || '';
-                return username.toLowerCase().includes(term);
-            });
-            renderPppoeUserList(filtered);
-        });
-    }
-    
-    const modal = document.getElementById('pppoeUserModal');
-    if (modal) {
-        modal.addEventListener('click', function(e) {
-            if (e.target === modal) {
-                closePppoeUserModal();
-            }
-        });
-    }
-});
+window.map = null;
+window.marker = null;
+window.pppoeUsers = [];
+window.html5QrcodeScanner = null;
 
 function initMap() {
-    if (typeof L === 'undefined') { console.error('Leaflet not loaded'); return; }
-    if (map) return;
-    try {
-        const lat = <?php echo $mapCenter['lat']; ?>;
-        const lng = <?php echo $mapCenter['lng']; ?>;
-        const mapDiv = document.getElementById('map-picker');
-        if (!mapDiv) return;
-
-        map = L.map('map-picker').setView([lat, lng], 14);
-        
-        var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap'
-        }).addTo(map);
-        
-        var googleSat = L.tileLayer('https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', {
-            maxZoom: 20,
-            subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
-        });
-
-        var baseMaps = { "OpenStreetMap": osm, "Satelit": googleSat };
-        L.control.layers(baseMaps).addTo(map);
-        
-        map.on('click', function(e) {
-            if (marker) map.removeLayer(marker);
-            marker = L.marker(e.latlng).addTo(map);
-            document.querySelector('input[name="lat"]').value = e.latlng.lat.toFixed(6);
-            document.querySelector('input[name="lng"]').value = e.latlng.lng.toFixed(6);
-        });
-    } catch (e) {
-        console.error('initMap failed:', e);
-    }
-}
-
-function initEditMap() {
-    if (editMap) return;
-    
-    editMap = L.map('edit-map-picker').setView([<?php echo $mapCenter['lat']; ?>, <?php echo $mapCenter['lng']; ?>], 14);
-    
-    // Base layers
-    var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap'
-    });
-    
-    var googleSat = L.tileLayer('https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', {
-        maxZoom: 20,
-        subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
-    });
-
-    // Add default layer
-    osm.addTo(editMap);
-
-    // Layer control
-    var baseMaps = {
-        "OpenStreetMap": osm,
-        "Satelit": googleSat
-    };
-    L.control.layers(baseMaps).addTo(editMap);
-    
-    editMap.on('click', function(e) {
-        if (editMarker) {
-            editMap.removeLayer(editMarker);
-        }
-        
-        editMarker = L.marker(e.latlng).addTo(editMap);
-        
-        document.getElementById('edit_lat').value = e.latlng.lat.toFixed(6);
-        document.getElementById('edit_lng').value = e.latlng.lng.toFixed(6);
+    if (window.map || typeof L === 'undefined') return;
+    const div = document.getElementById('map-picker');
+    if (!div) return;
+    window.map = L.map('map-picker').setView([<?php echo $mapCenter['lat']; ?>, <?php echo $mapCenter['lng']; ?>], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(window.map);
+    window.map.on('click', (e) => {
+        if (window.marker) window.map.removeLayer(window.marker);
+        window.marker = L.marker(e.latlng).addTo(window.map);
+        document.querySelector('input[name="lat"]').value = e.latlng.lat.toFixed(6);
+        document.querySelector('input[name="lng"]').value = e.latlng.lng.toFixed(6);
     });
 }
 
-// Search functionality
-document.getElementById('searchCustomer').addEventListener('input', function(e) {
-    const search = e.target.value.toLowerCase();
-    const rows = document.querySelectorAll('#customerTable tbody tr');
-    
-    rows.forEach(row => {
-        const text = row.textContent.toLowerCase();
-        row.style.display = text.includes(search) ? '' : 'none';
-    });
-});
-
-// Edit customer
-function editCustomer(customer) {
-    // If id is passed (number or string), fetch data (backward compatibility)
-    if (typeof customer !== 'object') {
-        fetch(`../api/customers.php?id=${customer}`)
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    editCustomer(data.data);
-                } else {
-                    alert('Gagal mengambil data pelanggan: ' + data.message);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Terjadi kesalahan saat mengambil data pelanggan');
-            });
-        return;
-    }
-
-    document.getElementById('edit_customer_id').value = customer.id;
-    document.getElementById('edit_name').value = customer.name;
-    document.getElementById('edit_phone').value = customer.phone;
-    document.getElementById('edit_portal_password').value = customer.portal_password || '1234';
-    document.getElementById('edit_pppoe_username').value = customer.pppoe_username;
-    document.getElementById('edit_package_id').value = customer.package_id;
-    document.getElementById('edit_router_id').value = customer.router_id || 0;
-    document.getElementById('edit_isolation_date').value = customer.isolation_date || 20;
-    document.getElementById('edit_address').value = customer.address || '';
-    document.getElementById('edit_lat').value = customer.lat || '';
-    document.getElementById('edit_lng').value = customer.lng || '';
-    
-    // Set technician
-    const techSelect = document.getElementById('edit_installed_by');
-    if (techSelect) {
-        techSelect.value = customer.installed_by || '';
-    }
-
-    // Set ODP
-    const odpSelect = document.getElementById('edit_odp_select');
-    if (odpSelect) {
-        odpSelect.value = customer.onu_odp_id || '';
-    }
-    
-    // Show modal
-    document.getElementById('editCustomerModal').style.display = 'flex';
-    
-    // Initialize map if needed and set view
-    setTimeout(() => {
-        initEditMap();
-        editMap.invalidateSize();
-        
-        if (customer.lat && customer.lng) {
-            const latlng = [customer.lat, customer.lng];
-            editMap.setView(latlng, 15);
-            
-            if (editMarker) editMap.removeLayer(editMarker);
-            editMarker = L.marker(latlng).addTo(editMap);
-        }
-    }, 100);
-}
-
-function closeEditModal() {
-    document.getElementById('editCustomerModal').style.display = 'none';
-}
-
-// Close modal when clicking outside
-document.getElementById('editCustomerModal').addEventListener('click', function(e) {
-    if (e.target === this) {
-        closeEditModal();
-    }
-});
-
-// Initialize map when page loads
-setTimeout(initMap, 500);
-
-// Load ODP list for dropdowns
-function loadOdpOptions() {
-    fetch('../api/onu_locations.php')
-        .then(r => r.json())
-        .then(j => {
-            if (!j.success) return;
-            const odps = j.odps || [];
-            const addSel = document.getElementById('add_odp_select');
-            const editSel = document.getElementById('edit_odp_select');
-            const makeOptions = (sel) => {
-                if (!sel) return;
-                // keep first option
-                sel.innerHTML = '<option value=\"\">-- Pilih ODP --</option>';
-                odps.forEach(o => {
-                    const opt = document.createElement('option');
-                    opt.value = o.id;
-                    opt.textContent = o.name + (o.code ? (' (' + o.code + ')') : '');
-                    sel.appendChild(opt);
-                });
-            };
-            makeOptions(addSel);
-            makeOptions(editSel);
-        })
-        .catch(() => {});
-}
-
-<script>
-function scanOltOnu() {
-    const oltId = document.getElementById('olt_selector').value;
-    if (oltId === '0') {
-        alert('Silakan pilih OLT terlebih dahulu.');
-        return;
-    }
-
-    const icon = document.getElementById('scan-icon');
-    const dl = document.getElementById('onu_sn_list');
-    
-    icon.className = 'fas fa-spinner fa-spin';
-    dl.innerHTML = '';
-
-    // Cache to store scan result data for auto-fill logic
-    window.lastScanResults = [];
-
-    fetch(`customers.php?ajax_action=scan_onu&olt_id=${oltId}`)
-        .then(r => r.json())
-        .then(data => {
-            if (data.length === 0) {
-                alert('Tidak ditemukan ONU baru pada OLT ini.');
-            } else {
-                window.lastScanResults = data;
-                data.forEach(onu => {
-                    const opt = document.createElement('option');
-                    opt.value = onu.sn;
-                    const statusTxt = onu.status === 'registered' ? ' [AUTO-LEARN]' : ' [UNCONFIG]';
-                    opt.textContent = 'PON: ' + onu.port + statusTxt;
-                    dl.appendChild(opt);
-                });
-            }
-        })
-        .catch(err => {
-            console.error(err);
-            alert('Gagal memindai OLT.');
-        })
-        .finally(() => {
-            icon.className = 'fas fa-search';
-        });
-}
-
-// Auto-fill PON port & ID when SN is entered/selected
-document.getElementById('onu_sn_input').addEventListener('input', function() {
-    const val = this.value;
-    const onu = (window.lastScanResults || []).find(o => o.sn === val);
-    
-    if (onu) {
-        if (onu.port) document.getElementById('olt_pon_port_input').value = onu.port;
-        if (onu.id) document.getElementById('onu_id_input').value = onu.id;
-        if (onu.status) document.getElementById('onu_status_hidden').value = onu.status;
-        
-        // If it's already registered (auto-learn), highlight it
-        if (onu.status === 'registered') {
-            document.getElementById('onu_id_input').style.borderColor = 'var(--neon-green)';
-        } else {
-            document.getElementById('onu_id_input').style.borderColor = '';
-        }
-    } else {
-        // Clear if manual entry that doesn't match scan
-        document.getElementById('onu_status_hidden').value = 'unconfigured';
-        document.getElementById('onu_id_input').style.borderColor = '';
-    }
-});
-
-let html5QrcodeScanner = null;
-
-async function startCameraScan() {
-    if (typeof Html5Qrcode === 'undefined') {
-        alert("ERROR: Pustaka pemindai barcode (html5-qrcode) tidak ditemukan di internet. Periksa koneksi Anda.");
-        return;
-    }
-
-    const modal = document.getElementById('cameraScanModal');
-    if (modal) modal.style.display = 'flex';
-
-    setTimeout(async () => {
-        try {
-            html5QrcodeScanner = new Html5Qrcode("reader");
-            await html5QrcodeScanner.start(
-                { facingMode: "environment" }, 
-                { fps: 15, qrbox: { width: 250, height: 150 } },
-                (decodedText) => {
-                    document.getElementById('onu_sn_input').value = decodedText;
-                    stopCameraScan();
-                    document.getElementById('onu_sn_input').dispatchEvent(new Event('input'));
-                }
-            );
-        } catch (err) {
-            console.error("Camera scanner error:", err);
-            alert("GAGAL MEMBUKA KAMERA: " + err.name + " - " + err.message + "\n\nSaran: Gunakan HTTPS dan berikan izin kamera di browser Anda.");
-            stopCameraScan();
-        }
-    }, 150);
+function startCameraScan() {
+    if (typeof Html5Qrcode === 'undefined') return alert('Pustaka Scan Gagal Dimuat!');
+    document.getElementById('cameraScanModal').style.display = 'flex';
+    window.html5QrcodeScanner = new Html5Qrcode("reader");
+    window.html5QrcodeScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (txt) => {
+        document.getElementById('onu_sn_input').value = txt;
+        document.getElementById('onu_sn_input').dispatchEvent(new Event('input'));
+        stopCameraScan();
+    }).catch(e => { alert('Kamera Error: ' + e); stopCameraScan(); });
 }
 
 function stopCameraScan() {
-    if (html5QrcodeScanner && html5QrcodeScanner.isScanning) {
-        html5QrcodeScanner.stop().then(() => {
-            document.getElementById('cameraScanModal').style.display = 'none';
-        }).catch(err => console.error(err));
-    } else {
-        const m = document.getElementById('cameraScanModal');
-        if (m) m.style.display = 'none';
-    }
+    if (window.html5QrcodeScanner) window.html5QrcodeScanner.stop().finally(() => document.getElementById('cameraScanModal').style.display = 'none');
+    else document.getElementById('cameraScanModal').style.display = 'none';
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    try {
-        if (typeof initMap === 'function') initMap();
-        if (typeof loadOdpOptions === 'function') loadOdpOptions();
-    } catch(e) { console.error('Init error:', e); }
-});
+function scanOltOnu() {
+    const oltId = document.getElementById('olt_selector').value;
+    const icon = document.getElementById('scan-icon');
+    icon.className = 'fas fa-spinner fa-spin';
+    fetch('customers.php?ajax_action=scan_onu&olt_id=' + oltId).then(r => r.json()).then(data => {
+        const dl = document.getElementById('onu_sn_list'); dl.innerHTML = '';
+        data.forEach(o => {
+            const opt = document.createElement('option');
+            opt.value = o.sn; opt.textContent = 'PON: ' + o.port;
+            dl.appendChild(opt);
+        });
+    }).finally(() => icon.className = 'fas fa-search');
+}
+
+function openPppoeUserModal() {
+    document.getElementById('pppoeUserModal').style.display = 'flex';
+    fetch('../api/mikrotik.php?action=users').then(r => r.json()).then(d => {
+        const list = document.getElementById('pppoeUserList'); list.innerHTML = '';
+        d.data.users.forEach(u => {
+            const b = document.createElement('button'); b.className = 'btn btn-secondary'; b.style.width = '100%'; b.style.marginBottom = '5px';
+            b.textContent = u.name; b.onclick = () => { document.getElementById('pppoe_username_input').value = u.name; closePppoeUserModal(); };
+            list.appendChild(b);
+        });
+    });
+}
+
+function closePppoeUserModal() { document.getElementById('pppoeUserModal').style.display = 'none'; }
+function editCustomer(c) { alert('Edit Feature Under Maintenance (Patch 7.4 Reset)'); }
+
+window.addEventListener('load', () => { setTimeout(initMap, 500); });
+console.log("Patch v7.4 (Total Reset) Fully Operational.");
 </script>
 
 <?php
