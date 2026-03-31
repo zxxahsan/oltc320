@@ -519,7 +519,7 @@ $customers = fetchAll("
                 <label class="form-label" style="color:var(--neon-cyan,#00d2ff);display:block;margin-bottom:12px;"><i class="fas fa-microchip"></i> Registrasi ONU / OLT (Opsional)</label>
                 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
                     <div><label class="form-label">OLT</label>
-                        <select name="olt_id" class="form-control" style="background: var(--bg-card);">
+                        <select name="olt_id" id="add_olt_id" class="form-control" style="background: var(--bg-card);">
                             <option value="0">-- Tanpa OLT --</option>
                             <?php foreach ($olts as $o): ?>
                                 <option value="<?php echo $o['id']; ?>"><?php echo htmlspecialchars($o['name']); ?></option>
@@ -611,8 +611,8 @@ $customers = fetchAll("
             
             <div id="map-picker" style="height: 300px; margin-bottom: 20px; border-radius: 12px; border: 1px solid var(--border-color);"></div>
             
-            <button type="submit" class="btn btn-primary" style="width: 100%;">
-                <i class="fas fa-save"></i> Simpan Pelanggan
+            <button type="button" id="btn_magic_save_add" class="btn btn-primary" style="width: 100%;" onclick="magicSave('add')">
+                <i class="fas fa-magic"></i> Simpan Pelanggan (Magic Save)
             </button>
         </form>
     </div>
@@ -924,8 +924,8 @@ $customers = fetchAll("
             </div>
             
             <div style="display: flex; gap: 10px; margin-top: 20px;">
-                <button type="submit" class="btn btn-primary" style="flex: 1;">
-                    <i class="fas fa-save"></i> Simpan Perubahan
+                <button type="button" id="btn_magic_save_edit" class="btn btn-primary" style="flex: 1;" onclick="magicSave('edit')">
+                    <i class="fas fa-magic"></i> Simpan Perubahan (Magic Save)
                 </button>
                 <button type="button" class="btn btn-secondary" onclick="closeEditModal()" style="flex: 1;">
                     Batal
@@ -942,6 +942,36 @@ $customers = fetchAll("
 let map, marker;
 let editMap, editMarker;
 let pppoeUsers = [];
+
+function initMap() {
+    if (map) return;
+    map = L.map('map-picker').setView([-6.200000, 106.816666], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap'
+    }).addTo(map);
+    map.on('click', function(e) {
+        if (marker) map.removeLayer(marker);
+        marker = L.marker(e.latlng).addTo(map);
+        document.querySelector('input[name="lat"]').value = e.latlng.lat.toFixed(6);
+        document.querySelector('input[name="lng"]').value = e.latlng.lng.toFixed(6);
+    });
+    setTimeout(() => { map.invalidateSize(); }, 300);
+}
+
+function initEditMap() {
+    if (editMap) return;
+    editMap = L.map('edit-map-picker').setView([-6.200000, 106.816666], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap'
+    }).addTo(editMap);
+    editMap.on('click', function(e) {
+        if (editMarker) editMap.removeLayer(editMarker);
+        editMarker = L.marker(e.latlng).addTo(editMap);
+        document.getElementById('edit_lat').value = e.latlng.lat.toFixed(6);
+        document.getElementById('edit_lng').value = e.latlng.lng.toFixed(6);
+    });
+    setTimeout(() => { editMap.invalidateSize(); }, 300);
+}
 
 function openPppoeUserModal() {
     const modal = document.getElementById('pppoeUserModal');
@@ -979,6 +1009,29 @@ function openPppoeUserModal() {
                 list.innerHTML = '<div style="padding: 10px; color: var(--text-secondary);">Gagal mengambil data dari MikroTik</div>';
             }
         });
+}
+
+function renderPppoeUserList(users) {
+    const list = document.getElementById('pppoeUserList');
+    if (!list) return;
+    list.innerHTML = '';
+    users.forEach(u => {
+        const div = document.createElement('div');
+        div.style.padding = '10px';
+        div.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
+        div.style.cursor = 'pointer';
+        div.innerHTML = `<strong>${u.name}</strong><br><small style="color:#888">${u.profile}</small>`;
+        div.onclick = () => {
+            const input = document.getElementById('edit_pppoe_username') || document.getElementById('pppoe_username_input');
+            if (input) input.value = u.name;
+            closePppoeUserModal();
+        };
+        list.appendChild(div);
+    });
+}
+
+function closePppoeUserModal() {
+    document.getElementById('pppoeUserModal').style.display = 'none';
 }
 
 async function findOnOlt(mode = 'edit') {
@@ -1089,6 +1142,75 @@ async function doProvision(mode = 'edit') {
     } catch(e) {
         if (logBox) logBox.textContent = '✗ Error: ' + e.message;
     }
+}
+
+// Magic Save logic: Provision -> Clear Log -> Submit Form
+async function magicSave(mode) {
+    const btn = document.getElementById('btn_magic_save_' + mode);
+    const olt_id = document.getElementById(mode + '_olt_id').value;
+    const sn = document.getElementById(mode + '_onu_sn').value.trim();
+    const isProvisionEnabled = document.getElementById(mode + '_svc_acs')?.checked || 
+                               document.getElementById(mode + '_svc_pppoe')?.checked || 
+                               document.getElementById(mode + '_svc_hotspot')?.checked;
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-cog fa-spin"></i> Memproses...';
+
+    // 1. Provisioning workflow if OLT data is present and services checked
+    if (olt_id != 0 && sn.length > 8 && isProvisionEnabled) {
+        btn.innerHTML = '<i class="fas fa-bolt fa-spin"></i> Provisioning ONU...';
+        await doProvision(mode);
+        
+        // Wait a small delay to see the result
+        await new Promise(r => setTimeout(r, 2000));
+        
+        if (confirm('OLT Provisioning selesai. Lanjutkan simpan data ke Database?')) {
+            // Proceed to final save
+        } else {
+            btn.disabled = false;
+            btn.innerHTML = mode === 'add' ? '<i class="fas fa-magic"></i> Simpan Pelanggan (Magic Save)' : '<i class="fas fa-magic"></i> Simpan Perubahan (Magic Save)';
+            return;
+        }
+    }
+
+    // 2. Final Form Submit
+    const form = (mode === 'add') ? document.querySelector('#add-form-content form') : document.getElementById('editCustomerForm');
+    if (form) form.submit();
+}
+
+function editCustomer(customer) {
+    document.getElementById('edit_customer_id').value = customer.id;
+    document.getElementById('edit_name').value = customer.name;
+    document.getElementById('edit_phone').value = customer.phone;
+    document.getElementById('edit_pppoe_username').value = customer.pppoe_username || '';
+    document.getElementById('edit_package_id').value = customer.package_id;
+    document.getElementById('edit_router_id').value = customer.router_id || 0;
+    document.getElementById('edit_isolation_date').value = customer.isolation_date || 20;
+    document.getElementById('edit_address').value = customer.address || '';
+    document.getElementById('edit_olt_id').value = customer.olt_id || 0;
+    document.getElementById('edit_onu_sn').value = customer.onu_sn || '';
+    document.getElementById('edit_pon_port').value = customer.olt_pon_port || '';
+    document.getElementById('edit_onu_id').value = customer.onu_id || '';
+    document.getElementById('edit_lat').value = customer.lat || '';
+    document.getElementById('edit_lng').value = customer.lng || '';
+
+    document.getElementById('editCustomerModal').style.display = 'flex';
+    setTimeout(() => {
+        initEditMap();
+        if (editMap) {
+            editMap.invalidateSize();
+            if (customer.lat && customer.lng) {
+                const latlng = [customer.lat, customer.lng];
+                editMap.setView(latlng, 15);
+                if (editMarker) editMap.removeLayer(editMarker);
+                editMarker = L.marker(latlng).addTo(editMap);
+            }
+        }
+    }, 200);
+}
+
+function closeEditModal() {
+    document.getElementById('editCustomerModal').style.display = 'none';
 }
 
 function loadOdpOptions() {
