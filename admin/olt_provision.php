@@ -408,20 +408,32 @@ async function doDeleteWan() {
     const logBox = document.getElementById('log_box');
     const badge  = document.getElementById('status_badge');
 
-    if (!olt_id || !port || !onu_id) { alert('Pilih OLT, Port, dan ID terlebih dahulu!'); return; }
+    // Better Validation
+    if (olt_id === "0" || !port || !onu_id) { 
+        alert('Pilih OLT, Port, dan ID terlebih dahulu!'); 
+        return; 
+    }
     
     // Final check for SN match against hidden field
     const snInput = document.getElementById('f_confirm_sn').value.trim().toUpperCase();
     const targetSn = document.getElementById('f_active_sn').value.trim().toUpperCase();
-    if (snInput !== targetSn) { alert('SN Konfirmasi tidak cocok!'); return; }
+    
+    if (snInput !== targetSn) { 
+        alert('SN Konfirmasi tidak cocok!'); 
+        return; 
+    }
 
     if (!confirm('PERINGATAN TERAKHIR: Anda akan MENGHAPUS TOTAL (WIPE) konfigurasi ONU ini. Lanjut?')) return;
 
     btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> MENGHAPUS...';
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> PROSES...';
     badge.className = 'status-idle';
     badge.textContent = '⏳ Deleting...';
-    logBox.textContent = `⏳ Membersihkan Konfigurasi WAN ONU ${port}/${onu_id}...\nMohon tunggu...`;
+    
+    // Instant Log Feedback
+    logBox.innerHTML = `<span style="color:#00d2ff">🚀 Memulai Total Wipe untuk ONU ${port}/${onu_id}...</span>\n` +
+                       `Mohon tunggu, proses ini butuh ~15-30 detik untuk membersihkan WAN 1-8, ACS TR-069, dan WiFi SSID...\n\n` +
+                       `Menghubungkan ke OLT...`;
 
     const fd = new FormData();
     fd.append('olt_id', olt_id);
