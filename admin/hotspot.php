@@ -40,13 +40,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'profile' => sanitize($_POST['profile'])
             ];
             
-            $result = mikrotikUpdateHotspotUser($id, $data);
+            $res = mikrotikUpdateHotspotUser($id, $data);
             
-            if ($result['success']) {
+            if ($res) {
                 setFlash('success', 'User Hotspot berhasil diperbarui');
                 logActivity('UPDATE_HOTSPOT_USER', "ID: $id");
             } else {
-                setFlash('error', 'Gagal memperbarui user: ' . $result['message']);
+                setFlash('error', 'Gagal memperbarui user: ' . (mikrotikGetLastError() ?: 'MikroTik error'));
             }
             redirect('hotspot.php');
             break;
@@ -69,30 +69,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $currentStatus = $_POST['current_status'] ?? 'false';
             $newStatus = ($currentStatus === 'true') ? 'false' : 'true';
             
-            $result = mikrotikUpdateHotspotUser($id, ['disabled' => $newStatus]);
+            $res = mikrotikUpdateHotspotUser($id, ['disabled' => $newStatus]);
             
-            if ($result['success']) {
+            if ($res) {
                 $status = ($newStatus === 'true') ? 'disabled' : 'enabled';
                 setFlash('success', "User Hotspot berhasil di-$status");
                 logActivity('TOGGLE_HOTSPOT_USER', "ID: $id, Status: $status");
             } else {
-                setFlash('error', 'Gagal mengubah status user: ' . $result['message']);
+                setFlash('error', 'Gagal mengubah status user: ' . (mikrotikGetLastError() ?: 'MikroTik error'));
             }
             redirect('hotspot.php');
             break;
             
-        case 'profile_add':
-            $result = mikrotikAddHotspotProfile(
-                sanitize($_POST['profile_name']),
-                sanitize($_POST['rate_limit']),
-                sanitize($_POST['shared_users'])
-            );
+            $res = mikrotikAddHotspotProfile([
+                'name' => sanitize($_POST['profile_name']),
+                'rate-limit' => sanitize($_POST['rate_limit']),
+                'shared-users' => sanitize($_POST['shared_users'])
+            ]);
             
-            if ($result['success']) {
+            if ($res) {
                 setFlash('success', 'Profile Hotspot berhasil ditambahkan');
                 logActivity('ADD_HOTSPOT_PROFILE', "Profile: " . $_POST['profile_name']);
             } else {
-                setFlash('error', 'Gagal menambahkan profile: ' . $result['message']);
+                setFlash('error', 'Gagal menambahkan profile: ' . (mikrotikGetLastError() ?: 'MikroTik error'));
             }
             redirect('hotspot.php');
             break;
@@ -105,26 +104,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'shared_users' => sanitize($_POST['shared_users'])
             ];
             
-            $result = mikrotikUpdateHotspotProfile($id, $data);
+            $res = mikrotikUpdateHotspotProfile($id, [
+                'name' => sanitize($_POST['profile_name']),
+                'rate-limit' => sanitize($_POST['rate_limit']),
+                'shared-users' => sanitize($_POST['shared_users'])
+            ]);
             
-            if ($result['success']) {
+            if ($res) {
                 setFlash('success', 'Profile Hotspot berhasil diperbarui');
                 logActivity('UPDATE_HOTSPOT_PROFILE', "ID: $id");
             } else {
-                setFlash('error', 'Gagal memperbarui profile: ' . $result['message']);
+                setFlash('error', 'Gagal memperbarui profile: ' . (mikrotikGetLastError() ?: 'MikroTik error'));
             }
             redirect('hotspot.php');
             break;
             
         case 'profile_delete':
             $id = $_POST['profile_id'];
-            $result = mikrotikDeleteHotspotProfile($id);
+            $res = mikrotikDeleteHotspotProfile($id);
             
-            if ($result['success']) {
+            if ($res) {
                 setFlash('success', 'Profile Hotspot berhasil dihapus');
                 logActivity('DELETE_HOTSPOT_PROFILE', "ID: $id");
             } else {
-                setFlash('error', 'Gagal menghapus profile: ' . $result['message']);
+                setFlash('error', 'Gagal menghapus profile: ' . (mikrotikGetLastError() ?: 'MikroTik error'));
             }
             redirect('hotspot.php');
             break;
@@ -134,7 +137,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $hotspotUsers = mikrotikGetHotspotUsers();
 $totalUsers = count($hotspotUsers);
 
-$activeSessions = mikrotikGetHotspotActiveSessions();
+$activeSessions = mikrotikGetHotspotActive();
 $onlineCount = count($activeSessions);
 
 $onlineUsernames = [];
@@ -159,7 +162,7 @@ if (empty($hotspotProfiles)) {
 ob_start();
 ?>
 
-<div class="stats-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 30px;">
+<div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 30px;">
     <div class="stat-card">
         <div class="stat-icon cyan">
             <i class="fas fa-users"></i>
@@ -233,7 +236,7 @@ ob_start();
     <form method="POST" style="padding: 0 20px 20px;">
         <input type="hidden" name="action" value="profile_add">
         <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
             <div class="form-group">
                 <label class="form-label">Nama Profile</label>
                 <input type="text" name="profile_name" class="form-control" required placeholder="nama-profile">
@@ -310,7 +313,7 @@ ob_start();
     <form method="POST">
         <input type="hidden" name="action" value="add">
         <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
-        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
             <div class="form-group">
                 <label class="form-label">Username</label>
                 <input type="text" name="username" class="form-control" required placeholder="Username Hotspot">

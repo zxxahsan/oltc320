@@ -97,6 +97,7 @@ ob_start();
 ?>
 
 <!-- Add/Edit Form -->
+<div class="card">
     <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
         <h3 class="card-title"><i class="fas fa-plus-circle"></i> Tambah/Edit Profile</h3>
         <form method="POST" onsubmit="return confirm('Jalankan pembersihan voucher expired sekarang?')">
@@ -106,7 +107,7 @@ ob_start();
             </button>
         </form>
     </div>
-    <form method="POST" id="profileForm">
+    <form method="POST" id="profileForm" style="padding: 20px;">
         <input type="hidden" name="action" value="add" id="formAction">
         <input type="hidden" name="id" id="profileId">
 
