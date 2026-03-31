@@ -331,6 +331,10 @@ $routers = $routersTableExists ? getAllRouters() : [];
 ob_start();
 ?>
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/html5-qrcode@latest/html5-qrcode.min.js"></script>
+
 <!-- Stats -->
 <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 30px;">
     <div class="stat-card">
@@ -938,8 +942,7 @@ ob_start();
     </div>
 </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
 
 <script>
 let map, marker;
@@ -1056,39 +1059,37 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function initMap() {
-    // Add map
-    map = L.map('map-picker').setView([<?php echo $mapCenter['lat']; ?>, <?php echo $mapCenter['lng']; ?>], 14);
-    
-    // Base layers
-    var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap'
-    });
-    
-    var googleSat = L.tileLayer('https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', {
-        maxZoom: 20,
-        subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
-    });
+    if (typeof L === 'undefined') { console.error('Leaflet not loaded'); return; }
+    if (map) return;
+    try {
+        const lat = <?php echo $mapCenter['lat']; ?>;
+        const lng = <?php echo $mapCenter['lng']; ?>;
+        const mapDiv = document.getElementById('map-picker');
+        if (!mapDiv) return;
 
-    // Add default layer
-    osm.addTo(map);
+        map = L.map('map-picker').setView([lat, lng], 14);
+        
+        var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+        
+        var googleSat = L.tileLayer('https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', {
+            maxZoom: 20,
+            subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
+        });
 
-    // Layer control
-    var baseMaps = {
-        "OpenStreetMap": osm,
-        "Satelit": googleSat
-    };
-    L.control.layers(baseMaps).addTo(map);
-    
-    map.on('click', function(e) {
-        if (marker) {
-            map.removeLayer(marker);
-        }
+        var baseMaps = { "OpenStreetMap": osm, "Satelit": googleSat };
+        L.control.layers(baseMaps).addTo(map);
         
-        marker = L.marker(e.latlng).addTo(map);
-        
-        document.querySelector('input[name="lat"]').value = e.latlng.lat.toFixed(6);
-        document.querySelector('input[name="lng"]').value = e.latlng.lng.toFixed(6);
-    });
+        map.on('click', function(e) {
+            if (marker) map.removeLayer(marker);
+            marker = L.marker(e.latlng).addTo(map);
+            document.querySelector('input[name="lat"]').value = e.latlng.lat.toFixed(6);
+            document.querySelector('input[name="lng"]').value = e.latlng.lng.toFixed(6);
+        });
+    } catch (e) {
+        console.error('initMap failed:', e);
+    }
 }
 
 function initEditMap() {
@@ -1241,7 +1242,6 @@ function loadOdpOptions() {
         .catch(() => {});
 }
 
-<script src="https://unpkg.com/html5-qrcode@latest/html5-qrcode.min.js"></script>
 <script>
 function scanOltOnu() {
     const oltId = document.getElementById('olt_selector').value;
@@ -1310,9 +1310,9 @@ document.getElementById('onu_sn_input').addEventListener('input', function() {
 let html5QrcodeScanner = null;
 
 async function startCameraScan() {
-    // FORCE ATTEMPT: Remove strict protocol block but keep warning in console/alert
-    if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
-        console.warn('HTTP Protocol detected. Camera might be blocked by browser.');
+    if (typeof Html5Qrcode === 'undefined') {
+        alert("ERROR: Pustaka pemindai barcode (html5-qrcode) tidak ditemukan di internet. Periksa koneksi Anda.");
+        return;
     }
 
     const modal = document.getElementById('cameraScanModal');
@@ -1320,15 +1320,10 @@ async function startCameraScan() {
 
     setTimeout(async () => {
         try {
-            if (typeof Html5Qrcode === 'undefined') {
-                throw new Error('Pustaka Html5Qrcode tidak ditemukan atau gagal dimuat.');
-            }
             html5QrcodeScanner = new Html5Qrcode("reader");
-            const config = { fps: 15, qrbox: { width: 250, height: 150 } };
-
             await html5QrcodeScanner.start(
                 { facingMode: "environment" }, 
-                config,
+                { fps: 15, qrbox: { width: 250, height: 150 } },
                 (decodedText) => {
                     document.getElementById('onu_sn_input').value = decodedText;
                     stopCameraScan();
@@ -1336,8 +1331,8 @@ async function startCameraScan() {
                 }
             );
         } catch (err) {
-            console.error("Camera scanner failure:", err);
-            alert("GAGAL MEMBUKA KAMERA: " + (err.name || 'Error') + " - " + err.message + "\n\nSaran: Gunakan protokol HTTPS untuk izin hardware yang lebih stabil.");
+            console.error("Camera scanner error:", err);
+            alert("GAGAL MEMBUKA KAMERA: " + err.name + " - " + err.message + "\n\nSaran: Gunakan HTTPS dan berikan izin kamera di browser Anda.");
             stopCameraScan();
         }
     }, 150);
