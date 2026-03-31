@@ -118,6 +118,25 @@ ob_start();
 
                     <hr style="width: 100%; border-color: var(--border-color); margin: 10px 0;">
                     
+                    <h5 style="width: 100%; color: var(--text-secondary); margin: 10px 0; font-size: 0.9rem;">OLT Management</h5>
+
+                    <a href="olt_provision.php" class="menu-grid-item" style="border-color: #00ff41;">
+                        <i class="fas fa-rocket" style="color: #00ff41;"></i>
+                        <span>Provisioning ONU</span>
+                    </a>
+                    
+                    <a href="olt_debug.php" class="menu-grid-item">
+                        <i class="fas fa-terminal"></i>
+                        <span>Config Parser</span>
+                    </a>
+
+                    <a href="olt_settings.php" class="menu-grid-item">
+                        <i class="fas fa-tools"></i>
+                        <span>OLT Settings</span>
+                    </a>
+
+                    <hr style="width: 100%; border-color: var(--border-color); margin: 10px 0;">
+                    
                     <h5 style="width: 100%; color: var(--text-secondary); margin: 10px 0; font-size: 0.9rem;">Sistem</h5>
                     
                     <a href="settings.php" class="menu-grid-item">
