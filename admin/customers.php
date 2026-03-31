@@ -7,6 +7,20 @@ require_once '../includes/auth.php';
 requireAdminLogin();
 require_once '../includes/olt_api.php';
 
+// Auto-migrate task_queue table
+if (!tableExists('task_queue')) {
+    $conn->query("CREATE TABLE task_queue (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        task_type VARCHAR(50) NOT NULL,
+        payload TEXT NOT NULL,
+        execute_after DATETIME NOT NULL,
+        status VARCHAR(20) DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_execute (execute_after, status)
+    )");
+}
+
 $pageTitle = 'Pelanggan';
 
 // === AJAX: Provision ONU ===
@@ -19,13 +33,45 @@ if (isset($_GET['ajax_action']) && $_GET['ajax_action'] === 'provision') {
     $pppoe_pass = trim($_POST['pppoe_pass'] ?? '');
     $services  = $_POST['services'] ?? [];
     $acs_url   = trim($_POST['acs_url'] ?? 'http://172.16.200.3:7547');
+    $pppoe_bind = $_POST['pppoe_bind'] ?? [];
+    $hotspot_bind = $_POST['hotspot_bind'] ?? [];
 
     if (!$olt_id || !$port || !$onu_id) {
         echo json_encode(['success' => false, 'log' => 'Data OLT/Port/ONU ID tidak lengkap']);
         exit;
     }
 
-    $result = vsolProvisionOnu($olt_id, $port, $onu_id, $pppoe_user, $pppoe_pass, $services, $acs_url);
+    $result = vsolProvisionOnu($olt_id, $port, $onu_id, $pppoe_user, $pppoe_pass, $services, $acs_url, $pppoe_bind, $hotspot_bind);
+    
+    if ($result['success']) {
+        // Find SN for this ONU to queue ACS tagging
+        $onu = vsolSyncAllMetadata($olt_id); // Simple way to get SN
+        $sn = '';
+        foreach ($onu as $o) {
+            if ($o['port'] == $port && $o['id'] == $onu_id) {
+                $sn = $o['sn'];
+                break;
+            }
+        }
+        
+        if ($sn) {
+            // Find customer to get their internal ID or phone for tagging
+            $cust = fetchOne("SELECT id, phone FROM customers WHERE pppoe_username = ?", [$pppoe_user]);
+            $tagValue = $cust ? $cust['id'] : $pppoe_user;
+            
+            $payload = json_encode(['sn' => $sn, 'tag' => $tagValue]);
+            $executeAfter = date('Y-m-d H:i:s', strtotime('+5 minutes'));
+            
+            insert('task_queue', [
+                'task_type' => 'acs_tag',
+                'payload' => $payload,
+                'execute_after' => $executeAfter,
+                'status' => 'pending'
+            ]);
+            $result['log'] .= "\n[QUEUE] Tagging ACS ditunda 5 menit untuk SN: $sn (Tag: $tagValue)";
+        }
+    }
+    
     echo json_encode($result);
     exit;
 }
@@ -97,7 +143,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
                     }
                     setFlash('success', 'Pelanggan berhasil ditambahkan');
-                    logActivity('ADD_CUSTOMER', "Name: {$data['name']}");
+                    logActivity('ADD_CUSTOMER', "Name: " . $data['name']);
                     
                     // Notify Technician if assigned
                     if (!empty($data['installed_by'])) {
@@ -105,10 +151,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         if ($tech && !empty($tech['phone'])) {
                             require_once '../includes/whatsapp.php';
                             $msg = "🔔 *TUGAS INSTALASI BARU*\n\n";
-                            $msg .= "Pelanggan: {$data['name']}\n";
-                            $msg .= "Kontak (WA): {$data['phone']}\n";
+                            $msg .= "Pelanggan: " . $data['name'] . "\n";
+                            $msg .= "Kontak (WA): " . $data['phone'] . "\n";
                             $msg .= "Alamat: " . ($data['address'] ?: '-') . "\n";
-                            $msg .= "Paket: " . fetchOne("SELECT name FROM packages WHERE id = ?", [$data['package_id']])['name'] . "\n";
+                            $pkg = fetchOne("SELECT name FROM packages WHERE id = ?", [$data['package_id']]);
+                            $msg .= "Paket: " . ($pkg['name'] ?? '-') . "\n";
                             $msg .= "Maps: https://www.google.com/maps?q={$data['lat']},{$data['lng']}\n\n";
                             $msg .= "Mohon segera diproses. Terima kasih.";
                             
@@ -348,13 +395,38 @@ ob_start();
         }
     .olt-box { padding: 16px; background: rgba(0,210,255,0.04); border: 1px solid rgba(0,210,255,0.15); border-radius: 10px; margin-top: 10px; }
     .onu-tag { display:inline-block; background:rgba(0,210,255,0.1); border:1px solid rgba(0,210,255,0.3); color:#00d2ff; padding:2px 8px; border-radius:5px; font-family:monospace; font-size:12px; }
+    #map-picker, #edit-map-picker { height: 300px; width: 100%; margin-bottom: 20px; border-radius: 10px; border: 1px solid var(--border-color); }
+    .collapse-content { display: none; padding-top: 15px; }
+    .collapse-content.show { display: block; }
+    .btn-toggle { cursor: pointer; transition: 0.3s; }
+    .btn-toggle.active { transform: rotate(180deg); }
+    
+    /* Provisioning Binding UI */
+    .svc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0; }
+    .svc-label { background: #111; border: 1px solid #333; padding: 10px; border-radius: 8px; cursor: pointer; transition: 0.2s; display: flex; flex-direction: column; gap: 8px; }
+    .svc-label:hover { border-color: #00d2ff; background: #161616; }
+    .svc-label input[type="checkbox"] { transform: scale(1.2); }
+    .svc-label span { font-size: 13px; font-weight: bold; color: #fff; }
+    .svc-label small { color: #666; font-weight: normal; font-size: 10px; }
+    .binding-box { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 5px; padding-top: 5px; border-top: 1px solid #222; }
+    .bind-item { font-size: 9px; background: #222; color: #888; padding: 2px 4px; border-radius: 4px; text-align: center; border: 1px solid #333; cursor: pointer; }
+    .bind-item input { display: none; }
+    .bind-item.active { background: #00d2ff22; color: #00d2ff; border-color: #00d2ff44; }
+    .bind-item.disabled { opacity: 0.2; cursor: not-allowed; text-decoration: line-through; }
+    .prov-log-box { background:#000; color:#00ff41; font-family:'Consolas',monospace; font-size:12px; padding:16px; border-radius:8px; min-height:150px; max-height:300px; overflow-y:auto; border:1px solid #1a3a1a; white-space:pre-wrap; word-break:break-all; margin-top:15px; }
 </style>
 
 <!-- Add Customer Form -->
 <div class="card">
-    <div class="card-header">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleAddForm()">
         <h3 class="card-title"><i class="fas fa-user-plus"></i> Tambah Pelanggan</h3>
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-toggle-add">
+            <i class="fas fa-chevron-down btn-toggle" id="icon-toggle-add"></i>
+        </button>
     </div>
+    
+    <div id="add-form-content" class="collapse-content">
+        <div style="padding: 0 1.5rem 1.5rem 1.5rem;">
     
     <form method="POST">
         <input type="hidden" name="action" value="add">
@@ -363,7 +435,7 @@ ob_start();
         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; max-width: 100%;">
             <div class="form-group">
                 <label class="form-label">Nama Pelanggan</label>
-                <input type="text" name="name" class="form-control" required placeholder="Nama Lengkap">
+                <input type="text" name="name" id="add_customer_name" class="form-control" required placeholder="Nama Lengkap">
             </div>
             
             <div class="form-group">
@@ -381,9 +453,9 @@ ob_start();
             </div>
 
             <div class="form-group" style="grid-column: 1 / -1;">
-                <label class="form-label">Password PPPoE (Opsional)</label>
-                <input type="text" name="pppoe_password" class="form-control" placeholder="Kosongkan jika tidak ingin mengubah password PPPoE">
-                <small style="color: var(--text-muted);">Jika diisi, password ini akan dikirim ke perangkat (GenieACS). Aplikasi tidak bisa membaca password dari MikroTik.</small>
+                <label class="form-label">Password PPPoE</label>
+                <input type="text" name="pppoe_password" class="form-control" value="12345678" placeholder="Password PPPoE">
+                <small style="color: var(--text-muted);">Default: 12345678. Digunakan untuk provisioning ke perangkat (GenieACS).</small>
             </div>
             
             <div class="form-group">
@@ -470,7 +542,7 @@ ob_start();
             <small style="color: var(--text-muted);">Klik pada peta untuk set lokasi</small>
         </div>
         
-        <div style="height: 300px; margin-top: 15px; border-radius: 8px; overflow: hidden;" id="map-picker"></div>
+        <div style="height: 300px; margin-top: 15px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border-color);" id="map-picker"></div>
 
         <div class="form-group olt-box" style="margin-top: 15px; grid-column: 1 / -1;">
             <label class="form-label" style="color:var(--neon-cyan,#00d2ff);display:block;margin-bottom:12px;"><i class="fas fa-microchip"></i> Data ONU / OLT</label>
@@ -484,7 +556,12 @@ ob_start();
                     </select>
                 </div>
                 <div><label class="form-label">Serial Number (SN)</label>
-                    <input type="text" name="onu_sn" class="form-control" placeholder="Contoh: FHTTC098844B">
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" name="onu_sn" id="add_onu_sn" class="form-control" placeholder="Contoh: FHTTC098844B">
+                        <button type="button" class="btn btn-secondary" onclick="startScanner('add_onu_sn')" title="Scan Barcode SN">
+                            <i class="fas fa-camera"></i>
+                        </button>
+                    </div>
                 </div>
                 <div><label class="form-label">PON Port (0/x)</label>
                     <input type="number" name="olt_pon_port" class="form-control" placeholder="1-8" min="1" max="8">
@@ -492,6 +569,55 @@ ob_start();
                 <div><label class="form-label">ONU ID</label>
                     <input type="number" name="onu_id" class="form-control" placeholder="Nomor ONU di port">
                 </div>
+            </div>
+
+            <!-- OLT Provisioning Services (Add Customer) -->
+            <div style="margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
+                <label style="color:#aaa;font-size:12px;display:block;margin-bottom:6px;">Layanan yang dikonfigurasi saat provisioning:</label>
+                <input type="hidden" name="prov_acs_url" value="http://172.16.200.3:7547">
+                <div class="svc-grid">
+                    <div class="svc-label">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <input type="checkbox" name="services[]" value="acs" checked>
+                            <span><i class="fas fa-broadcast-tower" style="color:#00d2ff"></i> TR-069 / ACS<br><small>VLAN 101 DHCP</small></span>
+                        </div>
+                    </div>
+                    <div class="svc-label">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <input type="checkbox" name="services[]" value="wifi" checked>
+                            <span><i class="fas fa-wifi" style="color:#00d2ff"></i> WiFi SSID 2<br><small>Jinom_Hotspot</small></span>
+                        </div>
+                    </div>
+                    <div class="svc-label">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <input type="checkbox" name="services[]" value="pppoe" checked>
+                            <span><i class="fas fa-globe" style="color:#00d2ff"></i> PPPoE (VLAN 100)</span>
+                        </div>
+                        <div class="binding-box">
+                            <?php for($i=1;$i<=4;$i++): ?>
+                            <label class="bind-item active"><input type="checkbox" name="p_bind[]" value="LAN<?php echo $i; ?>" checked>L<?php echo $i; ?></label>
+                            <?php endfor; ?>
+                            <?php for($i=1;$i<=8;$i++): ?>
+                            <label class="bind-item active"><input type="checkbox" name="p_bind[]" value="SSID<?php echo $i; ?>" checked>W<?php echo $i; ?></label>
+                            <?php endfor; ?>
+                        </div>
+                    </div>
+                    <div class="svc-label">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <input type="checkbox" name="services[]" value="hotspot">
+                            <span><i class="fas fa-server" style="color:#00d2ff"></i> Bridge (VLAN 200)</span>
+                        </div>
+                        <div class="binding-box">
+                            <?php for($i=1;$i<=4;$i++): ?>
+                            <label class="bind-item"><input type="checkbox" name="b_bind[]" value="LAN<?php echo $i; ?>">L<?php echo $i; ?></label>
+                            <?php endfor; ?>
+                            <?php for($i=1;$i<=8;$i++): ?>
+                            <label class="bind-item"><input type="checkbox" name="b_bind[]" value="SSID<?php echo $i; ?>">W<?php echo $i; ?></label>
+                            <?php endfor; ?>
+                        </div>
+                    </div>
+                </div>
+            </div>
             </div>
             <small style="color: var(--text-muted); margin-top: 8px; display: block;">Mapping ini digunakan untuk Auto-Provisioning dan monitoring LOS.</small>
         </div>
@@ -719,7 +845,7 @@ ob_start();
                 <small style="color: var(--text-muted);">Klik pada peta untuk set lokasi</small>
             </div>
             
-            <div style="height: 300px; margin-top: 15px; border-radius: 8px; overflow: hidden;" id="edit-map-picker"></div>
+            <div style="height: 300px; margin-top: 15px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border-color);" id="edit-map-picker"></div>
 
             <!-- OLT DATA -->
             <div class="form-group olt-box" style="margin-top: 15px; grid-column: 1 / -1;">
@@ -734,7 +860,12 @@ ob_start();
                         </select>
                     </div>
                     <div><label class="form-label">Serial Number (SN)</label>
-                        <input type="text" name="onu_sn" id="edit_onu_sn" class="form-control" placeholder="Contoh: FHTTC098844B">
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" name="onu_sn" id="edit_onu_sn" class="form-control" placeholder="Contoh: FHTTC098844B">
+                            <button type="button" class="btn btn-secondary" onclick="startScanner('edit_onu_sn')" title="Scan Barcode SN">
+                                <i class="fas fa-camera"></i>
+                            </button>
+                        </div>
                     </div>
                     <div><label class="form-label">PON Port (0/x)</label>
                         <input type="number" name="olt_pon_port" id="edit_pon_port" class="form-control" min="1" max="8">
@@ -748,24 +879,60 @@ ob_start();
             <!-- PROVISIONING PANEL -->
             <div style="margin-top:20px;padding:16px;background:rgba(0,255,65,0.04);border:1px solid rgba(0,255,65,0.15);border-radius:10px;grid-column: 1 / -1;">
                 <label style="color:#00ff41;display:block;margin-bottom:12px;font-weight:bold;"><i class="fas fa-rocket"></i> Auto-Provisioning ONU</label>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
-                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="svc_acs" value="acs" checked> <span>TR-069 / ACS (VLAN 101)</span></label>
-                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="svc_pppoe" value="pppoe" checked> <span>PPPoE Internet (VLAN 100)</span></label>
-                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="svc_hotspot" value="hotspot" checked> <span>Hotspot Bridge (VLAN 200)</span></label>
-                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="svc_wifi" value="wifi" checked> <span>WiFi SSID 2 (Jinom_Hotspot)</span></label>
-                </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
-                    <div><label style="font-size:12px;color:#888">PPPoE Password</label>
-                        <input type="text" id="prov_pppoe_pass" class="form-control" placeholder="12345678" value="12345678">
+                <input type="hidden" id="prov_acs_url" value="http://172.16.200.3:7547">
+                
+                <div class="svc-grid">
+                    <div class="svc-label">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <input type="checkbox" id="svc_acs" value="acs" checked>
+                            <span><i class="fas fa-broadcast-tower" style="color:#00d2ff"></i> TR-069 / ACS<br><small>VLAN 101 DHCP</small></span>
+                        </div>
                     </div>
-                    <div><label style="font-size:12px;color:#888">URL ACS Server</label>
-                        <input type="text" id="prov_acs_url" class="form-control" value="http://172.16.200.3:7547">
+                    <div class="svc-label">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <input type="checkbox" id="svc_wifi" value="wifi" checked>
+                            <span><i class="fas fa-wifi" style="color:#00d2ff"></i> WiFi SSID 2<br><small>Jinom_Hotspot</small></span>
+                        </div>
+                    </div>
+                    <div class="svc-label">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <input type="checkbox" id="svc_pppoe" value="pppoe" checked>
+                            <span><i class="fas fa-globe" style="color:#00d2ff"></i> PPPoE (VLAN 100)</span>
+                        </div>
+                        <div class="binding-box">
+                            <?php for($i=1;$i<=4;$i++): ?>
+                            <label class="bind-item active"><input type="checkbox" name="edit_p_bind[]" value="LAN<?php echo $i; ?>" checked>L<?php echo $i; ?></label>
+                            <?php endfor; ?>
+                            <?php for($i=1;$i<=8;$i++): ?>
+                            <label class="bind-item active"><input type="checkbox" name="edit_p_bind[]" value="SSID<?php echo $i; ?>" checked>W<?php echo $i; ?></label>
+                            <?php endfor; ?>
+                        </div>
+                    </div>
+                    <div class="svc-label">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <input type="checkbox" id="svc_hotspot" value="hotspot">
+                            <span><i class="fas fa-server" style="color:#00d2ff"></i> Bridge (VLAN 200)</span>
+                        </div>
+                        <div class="binding-box">
+                            <?php for($i=1;$i<=4;$i++): ?>
+                            <label class="bind-item"><input type="checkbox" name="edit_b_bind[]" value="LAN<?php echo $i; ?>">L<?php echo $i; ?></label>
+                            <?php endfor; ?>
+                            <?php for($i=1;$i<=8;$i++): ?>
+                            <label class="bind-item"><input type="checkbox" name="edit_b_bind[]" value="SSID<?php echo $i; ?>">W<?php echo $i; ?></label>
+                            <?php endfor; ?>
+                        </div>
                     </div>
                 </div>
+
+                <div style="margin-bottom:12px;">
+                    <label style="font-size:12px;color:#888">PPPoE Password (digunakan saat provisioning)</label>
+                    <input type="text" id="prov_pppoe_pass" class="form-control" placeholder="12345678" value="12345678">
+                </div>
+
                 <button type="button" class="btn" style="background:#00ff41;color:#000;width:100%;font-weight:bold;height:44px;" onclick="doProvision()">
                     <i class="fas fa-bolt"></i> KIRIM KE OLT SEKARANG
                 </button>
-                <div id="prov_log" style="display:none;margin-top:14px;background:#000;color:#00ff41;font-family:monospace;font-size:12px;padding:12px;border-radius:6px;white-space:pre-wrap;max-height:220px;overflow-y:auto;border:1px solid #1a3a1a;"></div>
+                <div id="prov_log" class="prov-log-box" style="display:none;"></div>
             </div>
             
             <div style="display: flex; gap: 10px; margin-top: 20px;">
@@ -1069,7 +1236,11 @@ async function doProvision() {
     const pppoe_p = document.getElementById('prov_pppoe_pass').value;
     const acs_url = document.getElementById('prov_acs_url').value;
 
+    const logBox = document.getElementById('prov_log');
+    logBox.style.display = 'block';
+    
     if (!olt_id || olt_id == 0 || !port || !onu_id) {
+        logBox.textContent = '✗ Error: Pastikan OLT, PON Port, dan ONU ID sudah diisi.';
         alert('Pastikan OLT, PON Port, dan ONU ID sudah diisi terlebih dahulu!');
         return;
     }
@@ -1080,9 +1251,14 @@ async function doProvision() {
         if (document.getElementById('svc_' + s)?.checked) services.push(s);
     });
 
-    const logBox = document.getElementById('prov_log');
-    logBox.style.display = 'block';
-    logBox.textContent = '⏳ Menghubungkan ke OLT... Mohon tunggu (~15-30 detik)';
+    // Get Bindings (from edit modal)
+    const p_bind = Array.from(document.querySelectorAll('input[name="edit_p_bind[]"]:checked')).map(el => el.value);
+    const b_bind = Array.from(document.querySelectorAll('input[name="edit_b_bind[]"]:checked')).map(el => el.value);
+
+    logBox.textContent = '⏳ Menghubungkan ke OLT... Mohon tunggu (~15-30 detik)\n' +
+                         '   Port: 0/' + port + ' | ONU ID: ' + onu_id + '\n' +
+                         '   User: ' + pppoe_u + '\n' +
+                         '   Services: ' + services.join(', ');
 
     const fd = new FormData();
     fd.append('olt_id', olt_id);
@@ -1092,6 +1268,8 @@ async function doProvision() {
     fd.append('pppoe_pass', pppoe_p);
     fd.append('acs_url', acs_url);
     services.forEach(s => fd.append('services[]', s));
+    p_bind.forEach(b => fd.append('pppoe_bind[]', b));
+    b_bind.forEach(b => fd.append('hotspot_bind[]', b));
 
     try {
         const r = await fetch('customers.php?ajax_action=provision', { method: 'POST', body: fd });
@@ -1140,7 +1318,87 @@ function loadOdpOptions() {
 }
 
 document.addEventListener('DOMContentLoaded', loadOdpOptions);
+
+let html5QrCode;
+
+function toggleAddForm() {
+    const content = document.getElementById('add-form-content');
+    const icon = document.getElementById('icon-toggle-add');
+    content.classList.toggle('show');
+    icon.classList.toggle('active');
+    
+    if (content.classList.contains('show')) {
+        setTimeout(() => {
+            initMap();
+            map.invalidateSize();
+        }, 100);
+    }
+}
+
+// Name to Username logic
+const addNameInput = document.getElementById('add_customer_name');
+if (addNameInput) {
+    addNameInput.addEventListener('input', function(e) {
+        const name = e.target.value;
+        if (!name) return;
+        
+        let username = name.toLowerCase().replace(/\s+/g, '');
+        checkAndSetUsername(username);
+    });
+}
+
+function checkAndSetUsername(username) {
+    fetch('../api/mikrotik.php?action=check_user&username=' + username)
+        .then(response => response.json())
+        .then(data => {
+            if (data.exists) {
+                const lastChar = username.slice(-1);
+                checkAndSetUsername(username + lastChar);
+            } else {
+                const input = document.getElementById('pppoe_username_input');
+                if (input) input.value = username;
+            }
+        })
+        .catch(e => console.error('Check user failed:', e));
+}
+
+function startScanner(targetId) {
+    document.getElementById('scannerModal').style.display = 'flex';
+    html5QrCode = new Html5Qrcode("reader");
+    const qrCodeSuccessCallback = (decodedText, decodedResult) => {
+        document.getElementById(targetId).value = decodedText.trim().toUpperCase();
+        stopScanner();
+    };
+    const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+    html5QrCode.start({ facingMode: "environment" }, config, qrCodeSuccessCallback);
+}
+
+function stopScanner() {
+    if (html5QrCode) {
+        html5QrCode.stop().then(() => {
+            document.getElementById('scannerModal').style.display = 'none';
+            html5QrCode = null;
+        }).catch(() => {
+            document.getElementById('scannerModal').style.display = 'none';
+        });
+    } else {
+        document.getElementById('scannerModal').style.display = 'none';
+    }
+}
 </script>
+
+<!-- Scanner Modal -->
+<div id="scannerModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; justify-content:center; align-items:center; flex-direction:column;">
+    <div style="background:#111; padding:20px; border-radius:12px; width:90%; max-width:500px; text-align:center; border: 1px solid #00d2ff;">
+        <h3 style="color:#00d2ff; margin-bottom:15px;"><i class="fas fa-barcode"></i> Scan Serial Number</h3>
+        <div id="reader" style="width:100%; border-radius:8px; overflow:hidden; background:#000;"></div>
+        <div style="margin-top:20px; display:flex; gap:10px;">
+            <button type="button" class="btn btn-secondary" onclick="stopScanner()" style="flex:1;">Tutup</button>
+        </div>
+    </div>
+</div>
+
+<script src="https://unpkg.com/html5-qrcode"></script>
 
 <?php
 $content = ob_get_clean();

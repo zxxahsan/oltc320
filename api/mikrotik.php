@@ -48,6 +48,21 @@ try {
                     'total' => is_array($profiles) ? count($profiles) : 0
                 ]
             ]);
+        } elseif ($action === 'check_user') {
+            $username = $_GET['username'] ?? '';
+            if (empty($username)) {
+                echo json_encode(['success' => false, 'message' => 'Username required']);
+                exit;
+            }
+            $users = mikrotikGetPppoeUsers();
+            $exists = false;
+            foreach ($users as $u) {
+                if (strtolower($u['name']) === strtolower($username)) {
+                    $exists = true;
+                    break;
+                }
+            }
+            echo json_encode(['success' => true, 'exists' => $exists]);
         } else {
             echo json_encode(['success' => false, 'message' => 'Invalid action']);
         }
