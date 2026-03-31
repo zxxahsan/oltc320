@@ -1241,7 +1241,7 @@ function loadOdpOptions() {
         .catch(() => {});
 }
 
-<script src="https://unpkg.com/html5-qrcode"></script>
+<script src="https://unpkg.com/html5-qrcode@latest/html5-qrcode.min.js"></script>
 <script>
 function scanOltOnu() {
     const oltId = document.getElementById('olt_selector').value;
@@ -1309,32 +1309,43 @@ document.getElementById('onu_sn_input').addEventListener('input', function() {
 
 let html5QrcodeScanner = null;
 
-function startCameraScan() {
-    document.getElementById('cameraScanModal').style.display = 'flex';
-    html5QrcodeScanner = new Html5Qrcode("reader");
-    const config = { fps: 10, qrbox: { width: 250, height: 150 } };
+async function startCameraScan() {
+    // SECURITY CHECK: Camera access requires HTTPS or localhost
+    if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+        alert('Browser error: Kamera hanya bisa diakses melalui protokol HTTPS demi keamanan. Silakan pasang sertifikat SSL pada server Anda atau akses via localhost.');
+        return;
+    }
 
-    html5QrcodeScanner.start(
-        { facingMode: "environment" }, 
-        config,
-        (decodedText) => {
-            document.getElementById('onu_sn_input').value = decodedText;
+    // Display modal first
+    const modal = document.getElementById('cameraScanModal');
+    modal.style.display = 'flex';
+
+    // Wait a brief moment for the DOM to settle
+    setTimeout(async () => {
+        try {
+            html5QrcodeScanner = new Html5Qrcode("reader");
+            const config = { fps: 15, qrbox: { width: 250, height: 150 } };
+
+            await html5QrcodeScanner.start(
+                { facingMode: "environment" }, 
+                config,
+                (decodedText) => {
+                    document.getElementById('onu_sn_input').value = decodedText;
+                    stopCameraScan();
+                    // Trigger auto-sync if SN matches OLT scan results
+                    document.getElementById('onu_sn_input').dispatchEvent(new Event('input'));
+                }
+            );
+        } catch (err) {
+            console.error("Camera scanner error:", err);
+            alert("Gagal memulai kamera: " + err.message);
             stopCameraScan();
-            // Trigger auto-sync if SN matches OLT scan results
-            document.getElementById('onu_sn_input').dispatchEvent(new Event('input'));
-        },
-        (errorMessage) => {
-            // parse error, ignore
         }
-    ).catch((err) => {
-        console.error("Camera access error:", err);
-        alert("Gagal mengakses kamera. Pastikan izin kamera diaktifkan.");
-        stopCameraScan();
-    });
+    }, 100);
 }
 
 function stopCameraScan() {
-    if (html5QrcodeScanner) {
+    if (html5QrcodeScanner && html5QrcodeScanner.isScanning) {
         html5QrcodeScanner.stop().then(() => {
             document.getElementById('cameraScanModal').style.display = 'none';
         }).catch(err => console.error(err));
