@@ -20,13 +20,15 @@ if (isset($_GET['ajax_action']) && $_GET['ajax_action'] === 'provision') {
     $pppoe_pass = trim($_POST['pppoe_pass'] ?? '12345678');
     $services   = $_POST['services'] ?? [];
     $acs_url    = trim($_POST['acs_url'] ?? 'http://172.16.200.3:7547');
+    $pppoe_bind = $_POST['pppoe_bind'] ?? [];
+    $hotspot_bind = $_POST['hotspot_bind'] ?? [];
 
     if (!$olt_id || !$port || !$onu_id) {
         echo json_encode(['success' => false, 'log' => '✗ OLT ID, Port, atau ONU ID tidak boleh kosong.']);
         exit;
     }
 
-    $result = vsolProvisionOnu($olt_id, $port, $onu_id, $pppoe_user, $pppoe_pass, $services, $acs_url);
+    $result = vsolProvisionOnu($olt_id, $port, $onu_id, $pppoe_user, $pppoe_pass, $services, $acs_url, $pppoe_bind, $hotspot_bind);
     echo json_encode($result);
     exit;
 }
@@ -84,9 +86,18 @@ ob_start();
 .prov-grid { display: grid; grid-template-columns: 380px 1fr; gap: 20px; align-items: start; }
 @media(max-width:900px) { .prov-grid { grid-template-columns: 1fr; } }
 .svc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0; }
-.svc-label { display:flex; align-items:center; gap:10px; cursor:pointer; padding:10px 14px; border:1px solid rgba(255,255,255,0.1); border-radius:8px; transition:0.2s; }
-.svc-label:hover { border-color: rgba(0,210,255,0.4); background:rgba(0,210,255,0.05); }
-.svc-label input:checked ~ span { color: #00d2ff; }
+.svc-label { background: #111; border: 1px solid #333; padding: 10px; border-radius: 8px; cursor: pointer; transition: 0.2s; display: flex; flex-direction: column; gap: 8px; }
+.svc-label:hover { border-color: #00d2ff; background: #161616; }
+.svc-label input[type="checkbox"] { transform: scale(1.2); }
+.svc-label span { font-size: 13px; font-weight: bold; color: #fff; }
+.svc-label small { color: #666; font-weight: normal; font-size: 10px; }
+
+/* Binding UI */
+.binding-box { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 5px; padding-top: 5px; border-top: 1px solid #222; }
+.bind-item { font-size: 9px; background: #222; color: #888; padding: 2px 4px; border-radius: 4px; text-align: center; border: 1px solid #333; cursor: pointer; }
+.bind-item input { display: none; }
+.bind-item.active { background: #00d2ff22; color: #00d2ff; border-color: #00d2ff44; }
+.bind-item.disabled { opacity: 0.2; cursor: not-allowed; text-decoration: line-through; }
 .log-box { background:#000; color:#00ff41; font-family:'Consolas',monospace; font-size:12px; padding:16px; border-radius:8px; min-height:300px; max-height:500px; overflow-y:auto; border:1px solid #1a3a1a; white-space:pre-wrap; word-break:break-all; }
 .log-box .ok  { color: #00ff41; }
 .log-box .err { color: #ff5252; }
@@ -179,25 +190,54 @@ ob_start();
                 <input type="text" id="f_acs_url" class="form-control" value="http://172.16.200.3:7547">
             </div>
 
-            <!-- LAYANAN -->
+            <!-- LAYANAN V1.17 -->
             <label style="color:#aaa;font-size:12px;display:block;margin-bottom:6px;">Layanan yang dikonfigurasi:</label>
             <div class="svc-grid">
-                <label class="svc-label">
-                    <input type="checkbox" id="svc_acs" checked>
-                    <span><i class="fas fa-broadcast-tower" style="color:#00d2ff"></i> TR-069 / ACS<br><small style="color:#666">VLAN 101 DHCP</small></span>
-                </label>
-                <label class="svc-label">
-                    <input type="checkbox" id="svc_pppoe" checked>
-                    <span><i class="fas fa-globe" style="color:#00d2ff"></i> Internet PPPoE<br><small style="color:#666">VLAN 100</small></span>
-                </label>
-                <label class="svc-label">
-                    <input type="checkbox" id="svc_hotspot" checked>
-                    <span><i class="fas fa-server" style="color:#00d2ff"></i> Hotspot Bridge<br><small style="color:#666">VLAN 200</small></span>
-                </label>
-                <label class="svc-label">
-                    <input type="checkbox" id="svc_wifi" checked>
-                    <span><i class="fas fa-wifi" style="color:#00d2ff"></i> WiFi SSID 2<br><small style="color:#666">Jinom_Hotspot</small></span>
-                </label>
+                <!-- Baris 1: TR-069 & WiFi SSID 2 -->
+                <div class="svc-label">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <input type="checkbox" id="svc_acs" checked>
+                        <span><i class="fas fa-broadcast-tower" style="color:#00d2ff"></i> TR-069 / ACS<br><small>VLAN 101 DHCP</small></span>
+                    </div>
+                </div>
+
+                <div class="svc-label">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <input type="checkbox" id="svc_wifi" checked>
+                        <span><i class="fas fa-wifi" style="color:#00d2ff"></i> WiFi SSID 2<br><small>Jinom_Hotspot</small></span>
+                    </div>
+                </div>
+
+                <!-- Baris 2: Internet PPPoE & Hotspot Bridge -->
+                <div class="svc-label">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <input type="checkbox" id="svc_pppoe" checked>
+                        <span><i class="fas fa-globe" style="color:#00d2ff"></i> PPPoE (VLAN 100)</span>
+                    </div>
+                    <div class="binding-box" id="bind_box_pppoe">
+                        <?php for($i=1;$i<=4;$i++): ?>
+                        <label class="bind-item active" id="lbl_p_l<?php echo $i; ?>"><input type="checkbox" name="p_bind[]" value="LAN<?php echo $i; ?>" checked onchange="syncBindings()">L<?php echo $i; ?></label>
+                        <?php endfor; ?>
+                        <?php for($i=1;$i<=8;$i++): ?>
+                        <label class="bind-item active" id="lbl_p_w<?php echo $i; ?>"><input type="checkbox" name="p_bind[]" value="SSID<?php echo $i; ?>" checked onchange="syncBindings()">W<?php echo $i; ?></label>
+                        <?php endfor; ?>
+                    </div>
+                </div>
+
+                <div class="svc-label">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <input type="checkbox" id="svc_hotspot" checked>
+                        <span><i class="fas fa-server" style="color:#00d2ff"></i> Bridge (VLAN 200)</span>
+                    </div>
+                    <div class="binding-box" id="bind_box_bridge">
+                        <?php for($i=1;$i<=4;$i++): ?>
+                        <label class="bind-item" id="lbl_b_l<?php echo $i; ?>"><input type="checkbox" name="b_bind[]" value="LAN<?php echo $i; ?>" onchange="syncBindings()">L<?php echo $i; ?></label>
+                        <?php endfor; ?>
+                        <?php for($i=1;$i<=8;$i++): ?>
+                        <label class="bind-item" id="lbl_b_w<?php echo $i; ?>"><input type="checkbox" name="b_bind[]" value="SSID<?php echo $i; ?>" onchange="syncBindings()">W<?php echo $i; ?></label>
+                        <?php endfor; ?>
+                    </div>
+                </div>
             </div>
 
             <button class="btn-provision" id="btn_prov" onclick="doProvision()">
@@ -297,7 +337,27 @@ Perintah yang akan dikirim (sesuai pola OLT V-SOL V1.3.9R):
 </div>
 
 <script>
-// ── Filter dropdown pencarian
+// ── Validasi Port Binding (Anti-Bentrok) v1.17
+function syncBindings() {
+    const p_binds = document.querySelectorAll('input[name="p_bind[]"]');
+    const b_binds = document.querySelectorAll('input[name="b_bind[]"]');
+
+    // Update Visual State
+    const updateLabel = (el) => {
+        const lbl = el.parentElement;
+        if (el.disabled) { lbl.classList.add('disabled'); lbl.classList.remove('active'); }
+        else { lbl.classList.remove('disabled'); if (el.checked) lbl.classList.add('active'); else lbl.classList.remove('active'); }
+    };
+
+    p_binds.forEach((p, i) => {
+        const b = b_binds[i];
+        if (p.checked) { b.disabled = true; b.checked = false; } else { b.disabled = false; }
+        if (b.checked) { p.disabled = true; p.checked = false; } else { p.disabled = false; }
+        updateLabel(p);
+        updateLabel(b);
+    });
+}
+window.onload = syncBindings; // Initial sync
 function filterCust() {
     const q = document.getElementById('search_cust').value.toLowerCase();
     const dd = document.getElementById('cust_dropdown');
@@ -531,6 +591,12 @@ async function doProvision() {
     fd.append('pppoe_pass', pppoe_p);
     fd.append('acs_url',   acs_url);
     services.forEach(s => fd.append('services[]', s));
+
+    // Get Bindings (v1.17)
+    const p_bind = Array.from(document.querySelectorAll('input[name="p_bind[]"]:checked')).map(el => el.value);
+    const b_bind = Array.from(document.querySelectorAll('input[name="b_bind[]"]:checked')).map(el => el.value);
+    p_bind.forEach(b => fd.append('pppoe_bind[]', b));
+    b_bind.forEach(b => fd.append('hotspot_bind[]', b));
 
     try {
         const r = await fetch('olt_provision.php?ajax_action=provision', {

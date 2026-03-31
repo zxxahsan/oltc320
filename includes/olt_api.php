@@ -192,15 +192,11 @@ function vsolSyncAllMetadata($olt_id) {
  * Provision ONU: Konfigurasi WAN, ACS, Bridge, WiFi
  * Berdasarkan pola dari running-config OLT V-SOL V1.3.9R
  *
- * @param int    $olt_id      ID OLT di database
- * @param int    $port        GPON port (1-8)
- * @param int    $onu_id      ONU ID di port
- * @param string $pppoe_user  Username PPPoE
- * @param string $pppoe_pass  Password PPPoE
- * @param array  $services    ['acs', 'pppoe', 'hotspot', 'wifi']
  * @param string $acs_url     URL ACS server
+ * @param array  $pppoe_bind   LANS/WIFIS for PPPoE (v1.17)
+ * @param array  $hotspot_bind LANS/WIFIS for Bridge (v1.17)
  */
-function vsolProvisionOnu($olt_id, $port, $onu_id, $pppoe_user, $pppoe_pass, $services = [], $acs_url = 'http://172.16.200.3:7547') {
+function vsolProvisionOnu($olt_id, $port, $onu_id, $pppoe_user, $pppoe_pass, $services = [], $acs_url = 'http://172.16.200.3:7547', $pppoe_bind = [], $hotspot_bind = []) {
     $olt = fetchOne("SELECT * FROM olt_configs WHERE id = ?", [$olt_id]);
     if (!$olt) return ['success' => false, 'log' => 'OLT tidak ditemukan'];
 
@@ -279,8 +275,11 @@ function vsolProvisionOnu($olt_id, $port, $onu_id, $pppoe_user, $pppoe_pass, $se
                 "onu {$onu_id} pri wan_adv index {$current_idx} route mode internet mtu 1492",
                 "onu {$onu_id} pri wan_adv index {$current_idx} route ipv4 pppoe proxy disable user {$pppoe_user} pwd {$pppoe_pass} mode auto nat enable",
                 "onu {$onu_id} pri wan_adv index {$current_idx} vlan tag wan_vlan 100 0",
-                "onu {$onu_id} pri wan_adv index {$current_idx} bind SSID1",
             ];
+            // Dynamic Binding (v1.17)
+            foreach ($pppoe_bind as $b) {
+                $cmds[] = "onu {$onu_id} pri wan_adv index {$current_idx} bind {$b}";
+            }
             foreach ($cmds as $cmd) {
                 $client->write($cmd . "\n");
                 $resp = $client->readUntil("/[>#]/", 2);
@@ -307,9 +306,11 @@ function vsolProvisionOnu($olt_id, $port, $onu_id, $pppoe_user, $pppoe_pass, $se
             $cmds = [
                 "onu {$onu_id} pri wan_adv index {$current_idx} bridge other mtu 1500",
                 "onu {$onu_id} pri wan_adv index {$current_idx} vlan tag wan_vlan 200 0",
-                "onu {$onu_id} pri wan_adv index {$current_idx} bind LAN1",
-                "onu {$onu_id} pri wan_adv index {$current_idx} bind SSID2",
             ];
+            // Dynamic Binding (v1.17)
+            foreach ($hotspot_bind as $b) {
+                $cmds[] = "onu {$onu_id} pri wan_adv index {$current_idx} bind {$b}";
+            }
             foreach ($cmds as $cmd) {
                 $client->write($cmd . "\n");
                 $resp = $client->readUntil("/[>#]/", 2);
