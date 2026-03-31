@@ -66,27 +66,26 @@ class OltTelnetClient {
         $result = "";
         $start = time();
         $wait = $timeout ?? $this->timeout;
+        
         while (!feof($this->socket)) {
-            $char = fgetc($this->socket);
-            if ($char === false) {
+            // Read 1024 byte chunks instead of char-by-char for performance
+            $data = fread($this->socket, 1024);
+            if ($data === false || $data === "") {
                 if (time() - $start > $wait) break;
-                usleep(5000); 
+                usleep(10000); 
                 continue;
             }
-            $result .= $char;
             
-            // Fast check for common prompts to avoid regex overhead on every char
-            if ($char == '>' || $char == '#' || $char == ' ' || $char == "\n") {
-                if (preg_match($regex, $result)) {
-                    return preg_replace('/\x1b\[[0-9;]*[mKHFAB]/', '', $result);
-                }
+            $result .= $data;
+            
+            // Periodically check for prompts or pagination at the end of buffer
+            if (preg_match($regex, $result)) {
+                return preg_replace('/\x1b\[[0-9;]*[mKHFAB]/', '', $result);
             }
             
-            // Check pagination
             if (preg_match('/--\s*More.*?--\s*$/i', $result)) {
                 $this->write(" ");
                 $result = preg_replace('/--\s*More.*?--\s*$/i', '', $result);
-                continue;
             }
 
             if (time() - $start > $wait) break;
