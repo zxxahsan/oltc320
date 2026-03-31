@@ -31,6 +31,22 @@ if (isset($_GET['ajax_action']) && $_GET['ajax_action'] === 'provision') {
     exit;
 }
 
+// === AJAX: Cari SN di OLT ===
+if (isset($_GET['ajax_action']) && $_GET['ajax_action'] === 'find_sn') {
+    header('Content-Type: application/json');
+    $olt_id = (int)($_GET['olt_id'] ?? 0);
+    $sn     = strtoupper(trim($_GET['sn'] ?? ''));
+    
+    if (!$olt_id || !$sn) {
+        echo json_encode(['success' => false, 'message' => 'OLT ID and SN are required']);
+        exit;
+    }
+    
+    $result = vsolFindOnuBySn($olt_id, $sn);
+    echo json_encode($result);
+    exit;
+}
+
 // === AJAX: Ambil data pelanggan berdasarkan SN ===
 if (isset($_GET['ajax_action']) && $_GET['ajax_action'] === 'lookup_customer') {
     header('Content-Type: application/json');
@@ -83,8 +99,13 @@ ob_start();
 
             <!-- PILIH DARI DATABASE -->
             <div style="margin-bottom:16px;">
-                <label style="color:#888;font-size:12px;display:block;margin-bottom:6px;"><i class="fas fa-search"></i> Cari dari daftar pelanggan terdaftar:</label>
-                <input type="text" id="search_cust" class="form-control" placeholder="Ketik nama atau SN pelanggan..." oninput="filterCust()">
+                <label style="color:#888;font-size:12px;display:block;margin-bottom:6px;"><i class="fas fa-search"></i> Cari dari daftar atau Scan OLT dengan SN:</label>
+                <div style="display:flex;gap:8px;">
+                    <input type="text" id="search_cust" class="form-control" placeholder="Ketik nama atau SN pelanggan..." oninput="filterCust()">
+                    <button class="btn btn-secondary" onclick="findOnOlt()" id="btn_scan_sn" title="Cari Port & ID di OLT berdasarkan SN">
+                        <i class="fas fa-search-plus"></i> Cari di OLT
+                    </button>
+                </div>
                 <div id="cust_dropdown" style="display:none;background:#111;border:1px solid #333;border-radius:6px;max-height:180px;overflow-y:auto;margin-top:4px;">
                     <?php foreach($customers as $c): ?>
                     <div class="cust-row" data-name="<?php echo htmlspecialchars(strtolower($c['name'])); ?>" data-sn="<?php echo strtolower($c['onu_sn']); ?>"
@@ -257,6 +278,47 @@ function filterTable() {
     document.querySelectorAll('#cust_tbl tbody tr').forEach(r => {
         r.style.display = r.textContent.toLowerCase().includes(q) ? '' : 'none';
     });
+}
+
+// ── Cari ONU di OLT berdasarkan SN
+async function findOnOlt() {
+    const olt_id = document.getElementById('f_olt').value;
+    const sn     = document.getElementById('search_cust').value.trim();
+    const btn    = document.getElementById('btn_scan_sn');
+    const logBox = document.getElementById('log_box');
+
+    if (!olt_id || olt_id == 0) { alert('Pilih OLT terlebih dahulu!'); return; }
+    if (!sn || sn.length < 8) { alert('Masukkan Serial Number (min 8 karakter) di kolom pencarian!'); return; }
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    logBox.textContent = `⏳ Mencari SN: ${sn} di OLT...`;
+
+    try {
+        const r = await fetch(`olt_provision.php?ajax_action=find_sn&olt_id=${olt_id}&sn=${sn}`);
+        const data = await r.json();
+        
+        if (data.success) {
+            document.getElementById('f_port').value = data.port;
+            document.getElementById('f_onu_id').value = data.onu_id;
+            logBox.innerHTML = `<span class="ok">✓ SN Ditemukan!</span>\n  Port: 0/${data.port}\n  ONU ID: ${data.onu_id}\n\nSilakan lengkapi data lainnya dan klik "KIRIM KE OLT".`;
+            
+            // Try to lookup customer by SN locally too
+            const rc = await fetch(`olt_provision.php?ajax_action=lookup_customer&sn=${sn}`);
+            const cust = await rc.json();
+            if (cust) {
+                document.getElementById('f_pppoe_user').value = cust.pppoe_username || '';
+                logBox.innerHTML += `\n✓ Data pelanggan "${cust.name}" juga ditemukan di database.`;
+            }
+        } else {
+            logBox.innerHTML = `<span class="err">✗ SN Tidak Ditemukan di OLT.</span>\n  Pesan: ${data.message}\n\nPastikan ONU sudah tercolok dan SN benar (biasanya 12-16 karakter).`;
+        }
+    } catch(e) {
+        logBox.textContent = '✗ Error: ' + e.message;
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-search-plus"></i> Cari di OLT';
+    }
 }
 
 // ── Kirim provisioning ke OLT

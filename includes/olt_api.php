@@ -363,7 +363,70 @@ function vsolProvisionOnu($olt_id, $port, $onu_id, $pppoe_user, $pppoe_pass, $se
 
     } catch (Exception $e) {
         $log[] = "✗ ERROR: " . $e->getMessage();
-        $client->disconnect();
+        if ($client) $client->disconnect();
         return ['success' => false, 'log' => implode("\n", $log)];
+    }
+}
+
+/**
+ * Find ONU Port and ID by Serial Number on VSOL OLT
+ */
+function vsolFindOnuBySn($olt_id, $sn) {
+    if (empty($sn)) return ['success' => false, 'message' => 'SN is empty'];
+
+    $olt = fetchOne("SELECT * FROM olt_configs WHERE id = ?", [$olt_id]);
+    if (!$olt) return ['success' => false, 'message' => 'OLT not found'];
+
+    try {
+        $client = new OltTelnetClient($olt['host'], $olt['port'], $olt['username'], $olt['password']);
+        $client->connect();
+        
+        // Try global SN search first
+        $client->write("show gpon onu sn-item $sn\n");
+        $resp = $client->readUntil("/[>#]/", 3);
+
+        // Try unconfigured list if not found
+        if (strpos($resp, '0/') === false) {
+            $client->write("show gpon onu unconfigured\n");
+            $resp .= "\n" . $client->readUntil("/[>#]/", 5);
+        }
+
+        $client->disconnect();
+
+        // Parse Port and ONU ID
+        // Pattern matches: 0/8, ONU ID: 40, SN: VSOL... or ONU 0/8:40
+        $port = null;
+        $onu_id = null;
+
+        // Pattern 1: GPON OLT PON Port: 0/8, ONU ID: 40
+        if (preg_match('/Port:\s*0\/(\d+),\s*ONU ID:\s*(\d+)/i', $resp, $m)) {
+            $port = $m[1];
+            $onu_id = $m[2];
+        } 
+        // Pattern 2: 0/8:40 (Interface style)
+        elseif (preg_match('/0\/(\d+):(\d+)/i', $resp, $m)) {
+            $port = $m[1];
+            $onu_id = $m[2];
+        }
+        // Pattern 3: Serial number list match
+        elseif (preg_match('/(\d+)\s+0\/(\d+)\s+'.$sn.'/i', $resp, $m)) {
+            $port = $m[2];
+            $onu_id = $m[1];
+        }
+
+        if ($port !== null && $onu_id !== null) {
+            return [
+                'success' => true, 
+                'port' => $port, 
+                'onu_id' => $onu_id,
+                'message' => "Found SN $sn at Port 0/$port ID $onu_id"
+            ];
+        }
+
+        return ['success' => false, 'message' => "SN $sn not found on OLT", 'raw' => $resp];
+
+    } catch (Exception $e) {
+        if ($client) $client->disconnect();
+        return ['success' => false, 'message' => 'Telnet Error: ' . $e->getMessage()];
     }
 }
