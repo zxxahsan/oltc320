@@ -258,10 +258,13 @@ function vsolProvisionOnu($olt_id, $port, $onu_id, $pppoe_user, $pppoe_pass, $se
             ];
             foreach ($cmds as $cmd) {
                 $client->write($cmd . "\n");
-                $client->readUntil("/[>#]/", 3);
+                $resp = $client->readUntil("/[>#]/", 3);
                 $log[] = "  → $cmd";
+                if (stripos($resp, 'Error') !== false || stripos($resp, 'Invalid') !== false) {
+                    $log[] = "    [!] RESP: " . trim($resp);
+                }
             }
-            $log[] = "✓ WAN #{$idx} PPPoE Internet (VLAN 100) dikonfigurasi";
+            $log[] = "✓ WAN #{$idx} PPPoE Internet (VLAN 100) OK";
             $idx++;
         }
 
@@ -269,15 +272,19 @@ function vsolProvisionOnu($olt_id, $port, $onu_id, $pppoe_user, $pppoe_pass, $se
         if (in_array('hotspot', $services)) {
             $cmds = [
                 "onu {$onu_id} pri wan_adv add bridge",
-                "onu {$onu_id} pri wan_adv index {$idx} bridge other",
                 "onu {$onu_id} pri wan_adv index {$idx} service other",
+                "onu {$onu_id} pri wan_adv index {$idx} bridge other",
                 "onu {$onu_id} pri wan_adv index {$idx} vlan tag wan_vlan 200 0",
-                "onu {$onu_id} pri wan_adv index {$idx} bind lan1 ssid2",
+                "onu {$onu_id} pri wan_adv index {$idx} bind lan1",
+                "onu {$onu_id} pri wan_adv index {$idx} bind ssid2",
             ];
             foreach ($cmds as $cmd) {
                 $client->write($cmd . "\n");
-                $client->readUntil("/[>#]/", 2);
+                $resp = $client->readUntil("/[>#]/", 2);
                 $log[] = "  → $cmd";
+                if (stripos($resp, 'Error') !== false || stripos($resp, 'Invalid') !== false || stripos($resp, 'fail') !== false) {
+                    $log[] = "    [!] RESP: " . trim($resp);
+                }
             }
             $log[] = "✓ WAN #{$idx} Hotspot Bridge (VLAN 200) DONE";
             $idx++;
