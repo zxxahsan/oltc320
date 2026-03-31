@@ -269,16 +269,17 @@ function vsolProvisionOnu($olt_id, $port, $onu_id, $pppoe_user, $pppoe_pass, $se
         if (in_array('hotspot', $services)) {
             $cmds = [
                 "onu {$onu_id} pri wan_adv add bridge",
-                "onu {$onu_id} pri wan_adv index {$idx} bridge other mtu 1500",
+                "onu {$onu_id} pri wan_adv index {$idx} bridge other",
+                "onu {$onu_id} pri wan_adv index {$idx} service other",
                 "onu {$onu_id} pri wan_adv index {$idx} vlan tag wan_vlan 200 0",
                 "onu {$onu_id} pri wan_adv index {$idx} bind lan1 ssid2",
             ];
             foreach ($cmds as $cmd) {
                 $client->write($cmd . "\n");
-                $client->readUntil("/[>#]/", 3);
+                $client->readUntil("/[>#]/", 2);
                 $log[] = "  → $cmd";
             }
-            $log[] = "✓ WAN #{$idx} Hotspot Bridge (VLAN 200) dikonfigurasi";
+            $log[] = "✓ WAN #{$idx} Hotspot Bridge (VLAN 200) DONE";
             $idx++;
         }
 
