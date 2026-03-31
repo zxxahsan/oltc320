@@ -268,7 +268,8 @@ function vsolProvisionOnu($olt_id, $port, $onu_id, $pppoe_user, $pppoe_pass, $se
                 $client->write($cmd . "\n");
                 $resp = $client->readUntil("/[>#]/", 2);
                 $log[] = "  → $cmd";
-                if (trim($resp) && strpos($resp, $cmd) === false) $log[] = "    RESP: " . trim($resp);
+                $clean_resp = trim(str_ireplace($cmd, '', $resp));
+                if ($clean_resp) $log[] = "    RESP: " . $clean_resp;
             }
             $log[] = "✓ WAN #{$idx} PPPoE Internet (VLAN 100) OK";
             $idx++;
@@ -279,16 +280,18 @@ function vsolProvisionOnu($olt_id, $port, $onu_id, $pppoe_user, $pppoe_pass, $se
             $cmds = [
                 "onu {$onu_id} pri wan_adv add bridge",
                 "onu {$onu_id} pri wan_adv index {$idx} service other",
-                "onu {$onu_id} pri wan_adv index {$idx} bridge other",
+                "onu {$onu_id} pri wan_adv index {$idx} bridge other mtu 1500",
                 "onu {$onu_id} pri wan_adv index {$idx} vlan tag wan_vlan 200 0",
                 "onu {$onu_id} pri wan_adv index {$idx} bind LAN1",
                 "onu {$onu_id} pri wan_adv index {$idx} bind SSID2",
+                "onu {$onu_id} pri wan_adv index {$idx} commit", 
             ];
             foreach ($cmds as $cmd) {
                 $client->write($cmd . "\n");
                 $resp = $client->readUntil("/[>#]/", 2);
                 $log[] = "  → $cmd";
-                if (trim($resp) && strpos($resp, $cmd) === false) $log[] = "    RESP: " . trim($resp);
+                $clean_resp = trim(str_ireplace($cmd, '', $resp));
+                if ($clean_resp) $log[] = "    RESP: " . $clean_resp;
             }
             $log[] = "✓ WAN #{$idx} Hotspot Bridge (VLAN 200) DONE";
             $idx++;
@@ -300,7 +303,8 @@ function vsolProvisionOnu($olt_id, $port, $onu_id, $pppoe_user, $pppoe_pass, $se
             $client->write($cmd . "\n");
             $resp = $client->readUntil("/[>#]/", 2);
             $log[] = "  → $cmd";
-            if (trim($resp) && strpos($resp, $cmd) === false) $log[] = "    RESP: " . trim($resp);
+            $clean_resp = trim(str_ireplace($cmd, '', $resp));
+            if ($clean_resp) $log[] = "    RESP: " . $clean_resp;
             $log[] = "✓ WiFi SSID 2 (Jinom_Hotspot) OK";
         }
 
@@ -310,14 +314,15 @@ function vsolProvisionOnu($olt_id, $port, $onu_id, $pppoe_user, $pppoe_pass, $se
             $client->write($cmd . "\n");
             $resp = $client->readUntil("/[>#]/", 5);
             $log[] = "  → $cmd";
-            if (trim($resp) && strpos($resp, $cmd) === false) $log[] = "    RESP: " . trim($resp);
+            $clean_resp = trim(str_ireplace($cmd, '', $resp));
+            if ($clean_resp) $log[] = "    RESP: " . $clean_resp;
             $log[] = "✓ TR069 Management active";
         }
 
-        // === COMMIT PER ONU ===
+        // === FINAL COMMIT PER ONU ===
         $client->write("onu {$onu_id} pri wan_adv commit\n");
-        $client->readUntil("/[>#]/", 5);
-        $log[] = "✓ ONU Commit successful";
+        $resp = $client->readUntil("/[>#]/", 5);
+        $log[] = "✓ Final ONU Commit: " . (trim(str_ireplace("onu {$onu_id} pri wan_adv commit", "", $resp)) ?: "OK");
 
         // === EXIT & SAVE OLT ===
         $client->write("exit\n");
@@ -325,8 +330,8 @@ function vsolProvisionOnu($olt_id, $port, $onu_id, $pppoe_user, $pppoe_pass, $se
         $client->write("exit\n");
         $client->readUntil("/[>#]/", 2);
         $client->write("write\n");
-        $client->readUntil("/[>#]/", 5);
-        $log[] = "✓ OLT Save (write) successful";
+        $resp = $client->readUntil("/[>#]/", 8);
+        $log[] = "✓ OLT Save (write): " . (trim(str_ireplace("write", "", $resp)) ?: "OK");
 
         $client->disconnect();
         $log[] = "\n🎉 Provisioning complete! ONU {$port}/{$onu_id} configured.";
