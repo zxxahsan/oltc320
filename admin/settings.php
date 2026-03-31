@@ -153,6 +153,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 redirect('settings.php');
                 break;
+
+            case 'sync_mikrotik_trigger':
+                require_once '../includes/mikrotik_api.php';
+                $router_id = (int)$_POST['router_id'];
+                $interval = (int)($_POST['interval'] ?? 1);
+                $server_url = $_POST['server_url'];
+
+                // 1. Find if exists to avoid error
+                $existing = mikrotikQuery('/system/scheduler/print', ['?name' => 'Gembok_OLT_Monitor']);
+                if (!empty($existing) && isset($existing[0]['.id'])) {
+                    mikrotikRunRaw($router_id, '/system/scheduler/remove', ['.id' => $existing[0]['.id']]);
+                }
+
+                // 2. Add new
+                $params = [
+                    'name' => 'Gembok_OLT_Monitor',
+                    'interval' => $interval . 'm',
+                    'on-event' => "/tool fetch url=\"{$server_url}\" keep-result=no"
+                ];
+                $res = mikrotikRunRaw($router_id, '/system/scheduler/add', $params);
+
+                if ($res) {
+                    setFlash('success', "Trigger berhasil dipasang di Mikrotik (Interval: {$interval} menit)");
+                } else {
+                    setFlash('error', "Gagal memasang trigger. Pastikan koneksi Mikrotik OK.");
+                }
+                redirect('settings.php');
+                break;
         }
     }
 }
@@ -453,13 +481,56 @@ ob_start();
                         $cronToken = bin2hex(random_bytes(16));
                         insert('settings', ['setting_key' => 'CRON_TOKEN', 'setting_value' => $cronToken]);
                     }
-                    $cronUrl = APP_URL . "/cron/run.php?token=" . $cronToken;
+                    $cronUrl = APP_URL . "/cron/monitor_onu.php?run_manual=1";
                     ?>
                     <input type="text" id="cron_web" readonly value="<?php echo $cronUrl; ?>" class="form-control" style="background: rgba(0,0,0,0.3); font-family: monospace; font-size: 0.85rem;">
                     <button type="button" class="btn btn-secondary" onclick="copyWebhookUrl('cron_web', this)">Salin</button>
                 </div>
             </div>
+
+            <hr style="border-color: rgba(255,255,255,0.05); margin: 20px 0;">
+
+            <div class="settings-item">
+                <label style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Metode 3: Mikrotik Scheduler (Container) - OLT Monitor</label>
+                <?php
+                $routers = fetchAll("SELECT id, name, host FROM routers ORDER BY id DESC");
+                ?>
+                <div style="background: rgba(162, 89, 255, 0.05); border: 1px solid rgba(162, 89, 255, 0.2); padding: 15px; border-radius: 10px;">
+                    <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 10px;">Instal trigger otomatis ke Scheduler Mikrotik untuk monitoring OLT (LOS/Kabel Putus).</p>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 120px 150px; gap: 10px; align-items: end;">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label class="form-label" style="font-size: 0.75rem;">Pilih Router</label>
+                            <select id="trigger_router_id" class="form-control" style="height: 38px;">
+                                <?php foreach ($routers as $r): ?>
+                                    <option value="<?php echo $r['id']; ?>"><?php echo htmlspecialchars($r['name']); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label class="form-label" style="font-size: 0.75rem;">Interval</label>
+                            <select id="trigger_interval" class="form-control" style="height: 38px;">
+                                <option value="1">1 Menit</option>
+                                <option value="2">2 Menit</option>
+                                <option value="5">5 Menit</option>
+                            </select>
+                        </div>
+                        <button type="button" class="btn btn-primary" style="height: 38px; background: var(--neon-purple); border-color: var(--neon-purple);" onclick="installMikrotikTrigger()">
+                            <i class="fas fa-sync"></i> Install Trigger
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
+        
+        <!-- Hidden Trigger Form -->
+        <form id="mikrotikTriggerForm" method="POST" style="display: none;">
+            <input type="hidden" name="action" value="sync_mikrotik_trigger">
+            <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+            <input type="hidden" name="router_id" id="form_router_id">
+            <input type="hidden" name="interval" id="form_interval">
+            <input type="hidden" name="server_url" value="<?php echo $cronUrl; ?>">
+        </form>
         
         <button type="submit" class="btn btn-primary">
             <i class="fas fa-save"></i> Simpan
@@ -530,6 +601,20 @@ function copyWebhookUrl(inputId, btn) {
             btn.style.background = 'var(--neon-cyan)';
         }, 2000);
     });
+}
+
+function installMikrotikTrigger() {
+    const routerId = document.getElementById('trigger_router_id').value;
+    const interval = document.getElementById('trigger_interval').value;
+    
+    if (!routerId) {
+        alert('Pilih router terlebih dahulu');
+        return;
+    }
+    
+    document.getElementById('form_router_id').value = routerId;
+    document.getElementById('form_interval').value = interval;
+    document.getElementById('mikrotikTriggerForm').submit();
 }
 </script>
 

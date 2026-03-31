@@ -140,6 +140,63 @@ ob_start();
     </div>
 </div>
 
+<!-- Mikrotik Automated Trigger (v2.3) -->
+<?php
+$protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+$server_ip = $_SERVER['HTTP_HOST'];
+$cron_url = "{$protocol}://{$server_ip}/cron/monitor_onu.php?run_manual=1";
+$routers = fetchAll("SELECT id, name, host FROM routers ORDER BY id DESC");
+?>
+<div class="card" style="margin-top: 25px; border-top: 4px solid var(--neon-purple);">
+    <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-bolt"></i> Mikrotik Automated Trigger (Cron Hybrid)</h3>
+    </div>
+    <div class="card-body">
+        <p style="margin-bottom: 15px; color: var(--text-muted); font-size: 0.9rem;">
+            Gunakan router Mikrotik untuk memicu (trigger) monitoring OLT setiap menit. Cocok untuk penggunaan dalam container Mikrotik.
+        </p>
+        
+        <div class="form-group">
+            <label class="form-label">Command Manual (Copy-Paste ke Terminal Mikrotik):</label>
+            <div style="display: flex; gap: 10px;">
+                <input type="text" readonly class="form-control" style="background: #111; color: var(--neon-green); font-family: monospace;" value='/system scheduler add name="Gembok_OLT_Monitor" interval=1m on-event="/tool fetch url=&quot;<?php echo $cron_url; ?>&quot; keep-result=no"'>
+                <button class="btn btn-secondary btn-sm" onclick="copyTriggerCmd(this)">Copy</button>
+            </div>
+        </div>
+
+        <hr style="border-color: var(--border-color); margin: 20px 0;">
+
+        <form method="POST">
+            <input type="hidden" name="action" value="sync_mikrotik_trigger">
+            <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+            <input type="hidden" name="server_url" value="<?php echo $cron_url; ?>">
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr 150px; gap: 15px; align-items: end;">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label">Pilih Mikrotik Target</label>
+                    <select name="router_id" class="form-control" required>
+                        <option value="">-- Pilih Router --</option>
+                        <?php foreach ($routers as $r): ?>
+                            <option value="<?php echo $r['id']; ?>"><?php echo htmlspecialchars($r['name']); ?> (<?php echo $r['host']; ?>)</option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label">Interval (Menit)</label>
+                    <select name="interval" class="form-control">
+                        <option value="1">1 Menit (Rekomendasi)</option>
+                        <option value="2">2 Menit</option>
+                        <option value="5">5 Menit</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary" style="background: var(--neon-purple); border-color: var(--neon-purple);">
+                    <i class="fas fa-sync"></i> Install Trigger
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- Add/Edit Modal -->
 <div id="oltModal" class="modal" style="display: none; position: fixed; z-index: 1001; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px);">
     <div style="background: var(--bg-card); margin: 5% auto; padding: 25px; border: 1px solid var(--border-color); width: 90%; max-width: 500px; border-radius: 18px; box-shadow: var(--shadow-neon);">
