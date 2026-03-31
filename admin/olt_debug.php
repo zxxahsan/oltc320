@@ -146,20 +146,34 @@ function pingHost($host) {
                     live_echo("MODE PRIVILEGE AKTIF.", 'success');
                 }
 
-                // 3. FETCH DATA
-                live_echo("Langkah 3: Menarik data unauth menggunakan 'show gpon onu unauthentication'...");
-                $rawUnauth = $client->execute("show gpon onu unauthentication");
-                $unauthCount = preg_match_all('/0\/(\d+)/', $rawUnauth, $matches);
-                live_echo("Selesai. Ditemukan: $unauthCount data mentah.", 'info');
+                // 3. FETCH DATA - MULTIPLE VARIANTS
+                $commands = [
+                    "show gpon onu unauthentication",
+                    "show gpon onu unconfigured",
+                    "show gpon onu uncfg",
+                    "show gpon onu state",
+                    "show onu unauth",
+                    "show gpon onu information"
+                ];
 
-                live_echo("Langkah 4: Menarik data informasi menggunakan 'show gpon onu information'...");
-                $rawInfo = $client->execute("show gpon onu information");
-                $infoCount = preg_match_all('/0\/(\d+)/', $rawInfo, $matches);
-                live_echo("Selesai. Ditemukan: $infoCount data mentah.", 'info');
+                $all_raw = "";
+                live_echo("Tahap 3: Mencoba berbagai variasi perintah (Brute Force)...");
+                
+                foreach ($commands as $cmd) {
+                    live_echo("Mencoba perintah: <code>$cmd</code> ...");
+                    $res = $client->execute($cmd);
+                    
+                    if (strpos($res, "Unknown command") === false && strlen(trim($res)) > 10) {
+                        live_echo("BERHASIL! Perintah <b>$cmd</b> direspon positif.", 'success');
+                        $all_raw .= "\n--- COMMAND: $cmd ---\n" . $res;
+                    } else {
+                        live_echo("Gagal: Perintah tidak dikenal atau hasil kosong.", 'warn');
+                    }
+                    usleep(200000); // Small gap between commands
+                }
 
                 // 4. TEST SN
-                live_echo("=== ANALISIS HASIL ===");
-                $all_raw = $rawUnauth . "\n" . $rawInfo;
+                live_echo("=== ANALISIS HASIL AKHIR ===");
                 if (preg_match_all('/0\/(\d+)\s+.*?\s+([A-Z0-9]{8,16})/i', $all_raw, $m, PREG_SET_ORDER)) {
                     live_echo("Robot berhasil mengenali " . count($m) . " Serial Number!", 'success');
                     foreach($m as $idx => $match) {
