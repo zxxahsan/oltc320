@@ -201,24 +201,32 @@ ob_start();
                 <i class="fas fa-bolt"></i> KIRIM KE OLT
             </button>
 
+            <!-- CLEANUP AREA -->
             <div style="margin-top:20px; padding:15px; border:1px solid #300; background:rgba(255,0,0,0.05); border-radius:8px;">
                 <label style="color:#ff5252; font-size:12px; font-weight:bold; display:block; margin-bottom:8px;">
-                    <i class="fas fa-exclamation-triangle"></i> DANGER ZONE
+                    <i class="fas fa-broom"></i> CLEANUP ONU
                 </label>
                 <div id="delete_confirm_step" style="display:none;">
                     <p style="font-size:11px; color:#aaa; margin-bottom:10px;">
                         Tindakan ini akan menghapus **Index 1-8** pada konfigurasi WAN/Bridge di ONU tersebut. Pelanggan akan terputus.
                     </p>
-                    <label style="display:flex; align-items:center; gap:8px; color:#fff; font-size:12px; margin-bottom:12px; cursor:pointer;">
-                        <input type="checkbox" id="chk_delete_sure"> Saya yakin ingin menghapus semua config WAN.
+                    
+                    <div class="form-group">
+                        <label style="font-size:10px;color:#888;">Ketik ulang SN untuk konfirmasi:</label>
+                        <input type="text" id="f_confirm_sn" class="form-control" placeholder="Masukan SN di sini..." oninput="validateCleanup()">
+                    </div>
+
+                    <label style="display:flex; align-items:center; gap:8px; color:#fff; font-size:11px; margin-bottom:12px; cursor:pointer;">
+                        <input type="checkbox" id="chk_delete_sure" onchange="validateCleanup()"> Saya paham dan mengerti fungsinya untuk menghapus semua config yang ada di ONU dengan SN tersebut.
                     </label>
+
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
                         <button class="btn btn-secondary btn-sm" onclick="toggleDeleteArea(false)">Batal</button>
-                        <button class="btn btn-danger btn-sm" id="btn_delete_final" onclick="doDeleteWan()" disabled>HAJAR / HAPUS</button>
+                        <button class="btn btn-danger btn-sm" id="btn_delete_final" onclick="doDeleteWan()" disabled>HAJAR / CLEANUP</button>
                     </div>
                 </div>
                 <button class="btn btn-outline-danger btn-sm" style="width:100%; border-color:#500; color:#a00;" id="btn_delete_init" onclick="toggleDeleteArea(true)">
-                    <i class="fas fa-trash-alt"></i> Hapus Semua Config WAN
+                    <i class="fas fa-trash-alt"></i> Cleanup / Wipe ONU Wan
                 </button>
             </div>
 
@@ -369,12 +377,22 @@ function toggleDeleteArea(show) {
     }
 }
 
-// ── Listener untuk checkbox konfirmasi hapus
-document.addEventListener('change', e => {
-    if (e.target && e.target.id === 'chk_delete_sure') {
-        document.getElementById('btn_delete_final').disabled = !e.target.checked;
+// ── Validasi Cleanup
+function validateCleanup() {
+    const snInput  = document.getElementById('f_confirm_sn').value.trim().toUpperCase();
+    const targetSn = document.getElementById('search_cust').value.trim().toUpperCase();
+    const isChecked = document.getElementById('chk_delete_sure').checked;
+    const btn = document.getElementById('btn_delete_final');
+
+    // Aktifkan tombol hanya jika SN cocok AND checklist ok
+    if (snInput === targetSn && targetSn.length > 5 && isChecked) {
+        btn.disabled = false;
+    } else {
+        btn.disabled = true;
     }
-});
+}
+
+// ── Listener untuk checkbox konfirmasi hapus (Legacy removed, replaced by validateCleanup)
 
 // ── Eksekusi Hapus WAN
 async function doDeleteWan() {
@@ -421,7 +439,7 @@ async function doDeleteWan() {
         badge.className = 'status-err';
     } finally {
         btn.disabled = false;
-        btn.innerHTML = 'HAJAR / HAPUS';
+        btn.innerHTML = 'HAJAR / CLEANUP';
     }
 }
 
