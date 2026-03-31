@@ -1310,19 +1310,19 @@ document.getElementById('onu_sn_input').addEventListener('input', function() {
 let html5QrcodeScanner = null;
 
 async function startCameraScan() {
-    // SECURITY CHECK: Camera access requires HTTPS or localhost
+    // FORCE ATTEMPT: Remove strict protocol block but keep warning in console/alert
     if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
-        alert('Browser error: Kamera hanya bisa diakses melalui protokol HTTPS demi keamanan. Silakan pasang sertifikat SSL pada server Anda atau akses via localhost.');
-        return;
+        console.warn('HTTP Protocol detected. Camera might be blocked by browser.');
     }
 
-    // Display modal first
     const modal = document.getElementById('cameraScanModal');
-    modal.style.display = 'flex';
+    if (modal) modal.style.display = 'flex';
 
-    // Wait a brief moment for the DOM to settle
     setTimeout(async () => {
         try {
+            if (typeof Html5Qrcode === 'undefined') {
+                throw new Error('Pustaka Html5Qrcode tidak ditemukan atau gagal dimuat.');
+            }
             html5QrcodeScanner = new Html5Qrcode("reader");
             const config = { fps: 15, qrbox: { width: 250, height: 150 } };
 
@@ -1332,16 +1332,15 @@ async function startCameraScan() {
                 (decodedText) => {
                     document.getElementById('onu_sn_input').value = decodedText;
                     stopCameraScan();
-                    // Trigger auto-sync if SN matches OLT scan results
                     document.getElementById('onu_sn_input').dispatchEvent(new Event('input'));
                 }
             );
         } catch (err) {
-            console.error("Camera scanner error:", err);
-            alert("Gagal memulai kamera: " + err.message);
+            console.error("Camera scanner failure:", err);
+            alert("GAGAL MEMBUKA KAMERA: " + (err.name || 'Error') + " - " + err.message + "\n\nSaran: Gunakan protokol HTTPS untuk izin hardware yang lebih stabil.");
             stopCameraScan();
         }
-    }, 100);
+    }, 150);
 }
 
 function stopCameraScan() {
@@ -1350,13 +1349,16 @@ function stopCameraScan() {
             document.getElementById('cameraScanModal').style.display = 'none';
         }).catch(err => console.error(err));
     } else {
-        document.getElementById('cameraScanModal').style.display = 'none';
+        const m = document.getElementById('cameraScanModal');
+        if (m) m.style.display = 'none';
     }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    initMap();
-    loadOdpOptions();
+    try {
+        if (typeof initMap === 'function') initMap();
+        if (typeof loadOdpOptions === 'function') loadOdpOptions();
+    } catch(e) { console.error('Init error:', e); }
 });
 </script>
 
