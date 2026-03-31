@@ -1,15 +1,35 @@
 <?php
 /**
- * Customers Management v8.24
- * - Edit pelanggan dengan field ONU lengkap
- * - Scan ONU dari running-config (offline, zero timeout)
+ * Customers Management v8.25
+ * - Edit + Provisioning ONU (WAN, ACS, Bridge, WiFi)
  */
 
 require_once '../includes/auth.php';
 requireAdminLogin();
-require_once '../includes/db.php';
+require_once '../includes/olt_api.php';
 
 $pageTitle = 'Pelanggan';
+
+// === AJAX: Provision ONU ===
+if (isset($_GET['ajax_action']) && $_GET['ajax_action'] === 'provision') {
+    header('Content-Type: application/json');
+    $olt_id    = (int)($_POST['olt_id'] ?? 0);
+    $port      = (int)($_POST['port'] ?? 0);
+    $onu_id    = (int)($_POST['onu_id'] ?? 0);
+    $pppoe_user = trim($_POST['pppoe_user'] ?? '');
+    $pppoe_pass = trim($_POST['pppoe_pass'] ?? '');
+    $services  = $_POST['services'] ?? [];
+    $acs_url   = trim($_POST['acs_url'] ?? 'http://172.16.200.3:7547');
+
+    if (!$olt_id || !$port || !$onu_id) {
+        echo json_encode(['success' => false, 'log' => 'Data OLT/Port/ONU ID tidak lengkap']);
+        exit;
+    }
+
+    $result = vsolProvisionOnu($olt_id, $port, $onu_id, $pppoe_user, $pppoe_pass, $services, $acs_url);
+    echo json_encode($result);
+    exit;
+}
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -73,7 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             case 'delete':
                 $id = (int)$_POST['customer_id'];
-                if (deleteRecord('customers', 'id = ?', [$id])) {
+                if (delete('customers', 'id = ?', [$id])) {
                     setFlash('success', 'Pelanggan berhasil dihapus');
                 } else {
                     setFlash('error', 'Gagal menghapus pelanggan');
@@ -241,11 +261,33 @@ ob_start();
                 <button type="button" class="btn btn-secondary" onclick="closeEdit()" style="height:46px;padding:0 20px;">Batal</button>
             </div>
         </form>
+
+        <!-- PROVISIONING PANEL -->
+        <div style="margin-top:20px;padding:16px;background:rgba(0,255,65,0.04);border:1px solid rgba(0,255,65,0.15);border-radius:10px;">
+            <label style="color:#00ff41;display:block;margin-bottom:12px;font-weight:bold;"><i class="fas fa-rocket"></i> Auto-Provisioning ONU</label>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="svc_acs" value="acs" checked> <span>TR-069 / ACS (VLAN 101)</span></label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="svc_pppoe" value="pppoe" checked> <span>PPPoE Internet (VLAN 100)</span></label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="svc_hotspot" value="hotspot" checked> <span>Hotspot Bridge (VLAN 200)</span></label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="svc_wifi" value="wifi" checked> <span>WiFi SSID 2 (Jinom_Hotspot)</span></label>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+                <div><label style="font-size:12px;color:#888">PPPoE Password</label>
+                    <input type="text" id="prov_pppoe_pass" class="form-control" placeholder="12345678" value="12345678">
+                </div>
+                <div><label style="font-size:12px;color:#888">URL ACS Server</label>
+                    <input type="text" id="prov_acs_url" class="form-control" value="http://172.16.200.3:7547">
+                </div>
+            </div>
+            <button type="button" class="btn" style="background:#00ff41;color:#000;width:100%;font-weight:bold;height:44px;" onclick="doProvision()">
+                <i class="fas fa-bolt"></i> KIRIM KE OLT SEKARANG
+            </button>
+            <div id="prov_log" style="display:none;margin-top:14px;background:#000;color:#00ff41;font-family:monospace;font-size:12px;padding:12px;border-radius:6px;white-space:pre-wrap;max-height:220px;overflow-y:auto;border:1px solid #1a3a1a;"></div>
+        </div>
     </div>
 </div>
 
 <script>
-// Filter tabel
 function filterCustomers() {
     const q = document.getElementById('search_cust').value.toLowerCase();
     document.querySelectorAll('#cust_table tbody tr').forEach(row => {
@@ -253,21 +295,27 @@ function filterCustomers() {
     });
 }
 
-// Buka modal edit
 function openEdit(c) {
-    document.getElementById('edit_id').value      = c.id;
-    document.getElementById('edit_name').value    = c.name || '';
-    document.getElementById('edit_phone').value   = c.phone || '';
-    document.getElementById('edit_pppoe').value   = c.pppoe_username || '';
-    document.getElementById('edit_iso').value     = c.isolation_date || 20;
-    document.getElementById('edit_olt_id').value  = c.olt_id || 0;
-    document.getElementById('edit_onu_sn').value  = c.onu_sn || '';
+    document.getElementById('edit_id').value       = c.id;
+    document.getElementById('edit_name').value     = c.name || '';
+    document.getElementById('edit_phone').value    = c.phone || '';
+    document.getElementById('edit_pppoe').value    = c.pppoe_username || '';
+    document.getElementById('edit_iso').value      = c.isolation_date || 20;
+    document.getElementById('edit_olt_id').value   = c.olt_id || 0;
+    document.getElementById('edit_onu_sn').value   = c.onu_sn || '';
     document.getElementById('edit_pon_port').value = c.olt_pon_port || '';
-    document.getElementById('edit_onu_id').value  = c.onu_id || '';
+    document.getElementById('edit_onu_id').value   = c.onu_id || '';
+
+    // Set PPPoE pass default ke username (atau kosong)
+    document.getElementById('prov_pppoe_pass').value = '12345678';
 
     // Set paket
     const pkg = document.getElementById('edit_pkg');
     for (let opt of pkg.options) { if (opt.value == c.package_id) { opt.selected = true; break; } }
+
+    // Reset log
+    document.getElementById('prov_log').style.display = 'none';
+    document.getElementById('prov_log').textContent = '';
 
     document.getElementById('editModal').classList.add('active');
 }
@@ -276,11 +324,53 @@ function closeEdit() {
     document.getElementById('editModal').classList.remove('active');
 }
 
-// Tutup modal klik di luar
 document.getElementById('editModal').addEventListener('click', function(e) {
     if (e.target === this) closeEdit();
 });
+
+async function doProvision() {
+    const olt_id  = document.getElementById('edit_olt_id').value;
+    const port    = document.getElementById('edit_pon_port').value;
+    const onu_id  = document.getElementById('edit_onu_id').value;
+    const pppoe_u = document.getElementById('edit_pppoe').value;
+    const pppoe_p = document.getElementById('prov_pppoe_pass').value;
+    const acs_url = document.getElementById('prov_acs_url').value;
+
+    if (!olt_id || olt_id == 0 || !port || !onu_id) {
+        alert('Pastikan OLT, PON Port, dan ONU ID sudah diisi terlebih dahulu!');
+        return;
+    }
+
+    // Kumpulkan services yang dicentang
+    const services = [];
+    ['acs','pppoe','hotspot','wifi'].forEach(s => {
+        if (document.getElementById('svc_' + s)?.checked) services.push(s);
+    });
+
+    const logBox = document.getElementById('prov_log');
+    logBox.style.display = 'block';
+    logBox.textContent = '⏳ Menghubungkan ke OLT... Mohon tunggu (~15-30 detik)';
+
+    const fd = new FormData();
+    fd.append('olt_id', olt_id);
+    fd.append('port', port);
+    fd.append('onu_id', onu_id);
+    fd.append('pppoe_user', pppoe_u);
+    fd.append('pppoe_pass', pppoe_p);
+    fd.append('acs_url', acs_url);
+    services.forEach(s => fd.append('services[]', s));
+
+    try {
+        const r = await fetch('customers.php?ajax_action=provision', { method: 'POST', body: fd });
+        const data = await r.json();
+        logBox.textContent = data.log || 'Tidak ada log yang dikembalikan.';
+        logBox.scrollTop = logBox.scrollHeight;
+    } catch(e) {
+        logBox.textContent = '✗ Gagal terhubung: ' + e.message;
+    }
+}
 </script>
+
 
 <?php
 $content = ob_get_clean();

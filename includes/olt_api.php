@@ -187,3 +187,136 @@ function vsolSyncAllMetadata($olt_id) {
         return ['error' => $e->getMessage()];
     }
 }
+
+/**
+ * Provision ONU: Konfigurasi WAN, ACS, Bridge, WiFi
+ * Berdasarkan pola dari running-config OLT V-SOL V1.3.9R
+ *
+ * @param int    $olt_id      ID OLT di database
+ * @param int    $port        GPON port (1-8)
+ * @param int    $onu_id      ONU ID di port
+ * @param string $pppoe_user  Username PPPoE
+ * @param string $pppoe_pass  Password PPPoE
+ * @param array  $services    ['acs', 'pppoe', 'hotspot', 'wifi']
+ * @param string $acs_url     URL ACS server
+ */
+function vsolProvisionOnu($olt_id, $port, $onu_id, $pppoe_user, $pppoe_pass, $services = [], $acs_url = 'http://172.16.200.3:7547') {
+    $olt = fetchOne("SELECT * FROM olt_configs WHERE id = ?", [$olt_id]);
+    if (!$olt) return ['success' => false, 'log' => 'OLT tidak ditemukan'];
+
+    $log = [];
+    $client = new OltTelnetClient($olt['host'], $olt['port'], 5);
+
+    try {
+        // === LOGIN ===
+        $client->connect($olt['username'], $olt['password']);
+        $log[] = "✓ Login berhasil ke {$olt['host']}";
+
+        if (!empty($olt['enable_password'])) {
+            $client->enable($olt['enable_password']);
+            $log[] = "✓ Masuk mode privileged (#)";
+        }
+
+        // === MASUK CONFIGURE TERMINAL ===
+        $client->write("configure terminal\n");
+        $client->readUntil("/[>#\(]/", 3);
+        $log[] = "✓ configure terminal";
+
+        // === MASUK INTERFACE GPON ===
+        $client->write("interface gpon 0/{$port}\n");
+        $client->readUntil("/[>#\(]/", 3);
+        $log[] = "✓ interface gpon 0/{$port}";
+
+        // === INDEX WAN COUNTER ===
+        $idx = 1;
+
+        // === ACS / TR-069 ===
+        if (in_array('acs', $services)) {
+            $cmds = [
+                "onu {$onu_id} pri wan_adv add route",
+                "onu {$onu_id} pri wan_adv index {$idx} route mode tr069 mtu 1500",
+                "onu {$onu_id} pri wan_adv index {$idx} route ipv4 dhcp",
+                "onu {$onu_id} pri wan_adv index {$idx} vlan tag wan_vlan 101 0",
+            ];
+            foreach ($cmds as $cmd) {
+                $client->write($cmd . "\n");
+                $client->readUntil("/[>#]/", 3);
+                $log[] = "  → $cmd";
+            }
+            $log[] = "✓ WAN #{$idx} ACS/TR-069 (VLAN 101) dikonfigurasi";
+            $idx++;
+        }
+
+        // === PPPoE INTERNET ===
+        if (in_array('pppoe', $services)) {
+            $cmds = [
+                "onu {$onu_id} pri wan_adv add route",
+                "onu {$onu_id} pri wan_adv index {$idx} route mode internet mtu 1492",
+                "onu {$onu_id} pri wan_adv index {$idx} route ipv4 pppoe proxy disable user {$pppoe_user} pwd {$pppoe_pass} mode auto nat enable",
+                "onu {$onu_id} pri wan_adv index {$idx} vlan tag wan_vlan 100 0",
+                "onu {$onu_id} pri wan_adv index {$idx} bind ssid1",
+            ];
+            foreach ($cmds as $cmd) {
+                $client->write($cmd . "\n");
+                $client->readUntil("/[>#]/", 3);
+                $log[] = "  → $cmd";
+            }
+            $log[] = "✓ WAN #{$idx} PPPoE Internet (VLAN 100) dikonfigurasi";
+            $idx++;
+        }
+
+        // === HOTSPOT BRIDGE (VLAN 200) ===
+        if (in_array('hotspot', $services)) {
+            $cmds = [
+                "onu {$onu_id} pri wan_adv add bridge",
+                "onu {$onu_id} pri wan_adv index {$idx} bridge other mtu 1500",
+                "onu {$onu_id} pri wan_adv index {$idx} vlan tag wan_vlan 200 0",
+                "onu {$onu_id} pri wan_adv index {$idx} bind lan1 ssid2",
+            ];
+            foreach ($cmds as $cmd) {
+                $client->write($cmd . "\n");
+                $client->readUntil("/[>#]/", 3);
+                $log[] = "  → $cmd";
+            }
+            $log[] = "✓ WAN #{$idx} Hotspot Bridge (VLAN 200) dikonfigurasi";
+            $idx++;
+        }
+
+        // === WIFI SSID 2 (Jinom Hotspot) ===
+        if (in_array('wifi', $services)) {
+            $cmd = "onu {$onu_id} pri wifi_ssid 2 name Jinom_Hotspot hide disable auth_mode open encrypt_type none";
+            $client->write($cmd . "\n");
+            $client->readUntil("/[>#]/", 3);
+            $log[] = "  → $cmd";
+            $log[] = "✓ WiFi SSID 2 (Jinom_Hotspot) dikonfigurasi";
+        }
+
+        // === ACS MANAGEMENT ===
+        if (in_array('acs', $services)) {
+            $cmd = "onu {$onu_id} pri tr069_mng enable acs_server url {$acs_url} username acs password acs certificate disable inform enable inform_interval 60 reverse_connection username acs password acs";
+            $client->write($cmd . "\n");
+            $client->readUntil("/[>#]/", 5);
+            $log[] = "  → TR069 Management URL dikonfigurasi";
+            $log[] = "✓ TR069 Management aktif";
+        }
+
+        // === EXIT & SAVE ===
+        $client->write("exit\n");
+        $client->readUntil("/[>#]/", 2);
+        $client->write("exit\n");
+        $client->readUntil("/[>#]/", 2);
+        $client->write("write\n");
+        $client->readUntil("/[>#]/", 5);
+        $log[] = "✓ Konfigurasi disimpan (write)";
+
+        $client->disconnect();
+        $log[] = "\n🎉 Provisioning selesai! ONU {$port}/{$onu_id} sudah aktif.";
+
+        return ['success' => true, 'log' => implode("\n", $log)];
+
+    } catch (Exception $e) {
+        $log[] = "✗ ERROR: " . $e->getMessage();
+        $client->disconnect();
+        return ['success' => false, 'log' => implode("\n", $log)];
+    }
+}
