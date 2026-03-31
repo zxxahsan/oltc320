@@ -302,17 +302,45 @@ function mikrotikRead($socket)
     return mikrotikReadSentence($socket);
 }
 
+/**
+ * Run a raw API command on Mikrotik (v2.3)
+ * Use for /system/scheduler/add, /ip/address/add, etc.
+ */
+function mikrotikRunRaw($routerId, $menu, $params = []) {
+    $socket = getMikrotikConnection($routerId);
+    if (!$socket) return false;
+
+    mikrotikWrite($socket, $menu);
+    foreach ($params as $k => $v) {
+        mikrotikWrite($socket, "={$k}={$v}");
+    }
+    mikrotikWrite($socket, "");
+
+    $done = false;
+    $timeout = time() + 5;
+    $success = false;
+    while (!$done && time() < $timeout) {
+        $words = mikrotikReadSentence($socket);
+        if (empty($words)) break;
+        foreach ($words as $word) {
+            if ($word === '!done') { $done = true; $success = true; break; }
+            if (strpos($word, '!trap') === 0) { $done = true; $success = false; break; }
+        }
+    }
+    return $success;
+}
+
 function mikrotikQuery($command, $params = [])
 {
     $socket = getMikrotikConnection();
     if (!$socket) {
-        return false;
+        return [];
     }
 
     // Send command
     mikrotikWrite($socket, $command);
     foreach ($params as $key => $value) {
-        mikrotikWrite($socket, '=' . $key . '=' . $value);
+        mikrotikWrite($socket, "={$key}={$value}");
     }
     mikrotikWrite($socket, ''); // End sentence
 
@@ -339,24 +367,30 @@ function mikrotikQuery($command, $params = [])
 
 function mikrotikParseResponse($response)
 {
-    // $response is an array of words from binary protocol
-    $result = [];
+    $results = [];
+    $current = [];
 
     foreach ($response as $word) {
-        if ($word === '!done' || strpos($word, '!trap') === 0) {
+        if ($word === '!re') {
+            if (!empty($current)) {
+                $results[] = $current;
+                $current = [];
+            }
+        } elseif ($word === '!done' || strpos($word, '!trap') === 0) {
+            if (!empty($current)) {
+                $results[] = $current;
+            }
             break;
-        }
-
-        if (strpos($word, '=') === 0) {
+        } elseif (strpos($word, '=') === 0) {
             $word = substr($word, 1); // Remove leading '='
             $parts = explode('=', $word, 2);
             if (count($parts) === 2) {
-                $result[$parts[0]] = $parts[1];
+                $current[$parts[0]] = $parts[1];
             }
         }
     }
 
-    return $result;
+    return $results;
 }
 
 function mikrotikSetProfile($username, $profile, $routerId = null)

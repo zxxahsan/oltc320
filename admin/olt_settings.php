@@ -48,6 +48,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         delete('olt_configs', 'id = ?', [$id]);
         setFlash('success', 'OLT deleted successfully');
         redirect('olt_settings.php');
+    } elseif ($action === 'sync_mikrotik_trigger') {
+        require_once '../includes/mikrotik_api.php';
+        $router_id = (int)$_POST['router_id'];
+        $interval = (int)$_POST['interval'] ?: 1;
+        $server_url = $_POST['server_url'];
+
+        // 1. Find if exists to avoid error
+        $existing = mikrotikQuery('/system/scheduler/print', ['?name' => 'Gembok_OLT_Monitor']);
+        if (!empty($existing) && isset($existing[0]['.id'])) {
+            mikrotikRunRaw($router_id, '/system/scheduler/remove', ['.id' => $existing[0]['.id']]);
+        }
+
+        // 2. Add new
+        $params = [
+            'name' => 'Gembok_OLT_Monitor',
+            'interval' => $interval . 'm',
+            'on-event' => "/tool fetch url=\"{$server_url}\" keep-result=no"
+        ];
+        $res = mikrotikRunRaw($router_id, '/system/scheduler/add', $params);
+
+        if ($res) {
+            setFlash('success', "Trigger berhasil dipasang di Mikrotik (Interval: {$interval} menit)");
+        } else {
+            setFlash('error', "Gagal memasang trigger. Pastikan koneksi Mikrotik OK.");
+        }
+        redirect('olt_settings.php');
     }
 }
 
@@ -236,6 +262,19 @@ window.onclick = function(event) {
     if (event.target == document.getElementById('oltModal')) {
         closeModal();
     }
+}
+
+function copyTriggerCmd(btn) {
+    const input = btn.previousElementSibling;
+    input.select();
+    document.execCommand('copy');
+    const oldText = btn.innerText;
+    btn.innerText = 'Copied!';
+    btn.classList.add('btn-success');
+    setTimeout(() => {
+        btn.innerText = oldText;
+        btn.classList.remove('btn-success');
+    }, 2000);
 }
 </script>
 
