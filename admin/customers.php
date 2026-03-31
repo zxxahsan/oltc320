@@ -462,9 +462,8 @@ ob_start();
                     <div>
                         <label class="form-label">Scan / Serial Number</label>
                         <div style="display: flex; gap: 5px;">
-                            <select id="onu_sn_selector" name="onu_sn" class="form-control" style="flex: 1; background: var(--bg-card);">
-                                <option value="">-- Manual/Pilih --</option>
-                            </select>
+                            <input type="text" id="onu_sn_input" name="onu_sn" list="onu_sn_list" class="form-control" placeholder="Scan/Ketik SN" style="flex: 1; background: var(--bg-card); color: var(--text-primary);">
+                            <datalist id="onu_sn_list"></datalist>
                             <button type="button" class="btn btn-secondary btn-sm" onclick="scanOltOnu()">
                                 <i id="scan-icon" class="fas fa-search"></i> Scan
                             </button>
@@ -1215,27 +1214,27 @@ function scanOltOnu() {
     }
 
     const icon = document.getElementById('scan-icon');
-    const select = document.getElementById('onu_sn_selector');
+    const dl = document.getElementById('onu_sn_list');
     
     icon.className = 'fas fa-spinner fa-spin';
-    select.innerHTML = '<option value=\"\">-- Memindai... --</option>';
+    dl.innerHTML = '';
+
+    // Cache to store scan result data for auto-fill logic
+    window.lastScanResults = [];
 
     fetch(`customers.php?ajax_action=scan_onu&olt_id=${oltId}`)
         .then(r => r.json())
         .then(data => {
-            select.innerHTML = '<option value=\"\">-- Pilih Serial Number --</option>';
             if (data.length === 0) {
                 alert('Tidak ditemukan ONU baru pada OLT ini.');
             } else {
+                window.lastScanResults = data;
                 data.forEach(onu => {
                     const opt = document.createElement('option');
                     opt.value = onu.sn;
                     const statusTxt = onu.status === 'registered' ? ' [AUTO-LEARN]' : ' [UNCONFIG]';
-                    opt.textContent = onu.sn + ' (PON: ' + onu.port + ')' + statusTxt;
-                    opt.dataset.port = onu.port;
-                    opt.dataset.id = onu.id || '';
-                    opt.dataset.status = onu.status;
-                    select.appendChild(opt);
+                    opt.textContent = 'PON: ' + onu.port + statusTxt;
+                    dl.appendChild(opt);
                 });
             }
         })
@@ -1249,20 +1248,26 @@ function scanOltOnu() {
         });
 }
 
-// Auto-fill PON port & ID when SN is selected
-document.getElementById('onu_sn_selector').addEventListener('change', function() {
-    const selected = this.options[this.selectedIndex];
-    if (selected) {
-        if (selected.dataset.port) document.getElementById('olt_pon_port_input').value = selected.dataset.port;
-        if (selected.dataset.id) document.getElementById('onu_id_input').value = selected.dataset.id;
-        if (selected.dataset.status) document.getElementById('onu_status_hidden').value = selected.dataset.status;
+// Auto-fill PON port & ID when SN is entered/selected
+document.getElementById('onu_sn_input').addEventListener('input', function() {
+    const val = this.value;
+    const onu = (window.lastScanResults || []).find(o => o.sn === val);
+    
+    if (onu) {
+        if (onu.port) document.getElementById('olt_pon_port_input').value = onu.port;
+        if (onu.id) document.getElementById('onu_id_input').value = onu.id;
+        if (onu.status) document.getElementById('onu_status_hidden').value = onu.status;
         
         // If it's already registered (auto-learn), highlight it
-        if (selected.dataset.status === 'registered') {
+        if (onu.status === 'registered') {
             document.getElementById('onu_id_input').style.borderColor = 'var(--neon-green)';
         } else {
             document.getElementById('onu_id_input').style.borderColor = '';
         }
+    } else {
+        // Clear if manual entry that doesn't match scan
+        document.getElementById('onu_status_hidden').value = 'unconfigured';
+        document.getElementById('onu_id_input').style.borderColor = '';
     }
 });
 
