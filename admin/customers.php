@@ -331,7 +331,7 @@ $routers = $routersTableExists ? getAllRouters() : [];
 ob_start();
 ?>
 
-<!-- Libraries Consolidated at the top of content (V7.5 RESTORATION) -->
+<!-- Libraries Consolidated at the top of content (V7.6 SMART FEEDBACK) -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/html5-qrcode@latest/html5-qrcode.min.js"></script>
@@ -374,11 +374,11 @@ ob_start();
     <form method="POST">
         <input type="hidden" name="action" value="add"><input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; max-width: 100%;">
-            <div class="form-group"><label class="form-label">Nama</label> <input type="text" name="name" class="form-control" required></div>
-            <div class="form-group"><label class="form-label">Nomor HP</label> <input type="text" name="phone" class="form-control" required></div>
+            <div class="form-group"><label class="form-label">Nama</label> <input type="text" name="name" class="form-control" required placeholder="Nama Lengkap"></div>
+            <div class="form-group"><label class="form-label">Nomor HP</label> <input type="text" name="phone" class="form-control" required placeholder="WhatsApp"></div>
             <div class="form-group" style="grid-column: 1 / -1;"><label class="form-label">Username PPPoE</label><div style="display: flex; gap:10px;"><input type="text" name="pppoe_username" id="pppoe_username_input" class="form-control" required><button type="button" class="btn btn-secondary" onclick="openPppoeUserModal()">Pilih MikroTik</button></div></div>
             
-            <!-- SMART OLT PROVISIONING UI (V7.5 RESTORED) -->
+            <!-- SMART OLT PROVISIONING UI (V7.6 SMART FEEDBACK) -->
             <div class="form-group" style="grid-column: 1 / -1; margin-top: 10px; padding: 15px; background: rgba(0,210,255,0.05); border: 1px solid rgba(0,210,255,0.1); border-radius: 8px;">
                 <label class="form-label" style="color: var(--neon-cyan);"><i class="fas fa-microchip"></i> OLT Provisioning (V-SOL)</label>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 10px;">
@@ -392,9 +392,9 @@ ob_start();
                         </select>
                     </div>
                     <div>
-                        <label class="form-label">Scan / SN ONT <span id="sn_status_badge" style="display:none; font-size:0.7em; padding:2px 6px; border-radius:4px; margin-left:10px; background:var(--neon-green); color:#000; font-weight:bold;">ONU DITEMUKAN</span></label>
+                        <label class="form-label">Scan Barcode / SN ONT <span id="sn_status_badge" style="display:none; font-size:0.7em; padding:2px 6px; border-radius:4px; margin-left:10px; background:var(--neon-green); color:#000; font-weight:bold;">TUNGGU...</span></label>
                         <div style="display: flex; gap: 5px;">
-                            <input type="text" id="onu_sn_input" name="onu_sn" list="onu_sn_list" class="form-control" placeholder="Scan SN dari Box" style="flex: 1; background: var(--bg-card); color: var(--text-primary);">
+                            <input type="text" id="onu_sn_input" name="onu_sn" list="onu_sn_list" autocomplete="off" class="form-control" placeholder="Scan SN Tag atau Box" style="flex: 1; background: var(--bg-card); color: var(--text-primary);">
                             <datalist id="onu_sn_list"></datalist>
                             <button type="button" class="btn btn-secondary btn-sm" onclick="startCameraScan()" title="Scan Kamera"><i class="fas fa-camera"></i></button>
                             <button type="button" class="btn btn-secondary btn-sm" onclick="scanOltOnu()" title="Scan OLT"><i id="scan-icon" class="fas fa-search"></i></button>
@@ -406,7 +406,7 @@ ob_start();
                 <input type="hidden" name="onu_id" id="onu_id_input">
                 <input type="hidden" name="onu_status" id="onu_status_hidden" value="unconfigured">
 
-                <!-- Service Multi-Selection RESTORED -->
+                <!-- Service Multi-Selection -->
                 <div style="margin-top: 15px; display: flex; flex-wrap: wrap; gap: 15px; padding: 10px; background: rgba(255,255,255,0.02); border-radius: 5px;">
                     <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;"><input type="checkbox" name="olt_services[]" value="acs" checked> <span>TR069 (ACS)</span></label>
                     <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;"><input type="checkbox" name="olt_services[]" value="pppoe" checked> <span>Internet (PPPoE)</span></label>
@@ -445,7 +445,7 @@ ob_start();
 <div id="cameraScanModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9999; flex-direction:column; align-items:center; justify-content:center;"><div style="background:var(--bg-card); padding:20px; border-radius:10px; width:90%; max-width:500px; text-align:center;"><h3 style="color:var(--neon-cyan);">Scan Barcode ONT</h3><div id="reader" style="width:100%; min-height:300px; border-radius:5px; overflow:hidden; background:#000;"></div><button class="btn btn-secondary" onclick="stopCameraScan()" style="margin-top:15px;">Tutup Kamera</button></div></div>
 <div id="pppoeUserModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:2000; align-items:center; justify-content:center;"><div class="card" style="width: 360px;"><div class="card-header"><h3>MikroTik PPPoE</h3><button onclick="closePppoeUserModal()" style="background:none; border:none; color:#fff; font-size:1.5em; cursor:pointer;">&times;</button></div><div style="padding:15px;"><input type="text" id="pppoeUserSearch" class="form-control" placeholder="Cari username..."><div id="pppoeUserList" style="max-height: 400px; overflow-y: auto; margin-top:10px;"></div></div></div></div>
 
-<!-- Edit Customer Modal (FULL RESTORED V7.5) -->
+<!-- Edit Customer Modal -->
 <div id="editCustomerModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 2000; align-items: center; justify-content: center;">
     <div class="card" style="width: 900px; max-width: 95%; max-height: 95vh; overflow-y: auto;">
         <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;"><h3>Edit Pelanggan</h3> <button onclick="closeEditModal()" style="background:none; border:none; color:#fff; font-size:1.5em; cursor:pointer;">&times;</button></div>
@@ -464,9 +464,9 @@ ob_start();
 </div>
 
 <!-- Customer Table -->
-<div class="card" style="margin-top:30px;"><div class="card-header"><h3>Daftar Pelanggan Dashboard</h3></div><table class="data-table" id="customerTable"><thead><tr><th>Nama & Kontak</th><th>Paket & Router</th><th>Status</th><th>Jatuh Tempo</th><th>Aksi</th></tr></thead><tbody><?php foreach($customers as $c): ?><tr><td><strong><?php echo htmlspecialchars($c['name']); ?></strong><br><small><?php echo htmlspecialchars($c['phone']); ?></small></td><td><?php echo htmlspecialchars($c['package_name']); ?><br><small style="color:var(--neon-cyan);"><?php echo htmlspecialchars($c['router_name']); ?></small></td><td><span class="badge badge-<?php echo $c['status']==='active'?'success':'warning'; ?>"><?php echo $c['status']==='active'?'Aktif':'Isolir'; ?></span></td><td><?php echo (int)$c['isolation_date']; ?></td><td><button class="btn btn-secondary btn-sm" onclick='editCustomer(<?php echo json_encode($c); ?>)'><i class="fas fa-edit"></i></button></td></tr><?php endforeach; ?></tbody></table></div>
+<div class="card" style="margin-top:30px;"><div class="card-header"><h3>Daftar Pelanggan</h3></div><table class="data-table" id="customerTable"><thead><tr><th>Nama & Kontak</th><th>Paket & Router</th><th>Status</th><th>Tagihan</th><th>Aksi</th></tr></thead><tbody><?php foreach($customers as $c): ?><tr><td><strong><?php echo htmlspecialchars($c['name']); ?></strong><br><small><?php echo htmlspecialchars($c['phone']); ?></small></td><td><?php echo htmlspecialchars($c['package_name']); ?><br><small><?php echo htmlspecialchars($c['router_name']); ?></small></td><td><span class="badge badge-<?php echo $c['status']==='active'?'success':'warning'; ?>"><?php echo $c['status']==='active'?'Aktif':'Isolir'; ?></span></td><td>Tgl <?php echo (int)$c['isolation_date']; ?></td><td><button class="btn btn-secondary btn-sm" onclick='editCustomer(<?php echo json_encode($c); ?>)'><i class="fas fa-edit"></i></button></td></tr><?php endforeach; ?></tbody></table></div>
 
-<!-- UNIFIED SCRIPT (V7.5 SMART UI RESTORED) -->
+<!-- UNIFIED SCRIPT (V7.6 SMART FEEDBACK) -->
 <script>
 window.map = null;
 window.marker = null;
@@ -476,13 +476,13 @@ window.pppoeUsers = [];
 window.html5QrcodeScanner = null;
 window.lastScanResults = [];
 
-console.log('Restoration v7.5 Initializing...');
+console.log('Smart Feedback v7.6 Initializing...');
 
 window.addEventListener('load', () => { 
     setTimeout(() => {
         initMap(); 
         loadOdpOptions();
-        console.log('Components Initialized.');
+        console.log('Patch v7.6 Components Ready.');
     }, 500);
 });
 
@@ -514,14 +514,53 @@ function initEditMap() {
     });
 }
 
+// UNIFIED SMART SN CHECKER (V7.6)
+function checkOnuMatch() {
+    const input = document.getElementById('onu_sn_input');
+    if (!input) return;
+    
+    const sn = input.value.trim().toLowerCase();
+    const badge = document.getElementById('sn_status_badge');
+    if (!badge) return;
+
+    if (!sn) {
+        badge.style.display = 'none';
+        return;
+    }
+
+    // Attempt to match in scan results (case-insensitive)
+    const onu = (window.lastScanResults || []).find(o => (o.sn || '').toLowerCase() === sn);
+    
+    if (onu) {
+        // Auto-fill technical data
+        document.getElementById('olt_pon_port_input').value = onu.port;
+        document.getElementById('onu_id_input').value = onu.id;
+        document.getElementById('onu_status_hidden').value = onu.status;
+        
+        // Show success badge
+        badge.style.display = 'inline-block';
+        badge.style.background = 'var(--neon-green)';
+        badge.style.color = '#000';
+        badge.textContent = 'ONU DITEMUKAN';
+        console.log('Smart Match Success: PON ' + onu.port);
+    } else {
+        // Show "not found" state if something is typed but no match
+        badge.style.display = 'inline-block';
+        badge.style.background = 'var(--danger)';
+        badge.style.color = '#fff';
+        badge.textContent = 'BELUM DISCAN';
+        document.getElementById('onu_status_hidden').value = 'unconfigured';
+    }
+}
+
 function startCameraScan() {
-    if (typeof Html5Qrcode === 'undefined') return alert('Pustaka Scan Hilang!');
+    if (typeof Html5Qrcode === 'undefined') return alert('Pustaka Scan Gagal!');
     document.getElementById('cameraScanModal').style.display = 'flex';
     window.html5QrcodeScanner = new Html5Qrcode("reader");
-    window.html5QrcodeScanner.start({ facingMode: "environment" }, { fps: 15, qrbox: { width:250, height:150 } }, (txt) => {
+    window.html5QrcodeScanner.start({ facingMode: "environment" }, { fps: 15, qrbox: 250 }, (txt) => {
         const input = document.getElementById('onu_sn_input');
         input.value = txt;
-        input.dispatchEvent(new Event('input'));
+        checkOnuMatch();
         stopCameraScan();
     }).catch(e => { alert('Kamera Gagal: ' + e); stopCameraScan(); });
 }
@@ -534,45 +573,49 @@ function stopCameraScan() {
 function scanOltOnu() {
     const oltId = document.getElementById('olt_selector').value;
     const icon = document.getElementById('scan-icon');
-    if (oltId === '0') return alert('Pilih OLT!');
+    const badge = document.getElementById('sn_status_badge');
     
+    if (oltId === '0') return alert('Pilih OLT terlebih dahulu!');
+    
+    // Set visual scanning state
     icon.className = 'fas fa-spinner fa-spin';
-    fetch(`customers.php?ajax_action=scan_onu&olt_id=${oltId}`).then(r => r.json()).then(data => {
-        const dl = document.getElementById('onu_sn_list'); dl.innerHTML = '';
+    if (badge) {
+        badge.style.display = 'inline-block';
+        badge.style.background = 'var(--warning)';
+        badge.style.color = '#000';
+        badge.textContent = 'SCANNING...';
+    }
+    
+    fetch('customers.php?ajax_action=scan_onu&olt_id=' + oltId).then(r => r.json()).then(data => {
+        const dl = document.getElementById('onu_sn_list'); 
+        dl.innerHTML = '';
         window.lastScanResults = data;
+        
         data.forEach(o => {
             const opt = document.createElement('option');
-            opt.value = o.sn; opt.textContent = `PON: ${o.port} [${o.status}]`;
+            opt.value = o.sn; 
+            opt.textContent = `PON: ${o.port} [${o.status}]`;
             dl.appendChild(opt);
         });
-        if(data.length > 0) alert(data.length + ' ONU Baru Ditemukan!');
-    }).finally(() => icon.className = 'fas fa-search');
+
+        // AUTO-TRIGGER MATCH CHECK AFTER SCAN
+        checkOnuMatch();
+        
+        if(data.length > 0) console.log(data.length + ' ONU detected from OLT.');
+    }).finally(() => {
+        icon.className = 'fas fa-search';
+    });
 }
 
-// SMART SEARCH TRIGGER (RESTORED V7.5)
-document.getElementById('onu_sn_input').addEventListener('input', function() {
-    const sn = this.value.trim();
-    const badge = document.getElementById('sn_status_badge');
-    const onu = (window.lastScanResults || []).find(o => o.sn === sn);
-    
-    if (onu) {
-        document.getElementById('olt_pon_port_input').value = onu.port;
-        document.getElementById('onu_id_input').value = onu.id;
-        document.getElementById('onu_status_hidden').value = onu.status;
-        badge.style.display = 'inline-block';
-        console.log('ONU Found & Auto-filled: PON ' + onu.port);
-    } else {
-        badge.style.display = 'none';
-        document.getElementById('onu_status_hidden').value = 'unconfigured';
-    }
-});
+// Bind the checker to the input event
+document.getElementById('onu_sn_input').addEventListener('input', checkOnuMatch);
 
 function openPppoeUserModal() {
     document.getElementById('pppoeUserModal').style.display = 'flex';
     const list = document.getElementById('pppoeUserList');
     list.innerHTML = 'Memuat User MikroTik...';
     fetch('../api/mikrotik.php?action=users').then(r => r.json()).then(d => {
-        if (!d.success) return list.innerHTML = 'Gagal memuat!';
+        if (!d.success) return list.innerHTML = 'Gagal!';
         window.pppoeUsers = d.data.users;
         renderPppoeUserList(window.pppoeUsers);
     });
@@ -591,7 +634,7 @@ function renderPppoeUserList(users) {
 }
 document.getElementById('pppoeUserSearch').addEventListener('input', (e) => {
     const txt = e.target.value.toLowerCase();
-    renderPppoeUserList(window.pppoeUsers.filter(u => u.name.toLowerCase().includes(txt)));
+    renderPppoeUserList(window.pppoeUsers.filter(u => (u.name || '').toLowerCase().includes(txt)));
 });
 
 function closePppoeUserModal() { document.getElementById('pppoeUserModal').style.display = 'none'; }
@@ -632,13 +675,6 @@ function loadOdpOptions() {
         });
     });
 }
-
-document.getElementById('searchCustomer').addEventListener('input', (e) => {
-    const val = e.target.value.toLowerCase();
-    document.querySelectorAll('#customerTable tbody tr').forEach(row => {
-        row.style.display = row.textContent.toLowerCase().includes(val) ? '' : 'none';
-    });
-});
 </script>
 
 <?php
