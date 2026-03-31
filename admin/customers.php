@@ -196,20 +196,40 @@ function scanOltOnu() {
     const oltId = document.getElementById('olt_selector').value;
     const icon = document.getElementById('scan-icon');
     const badge = document.getElementById('sn_status_badge');
-    if (oltId === '0') return alert('Pilih OLT!');
+    if (oltId === '0') return alert('Pilih OLT terlebih dahulu!');
     
     icon.className = 'fas fa-spinner fa-spin';
-    if (badge) { badge.style.display='inline-block'; badge.style.background='var(--warning, #ffc107)'; badge.style.color='#000'; badge.textContent='SCANNING...'; }
+    if (badge) { 
+        badge.style.display='inline-block'; 
+        badge.style.background='var(--warning, #ffc107)'; 
+        badge.style.color='#000'; 
+        badge.textContent='SCANNING MULTI-PAGE...'; 
+    }
     
     fetch('customers.php?ajax_action=scan_onu&olt_id=' + oltId)
-        .then(r => r.json())
+        .then(r => {
+            if (!r.ok) throw new Error('OLT Timeout atau Gagal menghubungkan');
+            return r.json();
+        })
         .then(data => {
             window.lastScanResults = Array.isArray(data) ? data : [];
             const dl = document.getElementById('onu_sn_list'); dl.innerHTML = '';
             window.lastScanResults.forEach(o => { const opt = document.createElement('option'); opt.value = o.sn; dl.appendChild(opt); });
+            
+            // Completion Feedback
+            if (window.lastScanResults.length > 0) {
+                alert('Scan Selesai: Berhasil menarik ' + window.lastScanResults.length + ' data ONU dari OLT.');
+            } else {
+                alert('Scan Selesai: Tidak ada perangkat (ONU) baru atau terdaftar yang ditemukan.');
+            }
+            
             checkOnuMatch();
         })
-        .catch(err => { if(badge){ badge.style.background='var(--danger)'; badge.style.color='#fff'; badge.textContent='GAGAL'; } })
+        .catch(err => { 
+            console.error(err);
+            alert('Kesalahan Scan: ' + err.message);
+            if(badge){ badge.style.background='var(--danger)'; badge.style.color='#fff'; badge.textContent='GAGAL'; } 
+        })
         .finally(() => { icon.className = 'fas fa-search'; });
 }
 
