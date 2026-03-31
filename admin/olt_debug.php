@@ -1,7 +1,7 @@
 <?php
 /**
- * OLT Precision Terminal (V8.16)
- * Fixing Line Endings (\n vs \r\n)
+ * OLT Precision Terminal & Metadata Scraper (V8.17)
+ * Stateful Mode + Auto Sync Metadata
  */
 
 error_reporting(E_ALL);
@@ -14,40 +14,35 @@ session_start();
 
 $olts = fetchAll("SELECT * FROM olt_configs ORDER BY name ASC");
 
-if (isset($_GET['ajax_cmd'])) {
+// Handle AJAX Actions
+if (isset($_GET['action'])) {
     $olt_id = (int)$_GET['olt_id'];
-    $cmd = trim($_GET['ajax_cmd']);
-    $line_ending = $_GET['ending'] ?? 'n'; // 'n' or 'rn'
+    $olt = fetchOne("SELECT * FROM olt_configs WHERE id = ?", [$olt_id]);
     
-    $selected_olt = fetchOne("SELECT * FROM olt_configs WHERE id = ?", [$olt_id]);
-    if (!$selected_olt) { echo "Error: Target OLT lost."; exit; }
+    if ($_GET['action'] == 'sync_metadata') {
+        $results = vsolSyncAllMetadata($olt_id);
+        header('Content-Type: application/json');
+        echo json_encode($results);
+        exit;
+    }
 
-    $client = new OltTelnetClient($selected_olt['host'], $selected_olt['port']);
-    try {
-        $client->connect($selected_olt['username'], $selected_olt['password']);
-        
-        // Use user-specified ending (default \n)
+    if ($_GET['action'] == 'terminal') {
+        $cmd = trim($_GET['cmd']);
+        $line_ending = $_GET['ending'] ?? 'n';
         $eol = ($line_ending == 'rn') ? "\r\n" : "\n";
         
-        // Manual Enable Handshake for diagnostic
-        $client->write("enable" . $eol);
-        $resE = $client->readUntil("/Password:|#\s*$/i", 2);
-        if (stripos($resE, "Password:") !== false) {
-            $client->write($selected_olt['enable_password'] . $eol);
-            $client->readUntil("/[>#]\s*$/i", 2);
-        }
-        
-        // Execute Command
-        $client->write($cmd . $eol);
-        usleep(50000); 
-        $res = $client->readUntil("/(\r\n|\n|^)[^>\r\n#]*[>#]\s*$/", 5);
-        
-        echo $res;
-        $client->disconnect();
-    } catch (Exception $e) {
-        echo "Error: " . $e->getMessage();
+        $client = new OltTelnetClient($olt['host'], $olt['port']);
+        try {
+            $client->connect($olt['username'], $olt['password']);
+            if (!empty($olt['enable_password'])) $client->enable($olt['enable_password']);
+            
+            $client->write($cmd . $eol);
+            $res = $client->readUntil("/(\r\n|\n|^)[^>\r\n#]*[>#]\s*$/", 8);
+            echo $res;
+            $client->disconnect();
+        } catch (Exception $e) { echo "Error: " . $e->getMessage(); }
+        exit;
     }
-    exit;
 }
 
 ?>
@@ -55,69 +50,136 @@ if (isset($_GET['ajax_cmd'])) {
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>OLT Precision Terminal v8.16</title>
+    <title>OLT Metadata Autopilot v8.17</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        body { background: #000; color: #0f0; font-family: 'Consolas', monospace; padding: 20px; }
-        .card { background: #111; border-radius: 8px; padding: 20px; border: 1px solid #0f0; max-width: 1000px; margin: auto; }
-        #terminal { background: #000; height: 500px; overflow-y: auto; padding: 15px; border: 1px solid #0f0; white-space: pre-wrap; font-size: 14px; }
-        .input-group { display: flex; gap: 10px; margin-top: 20px; }
-        input { flex: 1; background: #000; border: 1px solid #0f0; color: #0f0; padding: 10px; font-weight: bold; }
-        select { background: #222; color: #fff; border: 1px solid #444; padding: 10px; }
-        .btn { background: #0f0; color: #000; padding: 10px 20px; border: none; font-weight: bold; cursor: pointer; }
+        body { background: #0c0c0c; color: #00ff41; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; }
+        .container { max-width: 1200px; margin: auto; }
+        .card { background: #1a1a1a; border-radius: 10px; padding: 20px; border: 1px solid #333; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        h2 { color: #00ff41; border-bottom: 1px solid #333; padding-bottom: 10px; margin-top: 0; }
+        
+        /* Terminal Style */
+        #terminal { background: #000; height: 400px; overflow-y: auto; padding: 15px; border: 1px solid #00ff4133; font-family: 'Consolas', monospace; white-space: pre-wrap; margin-bottom: 15px; }
+        .input-group { display: flex; gap: 10px; background: #222; padding: 10px; border-radius: 5px; }
+        input[type="text"] { flex: 1; background: transparent; border: none; color: #00ff41; font-size: 16px; outline: none; }
+        
+        /* Table Style */
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; background: #111; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #333; }
+        th { background: #222; color: #888; text-transform: uppercase; font-size: 12px; }
+        
+        .btn { background: #238636; color: #fff; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .btn:hover { background: #2ea043; transform: translateY(-2px); }
+        .btn-sync { background: #00d2ff; color: #000; }
+        .loading { display: none; margin-left: 10px; color: #ffcc00; }
     </style>
 </head>
 <body>
-    <div class="card">
-        <h2><i class="fas fa-crosshairs"></i> OLT PRECISION TERMINAL v8.16</h2>
-        <p style="color:#888;">Gunakan pendaftarannya (X_X)... gunakan terminal ini untuk pendaftarannya (OKE!). Jika perintah gagal, coba ganti <b>Ending</b> ke \r\n.</p>
-        
-        <div id="terminal">> Ahsan-Network Ready. Precision Mode Active.</div>
+    <div class="container">
+        <div class="card">
+            <h2><i class="fas fa-satellite-dish"></i> OLT Metadata Sync (v8.17)</h2>
+            <p style="color: #888;">Klik tombol di bawah untuk menarik pendaftaran semua metadata pelanggan langsung dari `running-config` OLT.</p>
+            <div style="display: flex; align-items: center;">
+                <select id="olt_id" style="background: #222; border: 1px solid #444; color: #fff; padding: 10px; border-radius: 5px;">
+                    <?php foreach($olts as $o): ?>
+                    <option value="<?php echo $o['id']; ?>"><?php echo htmlspecialchars($o['name']); ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <button class="btn btn-sync" style="margin-left:10px;" onclick="syncMetadata()">
+                    <i class="fas fa-sync-alt"></i> SYNC ALL METADATA
+                </button>
+                <span id="sync_status" class="loading"><i class="fas fa-spinner fa-spin"></i> Menarik data rasksasa... pendaftarannya...</span>
+            </div>
 
-        <div class="input-group">
-            <select id="olt_id">
-                <?php foreach($olts as $o): ?>
-                <option value="<?php echo $o['id']; ?>"><?php echo htmlspecialchars($o['name']); ?></option>
-                <?php endforeach; ?>
-            </select>
-            <select id="ending">
-                <option value="n">LF (\n)</option>
-                <option value="rn">CRLF (\r\n)</option>
-            </select>
-            <input type="text" id="cmd_input" placeholder="Ketik perintah (Enter)..." autofocus>
-            <button class="btn" onclick="sendCmd()">TEMBAK</button>
+            <div id="sync_results" style="display:none;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Port</th>
+                            <th>ONU ID</th>
+                            <th>SN</th>
+                            <th>Deskripsi pelanggan</th>
+                            <th>Status pendaftarannya</th>
+                        </tr>
+                    </thead>
+                    <tbody id="metadata_body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2><i class="fas fa-terminal"></i> Live Session Terminal</h2>
+            <div id="terminal">--- Precision Session Terminal Active ---</div>
+            <div class="input-group">
+                <select id="line_ending" style="background:transparent; border:none; color:#888; cursor:pointer;">
+                    <option value="n">LF (\n)</option>
+                    <option value="rn">CRLF (\r\n)</option>
+                </select>
+                <span style="color: #00ff41;">#</span>
+                <input type="text" id="cmd_input" placeholder="Ketik perintah (Enter)...">
+                <button class="btn" onclick="sendCmd()">ENTER</button>
+            </div>
         </div>
     </div>
 
     <script>
-        const terminal = document.getElementById('terminal');
+        const term = document.getElementById('terminal');
         const input = document.getElementById('cmd_input');
         const olt_id = document.getElementById('olt_id');
-        const ending = document.getElementById('ending');
+        const ending = document.getElementById('line_ending');
+        const syncStatus = document.getElementById('sync_status');
 
-        function log(txt) {
-            terminal.innerText += "\n" + txt;
-            terminal.scrollTop = terminal.scrollHeight;
+        async function syncMetadata() {
+            syncStatus.style.display = 'inline-block';
+            document.getElementById('sync_results').style.display = 'none';
+            
+            try {
+                const r = await fetch(`?action=sync_metadata&olt_id=${olt_id.value}`);
+                const data = await r.json();
+                
+                if (data.error) {
+                    alert("Error: " + data.error);
+                } else {
+                    const tbody = document.getElementById('metadata_body');
+                    tbody.innerHTML = '';
+                    data.forEach(item => {
+                        tbody.innerHTML += `<tr>
+                            <td>GPON 0/${item.port}</td>
+                            <td>${item.id}</td>
+                            <td><b style="color:#00d2ff">${item.sn}</b></td>
+                            <td>${item.desc}</td>
+                            <td><span style="color:#00ff41">${item.status}</span></td>
+                        </tr>`;
+                    });
+                    document.getElementById('sync_results').style.display = 'block';
+                }
+            } catch (e) {
+                alert("Koneksi OLT sibuk atau timeout.");
+            } finally {
+                syncStatus.style.display = 'none';
+            }
         }
 
         async function sendCmd() {
             const cmd = input.value.trim();
             if(!cmd) return;
-            log(`Ahsan-Network# ${cmd}`);
+            term.innerText += "\n# " + cmd;
             input.value = '';
             input.disabled = true;
 
             try {
-                const r = await fetch(`?ajax_cmd=${encodeURIComponent(cmd)}&olt_id=${olt_id.value}&ending=${ending.value}`);
+                const r = await fetch(`?action=terminal&cmd=${encodeURIComponent(cmd)}&olt_id=${olt_id.value}&ending=${ending.value}`);
                 const t = await r.text();
-                log(t);
+                term.innerText += "\n" + t;
+                term.scrollTop = term.scrollHeight;
             } catch(e) {
-                log("Error: Request failed.");
+                term.innerText += "\nError: Timeout.";
             } finally {
                 input.disabled = false;
                 input.focus();
             }
         }
+
         input.addEventListener('keypress', (e) => { if(e.key === 'Enter') sendCmd(); });
     </script>
 </body>
