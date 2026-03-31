@@ -449,12 +449,8 @@ $customers = fetchAll("
                 
                 <div class="form-group">
                     <label class="form-label">Username PPPoE (MikroTik)</label>
-                    <div style="display: flex; gap: 10px;">
-                        <input type="text" name="pppoe_username" id="pppoe_username_input" class="form-control" placeholder="Biarkan kosong jika belum ada">
-                        <button type="button" class="btn btn-secondary" onclick="openPppoeUserModal()">
-                            <i class="fas fa-search"></i>
-                        </button>
-                    </div>
+                    <input type="text" name="pppoe_username" id="pppoe_username_input" class="form-control" placeholder="Otomatis dari Nama Pelanggan" readonly style="background: rgba(255,255,255,0.05); cursor: default;">
+                    <small style="color: var(--text-secondary);">Akan dibuat otomatis saat Anda mengetik nama</small>
                 </div>
                 
                 <div class="form-group">
