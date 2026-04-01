@@ -214,6 +214,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     setFlash('error', 'Gagal menghapus pelanggan');
                 }
                 break;
+
+            case 'sync_all':
+                $allCustomers = fetchAll("SELECT id, name, pppoe_username, pppoe_password, package_id, router_id, status FROM customers");
+                $successCount = 0;
+                $failCount = 0;
+                foreach ($allCustomers as $c) {
+                    $pkg = fetchOne("SELECT profile_normal, profile_isolir FROM packages WHERE id = ?", [$c['package_id']]);
+                    if ($pkg) {
+                        $profile = ($c['status'] === 'isolated') ? $pkg['profile_isolir'] : $pkg['profile_normal'];
+                        $res = mikrotikUpdateSecret($c['pppoe_username'], [
+                            'password' => $c['pppoe_password'] ?: '123456',
+                            'profile' => $profile
+                        ], $c['router_id']);
+                        
+                        if (!$res['success']) {
+                            // If doesn't exist, try to Add
+                            $res = mikrotikAddSecret($c['pppoe_username'], $c['pppoe_password'] ?: '123456', $profile, $c['router_id']);
+                        }
+                        
+                        if ($res['success']) $successCount++;
+                        else $failCount++;
+                    }
+                }
+                setFlash('info', "Sinkronisasi Massal Selesai: $successCount Berhasil, $failCount Gagal.");
+                break;
         }
         redirect('customers.php');
     }
@@ -581,6 +606,13 @@ $stat_pending_acs = fetchOne("SELECT COUNT(*) as count FROM task_queue WHERE tas
             <i class="fas fa-users"></i> Daftar Pelanggan
         </h3>
         <div style="display: flex; gap: 10px; align-items: center;">
+            <form method="POST" style="margin:0;" onsubmit="return confirm('Update semua pelanggan ke MikroTik?')">
+                <input type="hidden" name="action" value="sync_all">
+                <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+                <button type="submit" class="btn btn-secondary btn-sm">
+                    <i class="fas fa-sync"></i> Sync MikroTik
+                </button>
+            </form>
             <input type="text" id="searchCustomer" class="form-control" placeholder="Cari pelanggan..." style="width: 250px;">
         </div>
     </div>

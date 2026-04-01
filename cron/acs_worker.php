@@ -64,6 +64,10 @@ function runAcsWorker() {
         echo "[Task #{$task['id']}] " . ($success ? "SUCCESS" : "FAILED") . ": $message\n";
     }
 
+    // BROAD SCAN: Find untagged devices registered in the last 24 hours
+    echo "Starting Broad Scan for untagged recent devices...\n";
+    scanAndTagRecentDevices();
+
     flock($lock, LOCK_UN);
     fclose($lock);
     return true;
@@ -112,4 +116,77 @@ function genieacsTagDevice($sn, $tag) {
     curl_close($ch);
     
     return ($httpCode === 200 || $httpCode === 204);
+}
+
+/**
+ * Broad scan for recent untagged devices
+ */
+function scanAndTagRecentDevices() {
+    $genieacs = getGenieacsSettings();
+    if (empty($genieacs['url'])) return;
+
+    $baseUrl = rtrim($genieacs['url'], '/');
+    $twentyFourHoursAgo = date('Y-m-d\TH:i:s\Z', time() - 86400);
+    
+    // Query: Devices with Registered event in last 24h AND no tags
+    $query = [
+        'Events.Registered._time' => ['$gt' => $twentyFourHoursAgo],
+        '_tags' => ['$exists' => false]
+    ];
+    
+    $projection = [
+        '_id',
+        'VirtualParameters.pppoeUsername',
+        'VirtualParameters.pppoeUsername2'
+    ];
+    
+    $url = "$baseUrl/devices?query=" . urlencode(json_encode($query)) . "&projection=" . implode(',', $projection);
+    
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+    if (!empty($genieacs['username']) && !empty($genieacs['password'])) {
+        curl_setopt($ch, CURLOPT_USERPWD, $genieacs['username'] . ':' . $genieacs['password']);
+    }
+    
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    
+    if ($httpCode !== 200 || empty($response)) {
+        echo "  [SCAN] Failed to fetch devices from GenieACS (HTTP $httpCode)\n";
+        return;
+    }
+    
+    $devices = json_decode($response, true);
+    if (!is_array($devices) || empty($devices)) {
+        echo "  [SCAN] No untagged recently registered devices found.\n";
+        return;
+    }
+    
+    echo "  [SCAN] Found " . count($devices) . " potential untagged devices. Matching...\n";
+    
+    foreach ($devices as $device) {
+        $sn = $device['_id'];
+        $pppoe = genieacsGetValue($device, 'VirtualParameters.pppoeUsername') ?? genieacsGetValue($device, 'VirtualParameters.pppoeUsername2');
+        
+        if (empty($pppoe)) {
+            echo "    - $sn: No PPPoE username found. Skipping.\n";
+            continue;
+        }
+        
+        // Match against database
+        $customer = fetchOne("SELECT id FROM customers WHERE pppoe_username = ?", [$pppoe]);
+        if ($customer) {
+            $tag = (string)$customer['id'];
+            echo "    - $sn: MATCH found for '$pppoe'. Tagging with '$tag'...\n";
+            if (genieacsTagDevice($sn, $tag)) {
+                echo "      ✓ Tagged successfully.\n";
+            } else {
+                echo "      ✗ Failed to tag.\n";
+            }
+        } else {
+            echo "    - $sn: No customer match for '$pppoe'.\n";
+        }
+    }
 }

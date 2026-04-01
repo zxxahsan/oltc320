@@ -90,10 +90,31 @@ function getMikrotikSettings($routerId = null)
 // Get all routers from database
 function getAllRouters()
 {
-    if (!tableExists('routers')) {
-        return [];
-    }
     return fetchAll("SELECT * FROM routers ORDER BY name ASC");
+}
+
+/**
+ * Log MikroTik action to database
+ */
+function mikrotikLog($routerId, $action, $target, $status, $message) {
+    global $pdo; // Use global pdo from db.php
+    if (!isset($pdo)) {
+        require_once __DIR__ . '/db.php';
+        $pdo = getDB();
+    }
+    
+    try {
+        insert('mikrotik_logs', [
+            'router_id' => (int)$routerId,
+            'action' => $action,
+            'target_user' => $target,
+            'status' => $status,
+            'message' => $message
+        ]);
+    } catch (Throwable $e) {
+        // Fallback to error log if DB fails
+        logError("Failed to log MikroTik action: " . $e->getMessage());
+    }
 }
 /**
  * Get a persistent MikroTik connection for the remainder of the request
@@ -534,7 +555,9 @@ function mikrotikAddSecret($name, $password, $profile = 'default', $routerId = n
 {
     $socket = getMikrotikConnection($routerId);
     if (!$socket) {
-        return ['success' => false, 'message' => 'Cannot connect to MikroTik'];
+        $msg = 'Cannot connect to MikroTik router #' . ($routerId ?: 'Default');
+        mikrotikLog($routerId, 'ADD_SECRET', $name, 'failed', $msg);
+        return ['success' => false, 'message' => $msg];
     }
 
     mikrotikWrite($socket, '/ppp/secret/add');
@@ -548,6 +571,7 @@ function mikrotikAddSecret($name, $password, $profile = 'default', $routerId = n
 
     foreach ($response as $word) {
         if ($word === '!done') {
+            mikrotikLog($routerId, 'ADD_SECRET', $name, 'success', "Successfully added secret with profile $profile");
             return ['success' => true, 'message' => 'User added successfully'];
         }
         if (strpos($word, '!trap') === 0) {
@@ -558,10 +582,12 @@ function mikrotikAddSecret($name, $password, $profile = 'default', $routerId = n
                     break;
                 }
             }
+            mikrotikLog($routerId, 'ADD_SECRET', $name, 'failed', $message);
             return ['success' => false, 'message' => $message];
         }
     }
 
+    mikrotikLog($routerId, 'ADD_SECRET', $name, 'failed', 'Unknown response from router');
     return ['success' => false, 'message' => 'Unknown response'];
 }
 
@@ -570,19 +596,37 @@ function mikrotikUpdateSecret($username, $data, $routerId = null)
 {
     $socket = getMikrotikConnection($routerId);
     if (!$socket) {
-        return ['success' => false, 'message' => 'Cannot connect to MikroTik'];
+        $msg = 'Cannot connect to MikroTik router #' . ($routerId ?: 'Default');
+        mikrotikLog($routerId, 'UPDATE_SECRET', $username, 'failed', $msg);
+        return ['success' => false, 'message' => $msg];
     }
 
     // First find the .id for this username
     mikrotikWrite($socket, '/ppp/secret/print');
     mikrotikWrite($socket, '?name=' . $username);
-    mikrotikWrite($socket, ''); 
+    mikrotikWrite($socket, ''); // End sentence
 
-    $response = mikrotikReadSentence($socket);
-    $parsed = mikrotikParseUsers($response);
+    // Read ALL sentences until !done
+    $allWords = [];
+    $done = false;
+    $timeout = time() + 5;
+    while (!$done && time() < $timeout) {
+        $words = mikrotikReadSentence($socket);
+        if (empty($words))
+            break;
+        foreach ($words as $word) {
+            $allWords[] = $word;
+            if ($word === '!done') {
+                $done = true;
+                break;
+            }
+        }
+    }
 
+    $parsed = mikrotikParseUsers($allWords);
     if (empty($parsed)) {
-        return ['success' => false, 'message' => 'User not found in MikroTik'];
+        mikrotikLog($routerId, 'UPDATE_SECRET', $username, 'failed', "Secret not found on router");
+        return ['success' => false, 'message' => 'Secret not found'];
     }
 
     $id = $parsed[0]['.id'];
@@ -607,7 +651,8 @@ function mikrotikUpdateSecret($username, $data, $routerId = null)
 
     foreach ($response as $word) {
         if ($word === '!done') {
-            return ['success' => true, 'message' => 'User updated successfully'];
+            mikrotikLog($routerId, 'UPDATE_SECRET', $username, 'success', "Updated properties: " . implode(', ', array_keys($data)));
+            return ['success' => true, 'message' => 'Secret updated successfully'];
         }
         if (strpos($word, '!trap') === 0) {
             $message = 'Unknown error';
@@ -617,10 +662,12 @@ function mikrotikUpdateSecret($username, $data, $routerId = null)
                     break;
                 }
             }
+            mikrotikLog($routerId, 'UPDATE_SECRET', $username, 'failed', $message);
             return ['success' => false, 'message' => $message];
         }
     }
 
+    mikrotikLog($routerId, 'UPDATE_SECRET', $username, 'failed', 'Unknown response from router');
     return ['success' => false, 'message' => 'Unknown response'];
 }
 
@@ -629,19 +676,37 @@ function mikrotikDeleteSecret($username, $routerId = null)
 {
     $socket = getMikrotikConnection($routerId);
     if (!$socket) {
-        return ['success' => false, 'message' => 'Cannot connect to MikroTik'];
+        $msg = 'Cannot connect to MikroTik router #' . ($routerId ?: 'Default');
+        mikrotikLog($routerId, 'DELETE_SECRET', $username, 'failed', $msg);
+        return ['success' => false, 'message' => $msg];
     }
 
     // First find the .id for this username
     mikrotikWrite($socket, '/ppp/secret/print');
     mikrotikWrite($socket, '?name=' . $username);
-    mikrotikWrite($socket, '');
+    mikrotikWrite($socket, ''); // End sentence
 
-    $response = mikrotikReadSentence($socket);
-    $parsed = mikrotikParseUsers($response);
+    // Read ALL sentences until !done
+    $allWords = [];
+    $done = false;
+    $timeout = time() + 5;
+    while (!$done && time() < $timeout) {
+        $words = mikrotikReadSentence($socket);
+        if (empty($words))
+            break;
+        foreach ($words as $word) {
+            $allWords[] = $word;
+            if ($word === '!done') {
+                $done = true;
+                break;
+            }
+        }
+    }
 
+    $parsed = mikrotikParseUsers($allWords);
     if (empty($parsed)) {
-        return ['success' => false, 'message' => 'User not found in MikroTik'];
+        mikrotikLog($routerId, 'DELETE_SECRET', $username, 'failed', "Secret not found on router");
+        return ['success' => false, 'message' => 'Secret not found'];
     }
 
     $id = $parsed[0]['.id'];
@@ -651,10 +716,10 @@ function mikrotikDeleteSecret($username, $routerId = null)
     mikrotikWrite($socket, ''); // End sentence
 
     $response = mikrotikReadSentence($socket);
-
     foreach ($response as $word) {
         if ($word === '!done') {
-            return ['success' => true, 'message' => 'User deleted successfully'];
+            mikrotikLog($routerId, 'DELETE_SECRET', $username, 'success', "Successfully removed secret from router");
+            return ['success' => true, 'message' => 'Secret removed successfully'];
         }
         if (strpos($word, '!trap') === 0) {
             $message = 'Unknown error';
@@ -664,12 +729,15 @@ function mikrotikDeleteSecret($username, $routerId = null)
                     break;
                 }
             }
+            mikrotikLog($routerId, 'DELETE_SECRET', $username, 'failed', $message);
             return ['success' => false, 'message' => $message];
         }
     }
 
+    mikrotikLog($routerId, 'DELETE_SECRET', $username, 'failed', 'Unknown response from router');
     return ['success' => false, 'message' => 'Unknown response'];
 }
+
 
 // Remove Active PPPoE Session (kick user)
 function mikrotikRemoveActivePppoe($username, $routerId = null)
