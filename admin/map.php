@@ -92,6 +92,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'id' => 'c_'.$c['id'],
                 'name' => $c['name'],
                 'serial_number' => $c['onu_sn'] ?: $c['phone'],
+                'phone' => $c['phone'],
                 'lat' => $c['lat'],
                 'lng' => $c['lng'],
                 'odp_id' => null,
@@ -121,28 +122,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    $onuData = [];
-    foreach ($onuLocations as $onu) {
-        $pu = trim((string)$onu['pppoe_username']); 
-        $isOnline = false;
-        
-        if (!empty($pu)) {
-            $rid = $onu['router_id'] ?? null;
-            $dynamicInterface = mikrotikGetInterfaceBytesByUsername($pu, $rid);
-            
-            if (!$dynamicInterface) {
-                foreach ($apiRouters as $r) {
-                    if ($r['id'] == $rid) continue;
-                    $dynamicInterface = mikrotikGetInterfaceBytesByUsername($pu, $r['id']);
-                    if ($dynamicInterface) {
-                        break;
-                    }
+    $acsDevices = genieacsGetDevices();
+    $acsOnlineMap = [];
+    if (is_array($acsDevices)) {
+        foreach ($acsDevices as $d) {
+            $isOnlineAcs = false;
+            if (!empty($d['_lastInform'])) {
+                $informTime = strtotime($d['_lastInform']);
+                if (time() - $informTime < 900) { // 15 mins check
+                    $isOnlineAcs = true;
                 }
             }
-            if ($dynamicInterface) {
-                $isOnline = true;
+            if ($isOnlineAcs && !empty($d['_tags']) && is_array($d['_tags'])) {
+                foreach ($d['_tags'] as $tag) {
+                    $acsOnlineMap[(string)$tag] = true;
+                }
             }
         }
+    }
+
+    $onuData = [];
+    foreach ($onuLocations as $onu) {
+        $ph = trim((string)($onu['phone'] ?? '')); 
+        $isOnline = (!empty($ph) && isset($acsOnlineMap[$ph]));
         
         $hasOpenTicket = (!empty($onu['serial_number']) && isset($openTickets[$onu['serial_number']]));
 

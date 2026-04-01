@@ -76,94 +76,45 @@ if ($method === 'GET') {
     // Mute incidental PHP errors protecting JSON schemas
     error_reporting(0);
 
-    $onuLocations = [];
-    $onuLocations = fetchAll("
-        SELECT o.*, c.pppoe_username, c.onu_status as olt_status 
-        FROM onu_locations o
-        LEFT JOIN customers c ON (c.onu_sn = o.serial_number OR c.phone = o.serial_number)
-        WHERE o.lat IS NOT NULL AND o.lng IS NOT NULL AND o.lat != 0 AND o.lng != 0
-        ORDER BY o.name
-    ");
-    
-    if (empty($onuLocations) || !is_array($onuLocations)) {
-        // Fallback for older database versions where c.onu_sn might be missing
-        // This triggers if the query suppression yields an empty result set
         $onuLocations = fetchAll("
-            SELECT o.*, c.pppoe_username
+            SELECT o.*, c.pppoe_username, c.phone 
             FROM onu_locations o
-            LEFT JOIN customers c ON c.phone = o.serial_number
+            LEFT JOIN customers c ON (c.onu_sn = o.serial_number OR c.phone = o.serial_number)
             WHERE o.lat IS NOT NULL AND o.lng IS NOT NULL AND o.lat != 0 AND o.lng != 0
             ORDER BY o.name
         ");
         
-        if (!is_array($onuLocations)) $onuLocations = [];
-    }
-
-
-    // Fetch ALL active PPPoE sessions instantaneously merging logic avoiding sequential API bottlenecks
-    require_once '../includes/mikrotik_api.php';
-    
-    if (!function_exists('mikrotikReadAllAndParse')) {
-        function mikrotikReadAllAndParse($socket) {
-            if (!$socket) return [];
+        if (empty($onuLocations) || !is_array($onuLocations)) {
+            $onuLocations = fetchAll("
+                SELECT o.*, c.pppoe_username, c.phone
+                FROM onu_locations o
+                LEFT JOIN customers c ON c.phone = o.serial_number
+                WHERE o.lat IS NOT NULL AND o.lng IS NOT NULL AND o.lat != 0 AND o.lng != 0
+                ORDER BY o.name
+            ");
             
-            $allWords = [];
-            $done = false;
-            $timeout = time() + 10;
-            while (!$done && time() < $timeout) {
-                $words = mikrotikReadSentence($socket);
-                if (empty($words)) break;
-                foreach ($words as $word) {
-                    $allWords[] = $word;
-                    if ($word === '!done' || strpos((string)$word, '!trap') === 0) {
-                        $done = true;
-                        break;
-                    }
-                }
-            }
-            
-            $parsed = []; $current = [];
-            foreach ($allWords as $word) {
-                if ($word === '!re') {
-                    if (!empty($current)) { $parsed[] = $current; $current = []; }
-                } elseif ($word === '!done' || strpos((string)$word, '!trap') === 0) {
-                    if (!empty($current)) { $parsed[] = $current; }
-                    break;
-                } elseif (strpos((string)$word, '=') === 0) {
-                    $parts = explode('=', substr((string)$word, 1), 2);
-                    if (count($parts) === 2) {
-                        $current[$parts[0]] = $parts[1];
-                    }
-                }
-            }
-            return $parsed;
+            if (!is_array($onuLocations)) $onuLocations = [];
         }
-    }
+
+
+    // Transitioning from Heavy sequential MikroTik API pings to instantaneous GenieACS tag resolutions!
+    require_once '../includes/functions.php';
     
-    $activeUsers = [];
-    $routers = getAllRouters();
-    if (empty($routers)) {
-        // Legacy fallback bridging Single Router setups
-        $routers = [['id' => 0, 'name' => 'Default']];
-    }
-    
-    foreach ($routers as $r) {
-        $mk = getMikrotikConnection($r['id']);
-        if ($mk) {
-            mikrotikWrite($mk, '/interface/print');
-            mikrotikWrite($mk, '?type=pppoe-in');
-            mikrotikWrite($mk, '');
-            $activeList = mikrotikReadAllAndParse($mk);
-            
-            if (!empty($activeList)) {
-                foreach ($activeList as $intf) {
-                    if (isset($intf['name'])) {
-                        $name = strtolower(trim($intf['name']));
-                        if (strpos($name, '<pppoe-') === 0) {
-                            $username = substr($name, 7, -1);
-                            $activeUsers[$username] = true;
-                        }
-                    }
+    $acsDevices = genieacsGetDevices();
+    $acsOnlineMap = [];
+    if (is_array($acsDevices)) {
+        foreach ($acsDevices as $d) {
+            $isOnline = false;
+            if (!empty($d['_lastInform'])) {
+                // If the device has communicated within the last 15 minutes
+                $informTime = strtotime($d['_lastInform']);
+                if (time() - $informTime < 900) {
+                    $isOnline = true;
+                }
+            }
+            if ($isOnline && !empty($d['_tags']) && is_array($d['_tags'])) {
+                foreach ($d['_tags'] as $tag) {
+                    $acsOnlineMap[(string)$tag] = true;
                 }
             }
         }
@@ -202,6 +153,7 @@ if ($method === 'GET') {
                 'id' => 'c_' . ($c['id'] ?? ''),
                 'name' => $c['name'] ?? 'Unknown',
                 'serial_number' => $sn,
+                'phone' => $c['phone'] ?? '',
                 'lat' => $c['lat'],
                 'lng' => $c['lng'],
                 'odp_id' => null,
@@ -213,8 +165,9 @@ if ($method === 'GET') {
     }
 
     foreach ($onuLocations as &$onu) {
-        $pu = strtolower(trim((string)$onu['pppoe_username']));
-        $onu['status'] = (!empty($pu) && isset($activeUsers[$pu])) ? 'online' : 'offline';
+        $ph = trim((string)($onu['phone'] ?? ''));
+        // Online relies solely on TR-069 Phone Tag arrays
+        $onu['status'] = (!empty($ph) && isset($acsOnlineMap[$ph])) ? 'online' : 'offline';
         $onu['has_ticket'] = (!empty($onu['serial_number']) && isset($hasTicketMap[$onu['serial_number']]));
         $onu['device_info'] = null;
         $onu['ssid'] = '';
