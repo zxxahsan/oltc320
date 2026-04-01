@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /**
  * Helper Functions
  */
@@ -1448,4 +1448,45 @@ function compressImage($source, $destination, $quality = 60)
     
     imagedestroy($image);
     return true;
+}
+
+/**
+ * GenieACS: Push Phone Number (or any descriptor) as a Device Tag immediately
+ * This maps physical serials up to customer identifiers natively!
+ */
+function genieacsAddTag($serial, $tag) {
+    if (empty($serial) || empty($tag)) return false;
+    
+    $settings = getGenieacsSettings();
+    if (empty($settings['url'])) return false;
+
+    // Fetch the raw _id representation from ACS first (we need URL-encoded ID format)
+    $deviceInfo = genieacsGetDevice($serial);
+    if (!$deviceInfo || empty($deviceInfo['_id'])) return false;
+
+    $deviceId = $deviceInfo['_id'];
+    $encodedId = rawurlencode($deviceId);
+    $encodedTag = rawurlencode(trim((string)$tag));
+    
+    // Using POST /devices/{id}/tags/{tag}
+    $url = rtrim($settings['url'], '/') . "/devices/{$encodedId}/tags/{$encodedTag}";
+    
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_POST, 1);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, ''); // Empty body for tags
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 6);
+    // Ignore SSL verification if running privately
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+    
+    if (!empty($settings['username'])) {
+        curl_setopt($ch, CURLOPT_USERPWD, $settings['username'] . ':' . $settings['password']);
+    }
+    
+    curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    
+    return ($httpCode === 200 || $httpCode === 201 || $httpCode === 202);
 }

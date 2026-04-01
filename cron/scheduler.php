@@ -47,9 +47,7 @@ function runScheduler() {
             ['name' => 'Auto Isolir', 'task_type' => 'auto_isolir'],
             ['name' => 'System Heartbeat', 'task_type' => 'system_ping'],
             ['name' => 'Hotspot Expiry Monitor', 'task_type' => 'hotspot_expiry'],
-            ['name' => 'Data Cleanup', 'task_type' => 'data_cleanup'],
-            ['name' => 'ACS Worker', 'task_type' => 'acs_worker'],
-            ['name' => 'OLT Monitor', 'task_type' => 'olt_monitor']
+            ['name' => 'Data Cleanup', 'task_type' => 'data_cleanup']
         ];
 
         foreach ($criticalTasks as $task) {
@@ -71,7 +69,7 @@ function runScheduler() {
 
         try {
             // Self-heal: Force critical jobs to check continuously instead of daily
-            $pdo->exec("UPDATE cron_schedules SET schedule_days = 'every_minute' WHERE task_type IN ('auto_isolir', 'auto_invoice', 'hotspot_expiry', 'acs_worker', 'olt_monitor')");
+            $pdo->exec("UPDATE cron_schedules SET schedule_days = 'every_minute' WHERE task_type IN ('auto_isolir', 'auto_invoice', 'hotspot_expiry')");
             
             // Self-heal: If any every_minute job is stuck more than 5 minutes in the future (due to old daily caching), pull it back to NOW
             $pdo->exec("UPDATE cron_schedules SET next_run = NULL WHERE schedule_days = 'every_minute' AND next_run > DATE_ADD(NOW(), INTERVAL 5 MINUTE)");
@@ -97,6 +95,10 @@ function runScheduler() {
         }
 
         echo "Found " . count($schedules) . " schedule(s) to run.\n";
+        
+        // --- NATIVE WORKER SYSTEM ---
+        // Consume deferred system queues dynamically bypassing strict cron_schedules table
+        processTaskQueue($pdo);
 
         foreach ($schedules as $schedule) {
             echo "\n--- Running schedule: {$schedule['name']} ---\n";
@@ -142,22 +144,12 @@ function runScheduler() {
                     case 'hotspot_expiry':
                         echo "Running hotspot expiry monitor...\n";
                         $count = mikrotikMonitorHotspotExpiry();
-                        echo "  ✓ Checked and cleaned $count expired hotspot users.\n";
+                        echo "  âœ“ Checked and cleaned $count expired hotspot users.\n";
                         break;
                     
                     case 'data_cleanup':
                         echo "Running automated data cleanup...\n";
                         runDataCleanup($pdo);
-                        break;
-
-                    case 'acs_worker':
-                        require_once __DIR__ . '/acs_worker.php';
-                        runAcsWorker();
-                        break;
-
-                    case 'olt_monitor':
-                        require_once __DIR__ . '/olt_monitor.php';
-                        runOltMonitor();
                         break;
 
                     default:
@@ -255,7 +247,7 @@ function runAutoIsolir($pdo)
 
     // Get customers with unpaid invoices that are overdue
     $overdueInvoices = fetchAll("
-        SELECT c.id, c.name, c.phone, c.pppoe_username, c.package_id, c.router_id, i.invoice_number, i.amount, i.due_date
+        SELECT c.id, c.name, c.phone, c.pppoe_username, c.package_id, i.invoice_number, i.amount, i.due_date
         FROM customers c
         INNER JOIN invoices i ON c.id = i.customer_id
         WHERE i.status = 'unpaid'
@@ -270,12 +262,12 @@ function runAutoIsolir($pdo)
 
         // Isolate customer
         if (isolateCustomer($invoice['id'])) {
-            echo "  ✓ Customer isolated\n";
+            echo "  âœ“ Customer isolated\n";
             
             // Kick the user so they reconnect to the isolated profile immediately
             if (!empty($invoice['pppoe_username'])) {
-                mikrotikRemoveActivePppoe($invoice['pppoe_username'], $invoice['router_id']);
-                echo "  ✓ Dropped active PPPoE connection on router #{$invoice['router_id']}\n";
+                mikrotikRemoveActivePppoe($invoice['pppoe_username']);
+                echo "  âœ“ Dropped active PPPoE connection\n";
             }
 
             $customer = fetchOne("SELECT * FROM customers WHERE id = ?", [$invoice['customer_id']]);
@@ -287,14 +279,14 @@ function runAutoIsolir($pdo)
                 if (empty($message)) {
                     $paymentUrl = rtrim(APP_URL, '/') . "/portal/index.php";
                     $tripayUrl = "https://tripay.co.id/checkout?merchant_code=" . TRIPAY_MERCHANT_CODE . "&amount={$invoice['amount']}&merchant_ref={$invoice['invoice_number']}";
-                    $message = "🔴 *KONEKSI TERPUTUS*\nMaaf {$invoice['name']}, internet Anda telah diisolir karena tagihan " . formatCurrency($invoice['amount']) . ".\nBayar via Portal: $paymentUrl \nBayar via Tripay: $tripayUrl";
+                    $message = "ðŸ”´ *KONEKSI TERPUTUS*\nMaaf {$invoice['name']}, internet Anda telah diisolir karena tagihan " . formatCurrency($invoice['amount']) . ".\nBayar via Portal: $paymentUrl \nBayar via Tripay: $tripayUrl";
                 }
                 
                 sendWhatsApp($invoice['phone'], $message);
             }
 
         } else {
-            echo "  ✗ Failed to isolate customer\n";
+            echo "  âœ— Failed to isolate customer\n";
         }
     }
 }
@@ -372,7 +364,7 @@ function runAutoInvoice($pdo)
 
                         insert('invoices', $invoiceData);
                         $generatedCount++;
-                        echo "  ✓ Generated invoice for: {$customer['name']} (Due: {$invoiceData['due_date']})\n";
+                        echo "  âœ“ Generated invoice for: {$customer['name']} (Due: {$invoiceData['due_date']})\n";
                     
                         // Dispatch via WhatsApp Gateway
                         if (!empty($customer['phone'])) {
@@ -428,18 +420,18 @@ function runBackupDb()
 
     if ($returnCode === 0) {
         $fileSize = filesize($backupFile);
-        echo "  ✓ Backup created: {$backupFile} (" . round($fileSize / 1024 / 1024, 2) . " MB)\n";
+        echo "  âœ“ Backup created: {$backupFile} (" . round($fileSize / 1024 / 1024, 2) . " MB)\n";
 
         // Delete backups older than 7 days
         $files = glob($backupDir . 'backup_*.sql');
         foreach ($files as $file) {
             if (filemtime($file) < strtotime('-7 days')) {
                 unlink($file);
-                echo "  ✓ Deleted old backup: " . basename($file) . "\n";
+                echo "  âœ“ Deleted old backup: " . basename($file) . "\n";
             }
         }
     } else {
-        echo "  ✗ Backup failed\n";
+        echo "  âœ— Backup failed\n";
     }
 }
 
@@ -493,7 +485,7 @@ function sendReminders($pdo)
             
             if (empty($message)) {
                 $paymentUrl = rtrim(APP_URL, '/') . "/portal/index.php";
-                $message = "⚠️ *PENGINGAT TAGIHAN*\nHalo {$invoice['name']}, Tagihan " . formatCurrency($invoice['amount']) . " akan memasukin batas akhir dalam $daysParam hari (" . formatDate($invoice['due_date']) . ").\nBayar disini: $paymentUrl \nAtau Tripay Langsung: $tripayUrl";
+                $message = "âš ï¸ *PENGINGAT TAGIHAN*\nHalo {$invoice['name']}, Tagihan " . formatCurrency($invoice['amount']) . " akan memasukin batas akhir dalam $daysParam hari (" . formatDate($invoice['due_date']) . ").\nBayar disini: $paymentUrl \nAtau Tripay Langsung: $tripayUrl";
             }
 
             echo "  Sending reminder to: {$invoice['name']} ({$invoice['phone']})\n";
@@ -587,8 +579,8 @@ function runDataCleanup($pdo)
     // 1. Cleanup Global Vouchers (30 days after use)
     try {
         $deletedVouchers = $pdo->exec("DELETE FROM vouchers WHERE status = 'used' AND used_at < DATE_SUB(NOW(), INTERVAL 30 DAY)");
-        if ($deletedVouchers > 0) echo "  ✓ Purged $deletedVouchers old used vouchers from global pool.\n";
-    } catch (Throwable $e) { echo "  ✗ Global pool cleanup skipped (Table may not exist).\n"; }
+        if ($deletedVouchers > 0) echo "  âœ“ Purged $deletedVouchers old used vouchers from global pool.\n";
+    } catch (Throwable $e) { echo "  âœ— Global pool cleanup skipped (Table may not exist).\n"; }
     
     // 2. Cleanup Sales History (14 days after expiry)
     $activeSales = fetchAll("SELECT id, used_at, validity FROM hotspot_sales WHERE status = 'active' AND used_at IS NOT NULL AND used_at < DATE_SUB(NOW(), INTERVAL 14 DAY)");
@@ -618,8 +610,51 @@ function runDataCleanup($pdo)
     // Also purge very old inactive/unused sales history (60 days)
     $pdo->exec("DELETE FROM hotspot_sales WHERE status = 'inactive' AND created_at < DATE_SUB(NOW(), INTERVAL 60 DAY)");
     
-    if ($deletedSalesCount > 0) echo "  ✓ Purged $deletedSalesCount old expired vouchers from Sales Panels.\n";
+    if ($deletedSalesCount > 0) echo "  âœ“ Purged $deletedSalesCount old expired vouchers from Sales Panels.\n";
     echo "  Data cleanup completed.\n";
+}
+
+/**
+ * NATIVE ACS WORKER: Processes tasks stored in `task_queue` waiting for execution.
+ * Example: `acs_tag` runs 5 minutes post-provisioning to map the Customer Phone against the TR-069 serial.
+ */
+function processTaskQueue($pdo) {
+    echo "\n--- Processing System Task Queue Worker ---\n";
+    
+    // Fetch all pending jobs scheduled before NOW
+    $stmt = $pdo->prepare("SELECT * FROM task_queue WHERE status = 'pending' AND execute_after <= NOW() ORDER BY created_at ASC");
+    $stmt->execute();
+    $tasks = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    if (empty($tasks)) {
+        echo "  Queue is completely empty. No background processes to resolve.\n";
+        return;
+    }
+    
+    echo "  Found " . count($tasks) . " deferred job(s) ready for background processing.\n";
+    
+    foreach ($tasks as $task) {
+        $pdo->prepare("UPDATE task_queue SET status = 'processing' WHERE id = ?")->execute([$task['id']]);
+        
+        if ($task['task_type'] === 'acs_tag') {
+            $payload = json_decode($task['payload'], true);
+            if (!empty($payload['sn']) && !empty($payload['tag'])) {
+                echo "  -> [ACS TAG] Sending tag '{$payload['tag']}' to device SN '{$payload['sn']}'...\n";
+                // Utilize the native functions wrapper HTTP post mechanism
+                $result = genieacsAddTag($payload['sn'], $payload['tag']);
+                if ($result) {
+                    $pdo->prepare("UPDATE task_queue SET status = 'completed' WHERE id = ?")->execute([$task['id']]);
+                    echo "     âœ“ Tag explicitly pushed up to ACS.\n";
+                } else {
+                    $pdo->prepare("UPDATE task_queue SET status = 'failed' WHERE id = ?")->execute([$task['id']]);
+                    echo "     âœ— Tag POST Failed. API unreachable or hardware ID not found visually.\n";
+                }
+            } else {
+                $pdo->prepare("UPDATE task_queue SET status = 'failed' WHERE id = ?")->execute([$task['id']]);
+                echo "     âœ— Invalid Payload Structure. Aborting.\n";
+            }
+        }
+    }
 }
 
 echo "\n";

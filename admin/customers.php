@@ -59,7 +59,7 @@ if (isset($_GET['ajax_action']) && $_GET['ajax_action'] === 'provision') {
         
         if ($sn) {
             $cust = fetchOne("SELECT id, phone FROM customers WHERE pppoe_username = ?", [$pppoe_user]);
-            $tagValue = $cust ? $cust['id'] : $pppoe_user;
+            $tagValue = $cust ? $cust['phone'] : $pppoe_user;
             
             $payload = json_encode(['sn' => $sn, 'tag' => $tagValue]);
             $executeAfter = date('Y-m-d H:i:s', strtotime('+5 minutes'));
@@ -368,7 +368,7 @@ $totalPages = ceil($totalRecords / $limit);
 // Fetch customers with tagging status
 $customers = fetchAll("
     SELECT c.*, p.name as package_name, p.price as package_price, r.name as router_name, t.name as technician_name,
-    (SELECT status FROM task_queue WHERE task_type = 'acs_tag' AND JSON_EXTRACT(payload, '$.tag') = CAST(c.id AS CHAR) ORDER BY created_at DESC LIMIT 1) as tag_status
+    (SELECT status FROM task_queue WHERE task_type = 'acs_tag' AND JSON_EXTRACT(payload, '$.tag') = c.phone ORDER BY created_at DESC LIMIT 1) as tag_status
     FROM customers c
     LEFT JOIN packages p ON c.package_id = p.id
     LEFT JOIN routers r ON c.router_id = r.id
