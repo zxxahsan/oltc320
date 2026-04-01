@@ -11,19 +11,20 @@ require_once '../includes/functions.php';
 require_once '../includes/mikrotik_api.php';
 
 try {
+    $pdo = getDB();
+    $colsToAdd = [
+        'usage_last_rx' => "BIGINT DEFAULT 0",
+        'usage_last_tx' => "BIGINT DEFAULT 0",
+        'router_id' => "INT DEFAULT 0",
+        'status' => "VARCHAR(20) DEFAULT 'active'"
+    ];
+    foreach ($colsToAdd as $col => $def) {
+        try { $pdo->exec("ALTER TABLE customers ADD $col $def"); } catch(Exception $e) {}
+    }
     $customers = fetchAll("SELECT id, name, pppoe_username, usage_bytes_in, usage_bytes_out, usage_last_rx, usage_last_tx, status, router_id FROM customers ORDER BY name ASC");
 } catch (Exception $e) {
-    // Self-heal missing structural column bounds actively bypassing manual scheduler setups
-    $pdo = getDB();
-    try {
-        $pdo->exec("ALTER TABLE customers ADD COLUMN usage_last_rx BIGINT DEFAULT 0, ADD COLUMN usage_last_tx BIGINT DEFAULT 0");
-    } catch(Exception $e2) {}
-    try {
-        $pdo->exec("ALTER TABLE customers MODIFY COLUMN usage_bytes_in BIGINT UNSIGNED DEFAULT 0, MODIFY COLUMN usage_bytes_out BIGINT UNSIGNED DEFAULT 0");
-    } catch(Exception $e3) {}
-    
-    // Retry native fetches
-    $customers = fetchAll("SELECT id, name, pppoe_username, usage_bytes_in, usage_bytes_out, usage_last_rx, usage_last_tx, status, router_id FROM customers ORDER BY name ASC");
+    // Ultimate fallback for very broken schemas
+    $customers = fetchAll("SELECT id, name, pppoe_username, usage_bytes_in, usage_bytes_out FROM customers ORDER BY name ASC");
 }
 
 function mikrotikReadAllAndParse($socket) {

@@ -76,13 +76,25 @@ if ($method === 'GET') {
     // Mute incidental PHP errors protecting JSON schemas
     error_reporting(0);
 
-    $onuLocations = fetchAll("
-        SELECT o.*, c.pppoe_username, c.onu_status as olt_status 
-        FROM onu_locations o
-        LEFT JOIN customers c ON (c.onu_sn = o.serial_number OR c.phone = o.serial_number)
-        WHERE o.lat IS NOT NULL AND o.lng IS NOT NULL AND o.lat != '' AND o.lng != ''
-        ORDER BY o.name
-    ");
+    $onuLocations = [];
+    try {
+        $onuLocations = fetchAll("
+            SELECT o.*, c.pppoe_username, c.onu_status as olt_status 
+            FROM onu_locations o
+            LEFT JOIN customers c ON (c.onu_sn = o.serial_number OR c.phone = o.serial_number)
+            WHERE o.lat IS NOT NULL AND o.lng IS NOT NULL AND o.lat != '' AND o.lng != ''
+            ORDER BY o.name
+        ");
+    } catch (Exception $e) {
+        // Fallback for older database versions where c.onu_sn might be missing
+        $onuLocations = fetchAll("
+            SELECT o.*, c.pppoe_username
+            FROM onu_locations o
+            LEFT JOIN customers c ON c.phone = o.serial_number
+            WHERE o.lat IS NOT NULL AND o.lng IS NOT NULL AND o.lat != '' AND o.lng != ''
+            ORDER BY o.name
+        ");
+    }
 
     // Fetch ALL active PPPoE sessions instantaneously merging logic avoiding sequential API bottlenecks
     require_once '../includes/mikrotik_api.php';

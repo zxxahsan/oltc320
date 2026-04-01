@@ -745,14 +745,19 @@ function loadMarkers() {
     lines = [];
     
     fetch('../api/onu_locations.php')
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) throw new Error("Network response was not ok (HTTP " + response.status + ")");
+            return response.json();
+        })
         .then(result => {
+            document.getElementById('map').style.opacity = '1';
             if (!result.success) {
-                alert(result.message || 'Gagal memuat data peta');
+                console.error("API Error:", result.message);
                 return;
             }
-            if (!result.data) {
-                return;
+            const data = result.data || [];
+            if (data.length === 0) {
+                console.warn("No ONU markers found on map.");
             }
             
             odpsCache = result.odps || [];

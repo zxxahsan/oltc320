@@ -45,16 +45,22 @@ function getDB() {
                     $pdo->exec("ALTER TABLE hotspot_sales ADD COLUMN router_id INT DEFAULT 0");
                 } catch (\Exception $e) {}
 
-                // Addition: OLT & ONU columns for customers
-                try {
-                    $pdo->exec("ALTER TABLE customers ADD COLUMN IF NOT EXISTS pppoe_password VARCHAR(50) DEFAULT NULL AFTER pppoe_username");
-                    $pdo->exec("ALTER TABLE customers ADD COLUMN IF NOT EXISTS olt_id INT DEFAULT 0 AFTER installed_by");
-                    $pdo->exec("ALTER TABLE customers ADD COLUMN IF NOT EXISTS onu_sn VARCHAR(50) DEFAULT NULL AFTER olt_id");
-                    $pdo->exec("ALTER TABLE customers ADD COLUMN IF NOT EXISTS onu_id INT DEFAULT NULL AFTER onu_sn");
-                    $pdo->exec("ALTER TABLE customers ADD COLUMN IF NOT EXISTS olt_pon_port INT DEFAULT NULL AFTER onu_id");
-                    $pdo->exec("ALTER TABLE customers ADD COLUMN IF NOT EXISTS onu_status VARCHAR(20) DEFAULT 'unknown' AFTER olt_pon_port");
-                    $pdo->exec("ALTER TABLE customers ADD COLUMN IF NOT EXISTS last_status_change DATETIME DEFAULT NULL AFTER onu_status");
-                } catch (\Exception $e) {}
+                // Addition: OLT & ONU columns for customers (Robust version-independent schema hardening)
+                $pdo->exec("SET sql_mode=''"); // Ensure non-strict mode
+                $customerCols = [
+                    'pppoe_password' => "VARCHAR(50) DEFAULT NULL AFTER pppoe_username",
+                    'olt_id' => "INT DEFAULT 0 AFTER installed_by",
+                    'onu_sn' => "VARCHAR(50) DEFAULT NULL AFTER olt_id",
+                    'onu_id' => "INT DEFAULT NULL AFTER onu_sn",
+                    'olt_pon_port' => "INT DEFAULT NULL AFTER onu_id",
+                    'onu_status' => "VARCHAR(20) DEFAULT 'unknown' AFTER olt_pon_port",
+                    'last_status_change' => "DATETIME DEFAULT NULL AFTER onu_status"
+                ];
+                foreach ($customerCols as $col => $def) {
+                    try {
+                        $pdo->exec("ALTER TABLE customers ADD $col $def");
+                    } catch (\Exception $e) { /* Column likely already exists */ }
+                }
 
                 // Sales Topups Table
                 try {
