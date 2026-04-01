@@ -47,7 +47,9 @@ function runScheduler() {
             ['name' => 'Auto Isolir', 'task_type' => 'auto_isolir'],
             ['name' => 'System Heartbeat', 'task_type' => 'system_ping'],
             ['name' => 'Hotspot Expiry Monitor', 'task_type' => 'hotspot_expiry'],
-            ['name' => 'Data Cleanup', 'task_type' => 'data_cleanup']
+            ['name' => 'Data Cleanup', 'task_type' => 'data_cleanup'],
+            ['name' => 'ACS Worker', 'task_type' => 'acs_worker'],
+            ['name' => 'OLT Monitor', 'task_type' => 'olt_monitor']
         ];
 
         foreach ($criticalTasks as $task) {
@@ -69,7 +71,7 @@ function runScheduler() {
 
         try {
             // Self-heal: Force critical jobs to check continuously instead of daily
-            $pdo->exec("UPDATE cron_schedules SET schedule_days = 'every_minute' WHERE task_type IN ('auto_isolir', 'auto_invoice', 'hotspot_expiry')");
+            $pdo->exec("UPDATE cron_schedules SET schedule_days = 'every_minute' WHERE task_type IN ('auto_isolir', 'auto_invoice', 'hotspot_expiry', 'acs_worker', 'olt_monitor')");
             
             // Self-heal: If any every_minute job is stuck more than 5 minutes in the future (due to old daily caching), pull it back to NOW
             $pdo->exec("UPDATE cron_schedules SET next_run = NULL WHERE schedule_days = 'every_minute' AND next_run > DATE_ADD(NOW(), INTERVAL 5 MINUTE)");
@@ -146,6 +148,16 @@ function runScheduler() {
                     case 'data_cleanup':
                         echo "Running automated data cleanup...\n";
                         runDataCleanup($pdo);
+                        break;
+
+                    case 'acs_worker':
+                        require_once __DIR__ . '/acs_worker.php';
+                        runAcsWorker();
+                        break;
+
+                    case 'olt_monitor':
+                        require_once __DIR__ . '/olt_monitor.php';
+                        runOltMonitor();
                         break;
 
                     default:
