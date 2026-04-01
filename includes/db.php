@@ -48,19 +48,29 @@ function getDB() {
                 // Addition: OLT & ONU columns for customers (Robust version-independent schema hardening)
                 $pdo->exec("SET sql_mode=''"); // Ensure non-strict mode
                 $customerCols = [
-                    'pppoe_password' => "VARCHAR(50) DEFAULT NULL AFTER pppoe_username",
-                    'olt_id' => "INT DEFAULT 0 AFTER installed_by",
-                    'onu_sn' => "VARCHAR(50) DEFAULT NULL AFTER olt_id",
-                    'onu_id' => "INT DEFAULT NULL AFTER onu_sn",
-                    'olt_pon_port' => "INT DEFAULT NULL AFTER onu_id",
-                    'onu_status' => "VARCHAR(20) DEFAULT 'unknown' AFTER olt_pon_port",
-                    'last_status_change' => "DATETIME DEFAULT NULL AFTER onu_status"
+                    'pppoe_password' => "VARCHAR(50) DEFAULT NULL",
+                    'olt_id' => "INT DEFAULT 0",
+                    'onu_sn' => "VARCHAR(50) DEFAULT NULL",
+                    'onu_id' => "INT DEFAULT NULL",
+                    'olt_pon_port' => "INT DEFAULT NULL",
+                    'onu_status' => "VARCHAR(20) DEFAULT 'unknown'",
+                    'last_status_change' => "DATETIME DEFAULT NULL",
+                    'usage_bytes_in' => "BIGINT DEFAULT 0",
+                    'usage_bytes_out' => "BIGINT DEFAULT 0",
+                    'usage_last_rx' => "BIGINT DEFAULT 0",
+                    'usage_last_tx' => "BIGINT DEFAULT 0",
+                    'usage_last_reset' => "DATE DEFAULT NULL",
+                    'router_id' => "INT DEFAULT 0",
+                    'status' => "VARCHAR(20) DEFAULT 'active'"
                 ];
                 foreach ($customerCols as $col => $def) {
                     try {
+                        // Removing 'AFTER' prevents cascading failures if an earlier column fails
                         $pdo->exec("ALTER TABLE customers ADD $col $def");
                     } catch (\Exception $e) { /* Column likely already exists */ }
                 }
+
+
 
                 // Sales Topups Table
                 try {
