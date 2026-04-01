@@ -105,8 +105,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         switch ($_POST['action']) {
             case 'add':
                 $pppoeUsername = sanitize($_POST['pppoe_username']);
-                $pppoePassword = isset($_POST['pppoe_password']) ? trim((string) $_POST['pppoe_password']) : '123456';
-                if (empty($pppoePassword)) $pppoePassword = '123456';
+                $pppoePassword = isset($_POST['pppoe_password']) ? trim((string) $_POST['pppoe_password']) : '12345678';
+                if (empty($pppoePassword)) $pppoePassword = '12345678';
 
                 $data = [
                     'name' => sanitize($_POST['name']),
@@ -448,7 +448,7 @@ $stat_pending_acs = fetchOne("SELECT COUNT(*) as count FROM task_queue WHERE tas
 
                 <div class="form-group">
                     <label class="form-label">Password PPPoE</label>
-                    <input type="text" name="pppoe_password" class="form-control" placeholder="Default: 123456" value="123456">
+                    <input type="text" name="pppoe_password" class="form-control" placeholder="Default: 12345678" value="12345678">
                 </div>
                 
                 <div class="form-group">
