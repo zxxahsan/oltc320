@@ -287,7 +287,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         else $failCount++;
                     }
                 }
-                setFlash('info', "Sinkronisasi Massal Selesai: $successCount Berhasil, $failCount Gagal.");
+                setFlash('info', "Sinkronisasi Massal MikroTik Selesai: $successCount Berhasil, $failCount Gagal.");
+                break;
+
+            case 'sync_map':
+                $allCustomers = fetchAll("SELECT id, name, phone, onu_sn, lat, lng FROM customers");
+                $successCount = 0;
+                $skipCount = 0;
+                
+                if (is_array($allCustomers)) {
+                    foreach ($allCustomers as $c) {
+                        // PHP-level validation circumvents strict SQL constraints
+                        if (empty($c['lat']) || empty($c['lng']) || $c['lat'] == 0 || $c['lng'] == 0 || trim($c['lat']) === '') {
+                            $skipCount++;
+                            continue;
+                        }
+                        
+                        $sn = !empty($c['onu_sn']) ? $c['onu_sn'] : (!empty($c['phone']) ? $c['phone'] : 'CUST-' . $c['id']);
+                        
+                        $existingOnu = fetchOne("SELECT id FROM onu_locations WHERE serial_number = ?", [$sn]);
+                        if ($existingOnu) {
+                            if (update('onu_locations', ['lat' => $c['lat'], 'lng' => $c['lng'], 'updated_at' => date('Y-m-d H:i:s')], 'id = ?', [$existingOnu['id']])) {
+                                $successCount++;
+                            }
+                        } else {
+                            if (insert('onu_locations', [
+                                'name' => $c['name'] ?: 'Customer #' . $c['id'],
+                                'serial_number' => $sn,
+                                'lat' => $c['lat'],
+                                'lng' => $c['lng'],
+                                'created_at' => date('Y-m-d H:i:s')
+                            ])) {
+                                $successCount++;
+                            }
+                        }
+                    }
+                    setFlash('success', "Sinkronisasi Peta Selesai: $successCount disuntikkan ke map, $skipCount dilewati (tanpa koordinat).");
+                } else {
+                    setFlash('error', "Gagal memuat data pelanggan untuk sinkronisasi.");
+                }
                 break;
         }
         redirect('customers.php');
@@ -677,7 +715,14 @@ $stat_pending_acs = fetchOne("SELECT COUNT(*) as count FROM task_queue WHERE tas
         <h3 class="card-title">
             <i class="fas fa-users"></i> Daftar Pelanggan
         </h3>
-        <div style="display: flex; gap: 10px; align-items: center;">
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <form method="POST" style="margin:0;" onsubmit="return confirm('Suntikkan / Sinkronisasikan semua pelanggan yang memiliki koordinat ke dalam sistem Peta (Map)?')">
+                <input type="hidden" name="action" value="sync_map">
+                <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+                <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="fas fa-map-marked-alt"></i> Sync Map
+                </button>
+            </form>
             <form method="POST" style="margin:0;" onsubmit="return confirm('Update semua pelanggan ke MikroTik?')">
                 <input type="hidden" name="action" value="sync_all">
                 <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">

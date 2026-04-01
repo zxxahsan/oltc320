@@ -33,44 +33,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (isset($_POST['action']) && $_POST['action'] === 'sync_customers') {
-        $pdo = getDB();
-        
-        // 1. Pull all devices from GenieACS and extract their Tags
-        $devices = genieacsGetDevices();
-        $deviceTags = []; // Map: tag (phone) => serial_number
-        
-        if (is_array($devices)) {
-            foreach ($devices as $device) {
-                if (isset($device['_tags']) && is_array($device['_tags']) && isset($device['_deviceId']['_SerialNumber'])) {
-                    $serial = $device['_deviceId']['_SerialNumber'];
-                    foreach ($device['_tags'] as $tag) {
-                        $deviceTags[$tag] = $serial;
-                    }
-                }
-            }
-        }
-
-        // 2. Cross-reference with our Customer database
-        $customers = fetchAll("SELECT name, phone, lat, lng FROM customers WHERE lat IS NOT NULL AND lng IS NOT NULL AND lat != 0 AND lng != 0");
+        $customers = fetchAll("SELECT id, name, phone, onu_sn, lat, lng FROM customers");
         $added = 0;
         $updated = 0;
+        $skipped = 0;
         
-        foreach ($customers as $c) {
-            $phone = trim($c['phone']);
-            if (empty($phone)) continue;
-
-            // Does this phone number exist as a Tag in any GenieACS device?
-            $hasTag = isset($deviceTags[$phone]);
-
-            if ($hasTag) {
-                // User prefers the phone number itself to serve as the map's identifying serial key
-                $serialToSave = $phone;
+        if (is_array($customers)) {
+            foreach ($customers as $c) {
+                // Ignore those lacking geo-coordinates completely
+                if (empty($c['lat']) || empty($c['lng']) || $c['lat'] == 0 || $c['lng'] == 0 || trim($c['lat']) === '') {
+                    $skipped++;
+                    continue;
+                }
                 
-                $existing = fetchOne("SELECT id FROM onu_locations WHERE serial_number = ?", [$serialToSave]);
+                $sn = !empty($c['onu_sn']) ? $c['onu_sn'] : (!empty($c['phone']) ? $c['phone'] : 'CUST-' . $c['id']);
+
+                $existing = fetchOne("SELECT id FROM onu_locations WHERE serial_number = ?", [$sn]);
                 if (!$existing) {
                     insert('onu_locations', [
                         'name' => $c['name'],
-                        'serial_number' => $serialToSave,
+                        'serial_number' => $sn,
                         'lat' => $c['lat'],
                         'lng' => $c['lng'],
                         'created_at' => date('Y-m-d H:i:s')
@@ -86,10 +68,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $updated++;
                 }
             }
+            setFlash('success', "Sinkronisasi Peta selesai. Ditambahkan: {$added}, Diperbarui: {$updated}, Dilewati: {$skipped} (tanpa koordinat).");
+            logActivity('SYNC_CUSTOMERS', "Synced Map with Customer Database directly.");
+        } else {
+            setFlash('error', "Gagal membaca database pelanggan.");
         }
         
-        setFlash('success', "Sinkronisasi Pintar selesai. Ditambahkan: {$added}, Diperbarui: {$updated}");
-        logActivity('SYNC_CUSTOMERS', "Synced Map with Customer ACS Tags.");
         redirect('map.php');
     }
 
@@ -119,7 +103,7 @@ $onuLocations = fetchAll("
     $offlineOnu = 0;
 
     $mapCenter = ['lat' => -6.252471, 'lng' => 107.920660];
-    $centerQuery = fetchOne("SELECT AVG(lat) as avg_lat, AVG(lng) as avg_lng FROM onu_locations WHERE lat IS NOT NULL AND lng IS NOT NULL");
+    $centerQuery = fetchOne("SELECT AVG(lat) as avg_lat, AVG(lng) as avg_lng FROM onu_locations WHERE lat IS NOT NULL AND lng IS NOT NULL AND lat != 0 AND lng != 0");
     if ($centerQuery && $centerQuery['avg_lat']) {
         $mapCenter['lat'] = $centerQuery['avg_lat'];
         $mapCenter['lng'] = $centerQuery['avg_lng'];
