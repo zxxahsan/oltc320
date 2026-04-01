@@ -77,8 +77,10 @@ function runAcsWorker() {
  * Helper to tag device in GenieACS
  */
 function genieacsTagDevice($sn, $tag) {
-    $acsUrl = defined('GENIEACS_URL') ? GENIEACS_URL : 'http://172.16.200.3:7557';
-    $baseUrl = rtrim($acsUrl, '/');
+    $genieacs = getGenieacsSettings();
+    if (empty($genieacs['url'])) return false;
+
+    $baseUrl = rtrim($genieacs['url'], '/');
     
     // 1. Check if device exists and already has the tag
     $checkUrl = "$baseUrl/devices?query=" . urlencode(json_encode(['_id' => $sn])) . "&projection=_tags";
@@ -86,6 +88,10 @@ function genieacsTagDevice($sn, $tag) {
     $ch = curl_init($checkUrl);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+    if (!empty($genieacs['username']) && !empty($genieacs['password'])) {
+        curl_setopt($ch, CURLOPT_USERPWD, $genieacs['username'] . ':' . $genieacs['password']);
+    }
+
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
@@ -110,6 +116,9 @@ function genieacsTagDevice($sn, $tag) {
     curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+    if (!empty($genieacs['username']) && !empty($genieacs['password'])) {
+        curl_setopt($ch, CURLOPT_USERPWD, $genieacs['username'] . ':' . $genieacs['password']);
+    }
     
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
