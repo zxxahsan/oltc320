@@ -85,17 +85,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$onuLocations = fetchAll("
-    SELECT o.*, c.pppoe_username 
-    FROM onu_locations o
-    LEFT JOIN customers c ON c.phone = o.serial_number
-    ORDER BY o.name
-");
-
-    // Strip massive multi-router bulk arrays mimicking the 100% secure Customer Portal logic!
-    $apiRouters = getAllRouters();
-    if (empty($apiRouters)) {
-        $apiRouters = [['id' => 0, 'name' => 'Default']];
+    $directCustomers = fetchAll("SELECT id, name, phone, onu_sn, pppoe_username, status as olt_status, lat, lng FROM customers WHERE lat IS NOT NULL AND lng IS NOT NULL AND lat != 0 AND lng != 0");
+    if (is_array($directCustomers)) {
+        foreach ($directCustomers as $c) {
+            $onuLocations[] = [
+                'id' => 'c_'.$c['id'],
+                'name' => $c['name'],
+                'serial_number' => $c['onu_sn'] ?: $c['phone'],
+                'lat' => $c['lat'],
+                'lng' => $c['lng'],
+                'odp_id' => null,
+                'pppoe_username' => $c['pppoe_username'],
+                'olt_status' => $c['olt_status']
+            ];
+        }
     }
 
     $totalOnu = count($onuLocations);
@@ -103,7 +106,7 @@ $onuLocations = fetchAll("
     $offlineOnu = 0;
 
     $mapCenter = ['lat' => -6.252471, 'lng' => 107.920660];
-    $centerQuery = fetchOne("SELECT AVG(lat) as avg_lat, AVG(lng) as avg_lng FROM onu_locations WHERE lat IS NOT NULL AND lng IS NOT NULL AND lat != 0 AND lng != 0");
+    $centerQuery = fetchOne("SELECT AVG(lat) as avg_lat, AVG(lng) as avg_lng FROM customers WHERE lat IS NOT NULL AND lat != 0");
     if ($centerQuery && $centerQuery['avg_lat']) {
         $mapCenter['lat'] = $centerQuery['avg_lat'];
         $mapCenter['lng'] = $centerQuery['avg_lng'];
@@ -149,17 +152,17 @@ $onuLocations = fetchAll("
             $offlineOnu++;
         }
     
-    $onuData[] = [
-        'id' => $onu['id'],
-        'name' => $onu['name'],
-        'serial_number' => $onu['serial_number'],
-        'lat' => $onu['lat'],
-        'lng' => $onu['lng'],
-        'odp_id' => $onu['odp_id'],
-        'status' => $isOnline ? 'online' : 'offline',
-        'device_info' => null
-    ];
-}
+        $onuData[] = [
+            'id' => $onu['id'],
+            'name' => $onu['name'],
+            'serial_number' => $onu['serial_number'],
+            'lat' => $onu['lat'],
+            'lng' => $onu['lng'],
+            'odp_id' => $onu['odp_id'] ?? null,
+            'status' => $isOnline ? 'online' : 'offline',
+            'device_info' => null
+        ];
+    }
 
 ob_start();
 ?>
@@ -241,6 +244,9 @@ ob_start();
             </button>
             <button class="btn btn-secondary btn-sm" id="toggleLayer" onclick="toggleLayer()">
                 <i class="fas fa-layer-group"></i> Street
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="locateMe()">
+                <i class="fas fa-location-arrow"></i> Deteksi Lokasi
             </button>
             <button class="btn btn-secondary btn-sm" onclick="resetMap()">
                 <i class="fas fa-crosshairs"></i> Reset
@@ -718,6 +724,30 @@ function initMap() {
     });
     
     loadMarkers();
+    
+    // Auto-detect geolocation if the map defaults to an empty center
+    <?php if ($totalOnu == 0): ?>
+    locateMe();
+    <?php endif; ?>
+}
+
+function locateMe() {
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(function(position) {
+            map.flyTo([position.coords.latitude, position.coords.longitude], 16, {
+                animate: true,
+                duration: 1.5
+            });
+            // Drop a visual pulse marker for the user's location
+            L.circleMarker([position.coords.latitude, position.coords.longitude], {
+                radius: 8, fillColor: '#00f5ff', color: '#fff', weight: 2, opacity: 1, fillOpacity: 0.8
+            }).addTo(map).bindPopup("Lokasi Perangkat Anda").openPopup();
+        }, function(err) {
+            console.warn('Geolocation gagal:', err.message);
+        });
+    } else {
+        alert('Browser Anda tidak mendukung deteksi lokasi (Geolocation). Pastikan koneksi aman (HTTPS).');
+    }
 }
 
 function loadMarkers() {
