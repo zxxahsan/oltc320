@@ -131,8 +131,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 $id = insert('customers', $data);
                 if ($id) {
-                    // Sync to Map (onu_locations) if coordinates present
-                    if (!empty($data['lat']) && !empty($data['lng'])) {
+                    // Sync to Map (onu_locations) if checkbox checked and coordinates present
+                    if (isset($_POST['sync_map']) && !empty($data['lat']) && !empty($data['lng'])) {
                         $lookupSn = !empty($data['onu_sn']) ? $data['onu_sn'] : $data['phone'];
                         $existingOnu = fetchOne("SELECT id FROM onu_locations WHERE serial_number = ?", [$lookupSn]);
                         $onuDataSave = [
@@ -150,15 +150,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
                     }
 
-                    // Push to MikroTik
-                    $pkg = fetchOne("SELECT profile_normal FROM packages WHERE id = ?", [$data['package_id']]);
-                    $profile = $pkg ? $pkg['profile_normal'] : 'default';
-                    $mt = mikrotikAddSecret($pppoeUsername, $pppoePassword, $profile, $data['router_id']);
-                    
-                    if ($mt['success']) {
-                        setFlash('success', 'Pelanggan berhasil ditambahkan dan di-push ke MikroTik');
+                    // Push to MikroTik if checkbox checked
+                    if (isset($_POST['sync_mikrotik'])) {
+                        $pkg = fetchOne("SELECT profile_normal FROM packages WHERE id = ?", [$data['package_id']]);
+                        $profile = $pkg ? $pkg['profile_normal'] : 'default';
+                        $mt = mikrotikAddSecret($pppoeUsername, $pppoePassword, $profile, $data['router_id']);
+                        
+                        if ($mt['success']) {
+                            setFlash('success', 'Pelanggan berhasil ditambahkan dan di-push ke MikroTik');
+                        } else {
+                            setFlash('warning', 'Pelanggan disimpan di database, tapi GAGAL push ke MikroTik: ' . $mt['message']);
+                        }
                     } else {
-                        setFlash('warning', 'Pelanggan disimpan di database, tapi GAGAL push ke MikroTik: ' . $mt['message']);
+                        setFlash('success', 'Pelanggan berhasil ditambahkan ke database (Tanpa Sync MikroTik)');
                     }
                 } else {
                     setFlash('error', 'Gagal menambahkan pelanggan ke database');
@@ -192,8 +196,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 if (update('customers', $data, 'id = ?', [$id])) {
-                    // Sync to Map (onu_locations) if coordinates present
-                    if (!empty($data['lat']) && !empty($data['lng'])) {
+                    // Sync to Map (onu_locations) if checkbox checked and coordinates present
+                    if (isset($_POST['sync_map']) && !empty($data['lat']) && !empty($data['lng'])) {
                         $lookupSn = !empty($data['onu_sn']) ? $data['onu_sn'] : $data['phone'];
                         $existingOnu = fetchOne("SELECT id FROM onu_locations WHERE serial_number = ?", [$lookupSn]);
                         $onuDataSave = [
@@ -211,8 +215,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
                     }
 
-                    // Update MikroTik
-                    if ($oldData) {
+                    // Update MikroTik if checkbox checked
+                    if (isset($_POST['sync_mikrotik']) && $oldData) {
                         $pkg = fetchOne("SELECT profile_normal, profile_isolir FROM packages WHERE id = ?", [$data['package_id']]);
                         $profile = 'default';
                         if ($pkg) {
@@ -239,6 +243,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         } else {
                             setFlash('warning', 'Data database diupdate, tapi GAGAL sinkron MikroTik: ' . $mt['message']);
                         }
+                    } else {
+                        setFlash('success', 'Data pelanggan berhasil diperbarui di database');
                     }
                 } else {
                     setFlash('error', 'Gagal memperbarui data pelanggan di database');
@@ -639,7 +645,25 @@ $stat_pending_acs = fetchOne("SELECT COUNT(*) as count FROM task_queue WHERE tas
                 <small style="color: var(--text-secondary); margin-top: 5px; display: block;">Klik pada peta untuk menentukan lokasi rumah pelanggan</small>
             </div>
             
-            <div id="map-picker" style="height: 300px; margin-bottom: 20px; border-radius: 12px; border: 1px solid var(--border-color);"></div>
+            <!-- SYNC CONTROLLERS (ADD) -->
+            <div style="margin-bottom: 20px; padding: 15px; background: rgba(0,210,255,0.05); border: 1px dashed rgba(0,210,255,0.2); border-radius: 10px;">
+                <label style="display: block; margin-bottom: 10px; font-weight: 600; color: var(--neon-cyan); font-size: 13px;">
+                    <i class="fas fa-sync-alt"></i> PENGATURAN SINKRONISASI
+                </label>
+                <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                    <label class="svc-label" style="flex: 1; min-width: 150px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" name="sync_map" value="1" checked style="width:16px; height:16px;">
+                        <span>Update Pin/Lokasi ke Peta (ONU Map)</span>
+                    </label>
+                    <label class="svc-label" style="flex: 1; min-width: 150px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" name="sync_mikrotik" value="1" checked style="width:16px; height:16px;">
+                        <span>Push Akun ke MikroTik (Traffic Monitor)</span>
+                    </label>
+                </div>
+                <small style="color: var(--text-secondary); margin-top: 5px; display: block; font-size: 11px;">
+                    * Menggunakan <strong>Nomor HP Pelanggan</strong> sebagai Tag Identifikasi (ACS Tag).
+                </small>
+            </div>
             
             <button type="button" id="btn_magic_save_add" class="btn btn-primary magic-save-btn" style="width: 100%;" onclick="magicSave('add')">
                 <i class="fas fa-magic"></i> Simpan Pelanggan (Magic Save)
@@ -966,6 +990,26 @@ $stat_pending_acs = fetchOne("SELECT COUNT(*) as count FROM task_queue WHERE tas
                 <div id="prov_log" class="prov-log-box" style="display:none;"></div>
             </div>
             
+            <!-- SYNC CONTROLLERS (EDIT) -->
+            <div style="margin-bottom: 20px; padding: 15px; background: rgba(0,210,255,0.05); border: 1px dashed rgba(0,210,255,0.2); border-radius: 10px;">
+                <label style="display: block; margin-bottom: 10px; font-weight: 600; color: var(--neon-cyan); font-size: 13px;">
+                    <i class="fas fa-sync-alt"></i> PENGATURAN SINKRONISASI
+                </label>
+                <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                    <label class="svc-label" style="flex: 1; min-width: 150px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" name="sync_map" value="1" checked style="width:16px; height:16px;">
+                        <span>Update Pin/Lokasi ke Peta (ONU Map)</span>
+                    </label>
+                    <label class="svc-label" style="flex: 1; min-width: 150px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" name="sync_mikrotik" value="1" checked style="width:16px; height:16px;">
+                        <span>Push Akun ke MikroTik (Traffic Monitor)</span>
+                    </label>
+                </div>
+                <small style="color: var(--text-secondary); margin-top: 5px; display: block; font-size: 11px;">
+                    * Menggunakan <strong>Nomor HP Pelanggan</strong> sebagai Tag Identifikasi (ACS Tag).
+                </small>
+            </div>
+
             <div style="display: flex; gap: 10px; margin-top: 20px;">
                 <button type="button" id="btn_magic_save_edit" class="btn btn-primary magic-save-btn" style="flex: 1;" onclick="magicSave('edit')">
                     <i class="fas fa-magic"></i> Simpan Perubahan (Magic Save)
