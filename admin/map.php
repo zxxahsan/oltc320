@@ -134,8 +134,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
             if ($isOnlineAcs && !empty($d['_tags']) && is_array($d['_tags'])) {
+                // Populate full bulk device payload cache
+                $devInfo = [
+                    'ip_address' => genieacsGetValue($d, 'VirtualParameters.pppoeIP') ?? genieacsGetValue($d, 'VirtualParameters.IPTR069'),
+                    'ssid' => genieacsGetValue($d, 'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.SSID'),
+                    'rx_power' => genieacsGetValue($d, 'VirtualParameters.RXPower'),
+                    'tx_power' => genieacsGetValue($d, 'VirtualParameters.TXPower'), // TXPower might not be stored in projection, but handled gracefully
+                    'model' => genieacsGetValue($d, 'DeviceID.ProductClass') ?? '-',
+                    'manufacturer' => genieacsGetValue($d, 'DeviceID.Manufacturer') ?? 'ZTE', // Guess Manufacturer fallback
+                    'last_inform' => $d['_lastInform'] ?? null
+                ];
+
                 foreach ($d['_tags'] as $tag) {
-                    $acsOnlineMap[(string)$tag] = true;
+                    $acsOnlineMap[(string)$tag] = $devInfo;
                 }
             }
         }
@@ -158,11 +169,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'id' => $onu['id'],
             'name' => $onu['name'],
             'serial_number' => $onu['serial_number'],
+            'phone' => $ph,
             'lat' => $onu['lat'],
             'lng' => $onu['lng'],
             'odp_id' => $onu['odp_id'] ?? null,
             'status' => $isOnline ? 'online' : 'offline',
-            'device_info' => null
+            'device_info' => $isOnline ? ($acsOnlineMap[$ph] ?? null) : null
         ];
     }
 
@@ -378,7 +390,7 @@ ob_start();
                 <?php foreach ($onuData as $onu): ?>
                 <tr>
                     <td><strong><?php echo htmlspecialchars($onu['name']); ?></strong></td>
-                    <td><code><?php echo htmlspecialchars($onu['serial_number']); ?></code></td>
+                    <td><code><?php echo htmlspecialchars($onu['phone'] ?: '-'); ?></code></td>
                     <td>
                         <?php 
                         if (is_array($onu['device_info'])) {
