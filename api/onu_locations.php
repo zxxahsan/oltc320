@@ -182,27 +182,31 @@ if ($method === 'GET') {
     }
 
     // Natively inject all valid Customers with Coordinates directly into Map avoiding manual sync bottlenecks
-    $allCustomers = fetchAll("SELECT id, name, phone, onu_sn, pppoe_username, status as olt_status, lat, lng FROM customers WHERE lat IS NOT NULL AND lng IS NOT NULL AND lat != '' AND lng != ''");
+    $allCustomers = fetchAll("SELECT * FROM customers WHERE lat IS NOT NULL AND lng IS NOT NULL AND lat != '' AND lng != ''");
+    if (!is_array($allCustomers)) {
+        $allCustomers = [];
+    }
+    
     $existingSerials = [];
     foreach ($onuLocations as $onu) {
         if (!empty($onu['serial_number'])) $existingSerials[$onu['serial_number']] = true;
     }
     
     foreach ($allCustomers as $c) {
-        $sn = !empty($c['onu_sn']) ? $c['onu_sn'] : $c['phone'];
-        if (empty($sn)) $sn = 'CUST-' . $c['id'];
+        $sn = !empty($c['onu_sn']) ? $c['onu_sn'] : ($c['phone'] ?? '');
+        if (empty($sn)) $sn = 'CUST-' . ($c['id'] ?? uniqid());
         
         // Only inject if they aren't already represented by the explicit onu_locations mapping
         if (!isset($existingSerials[$sn])) {
             $onuLocations[] = [
-                'id' => 'c_' . $c['id'],
-                'name' => $c['name'],
+                'id' => 'c_' . ($c['id'] ?? ''),
+                'name' => $c['name'] ?? 'Unknown',
                 'serial_number' => $sn,
                 'lat' => $c['lat'],
                 'lng' => $c['lng'],
                 'odp_id' => null,
-                'pppoe_username' => $c['pppoe_username'],
-                'olt_status' => $c['olt_status']
+                'pppoe_username' => $c['pppoe_username'] ?? '',
+                'olt_status' => $c['status'] ?? 'active' // Safely fallback to customer status
             ];
             $existingSerials[$sn] = true;
         }
