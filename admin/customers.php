@@ -133,7 +133,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($id) {
                     // Sync to Map (onu_locations) if coordinates present
                     if (!empty($data['lat']) && !empty($data['lng'])) {
-                        $existingOnu = fetchOne("SELECT id FROM onu_locations WHERE serial_number = ?", [$data['phone']]);
+                        $lookupSn = !empty($data['onu_sn']) ? $data['onu_sn'] : $data['phone'];
+                        $existingOnu = fetchOne("SELECT id FROM onu_locations WHERE serial_number = ?", [$lookupSn]);
                         $onuDataSave = [
                             'name' => $data['name'],
                             'lat' => $data['lat'],
@@ -143,7 +144,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         if ($existingOnu) {
                             update('onu_locations', $onuDataSave, 'id = ?', [$existingOnu['id']]);
                         } else {
-                            $onuDataSave['serial_number'] = $data['phone'];
+                            $onuDataSave['serial_number'] = $lookupSn;
                             $onuDataSave['created_at'] = date('Y-m-d H:i:s');
                             insert('onu_locations', $onuDataSave);
                         }
@@ -193,7 +194,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (update('customers', $data, 'id = ?', [$id])) {
                     // Sync to Map (onu_locations) if coordinates present
                     if (!empty($data['lat']) && !empty($data['lng'])) {
-                        $existingOnu = fetchOne("SELECT id FROM onu_locations WHERE serial_number = ?", [$data['phone']]);
+                        $lookupSn = !empty($data['onu_sn']) ? $data['onu_sn'] : $data['phone'];
+                        $existingOnu = fetchOne("SELECT id FROM onu_locations WHERE serial_number = ?", [$lookupSn]);
                         $onuDataSave = [
                             'name' => $data['name'],
                             'lat' => $data['lat'],
@@ -203,7 +205,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         if ($existingOnu) {
                             update('onu_locations', $onuDataSave, 'id = ?', [$existingOnu['id']]);
                         } else {
-                            $onuDataSave['serial_number'] = $data['phone'];
+                            $onuDataSave['serial_number'] = $lookupSn;
                             $onuDataSave['created_at'] = date('Y-m-d H:i:s');
                             insert('onu_locations', $onuDataSave);
                         }

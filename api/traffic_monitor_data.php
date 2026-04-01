@@ -101,10 +101,8 @@ foreach ($routers as $r) {
 $data = [];
 
 foreach ($customers as $c) {
-    if (empty($c['pppoe_username'])) continue;
-    
-    $userOrig = $c['pppoe_username'];
-    $user = strtolower(trim($c['pppoe_username'])); 
+    $userOrig = $c['pppoe_username'] ?: '-';
+    $user = !empty($c['pppoe_username']) ? strtolower(trim($c['pppoe_username'])) : ''; 
     $rid = $c['router_id'];
     
     $liveRx = 0;

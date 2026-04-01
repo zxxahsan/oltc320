@@ -79,7 +79,7 @@ if ($method === 'GET') {
     $onuLocations = fetchAll("
         SELECT o.*, c.pppoe_username, c.onu_status as olt_status 
         FROM onu_locations o
-        LEFT JOIN customers c ON c.phone = o.serial_number
+        LEFT JOIN customers c ON (c.onu_sn = o.serial_number OR c.phone = o.serial_number)
         WHERE o.lat IS NOT NULL AND o.lng IS NOT NULL AND o.lat != '' AND o.lng != ''
         ORDER BY o.name
     ");
