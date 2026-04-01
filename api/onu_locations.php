@@ -81,7 +81,7 @@ if ($method === 'GET') {
         SELECT o.*, c.pppoe_username, c.onu_status as olt_status 
         FROM onu_locations o
         LEFT JOIN customers c ON (c.onu_sn = o.serial_number OR c.phone = o.serial_number)
-        WHERE o.lat IS NOT NULL AND o.lng IS NOT NULL AND o.lat != '' AND o.lng != ''
+        WHERE o.lat IS NOT NULL AND o.lng IS NOT NULL AND o.lat != 0 AND o.lng != 0
         ORDER BY o.name
     ");
     
@@ -92,7 +92,7 @@ if ($method === 'GET') {
             SELECT o.*, c.pppoe_username
             FROM onu_locations o
             LEFT JOIN customers c ON c.phone = o.serial_number
-            WHERE o.lat IS NOT NULL AND o.lng IS NOT NULL AND o.lat != '' AND o.lng != ''
+            WHERE o.lat IS NOT NULL AND o.lng IS NOT NULL AND o.lat != 0 AND o.lng != 0
             ORDER BY o.name
         ");
         
@@ -182,7 +182,7 @@ if ($method === 'GET') {
     }
 
     // Natively inject all valid Customers with Coordinates directly into Map avoiding manual sync bottlenecks
-    $allCustomers = fetchAll("SELECT * FROM customers WHERE lat IS NOT NULL AND lng IS NOT NULL AND lat != '' AND lng != ''");
+    $allCustomers = fetchAll("SELECT * FROM customers WHERE lat IS NOT NULL AND lng IS NOT NULL AND lat != 0 AND lng != 0");
     if (!is_array($allCustomers)) {
         $allCustomers = [];
     }

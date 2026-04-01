@@ -51,7 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // 2. Cross-reference with our Customer database
-        $customers = fetchAll("SELECT name, phone, lat, lng FROM customers WHERE lat IS NOT NULL AND lng IS NOT NULL AND lat != '' AND lng != ''");
+        $customers = fetchAll("SELECT name, phone, lat, lng FROM customers WHERE lat IS NOT NULL AND lng IS NOT NULL AND lat != 0 AND lng != 0");
         $added = 0;
         $updated = 0;
         
