@@ -255,7 +255,7 @@ function runAutoIsolir($pdo)
 
     // Get customers with unpaid invoices that are overdue
     $overdueInvoices = fetchAll("
-        SELECT c.id, c.name, c.phone, c.pppoe_username, c.package_id, i.invoice_number, i.amount, i.due_date
+        SELECT c.id, c.name, c.phone, c.pppoe_username, c.package_id, c.router_id, i.invoice_number, i.amount, i.due_date
         FROM customers c
         INNER JOIN invoices i ON c.id = i.customer_id
         WHERE i.status = 'unpaid'
@@ -274,8 +274,8 @@ function runAutoIsolir($pdo)
             
             // Kick the user so they reconnect to the isolated profile immediately
             if (!empty($invoice['pppoe_username'])) {
-                mikrotikRemoveActivePppoe($invoice['pppoe_username']);
-                echo "  ✓ Dropped active PPPoE connection\n";
+                mikrotikRemoveActivePppoe($invoice['pppoe_username'], $invoice['router_id']);
+                echo "  ✓ Dropped active PPPoE connection on router #{$invoice['router_id']}\n";
             }
 
             $customer = fetchOne("SELECT * FROM customers WHERE id = ?", [$invoice['customer_id']]);

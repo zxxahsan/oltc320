@@ -97,12 +97,14 @@ function getAllRouters()
 }
 /**
  * Get a persistent MikroTik connection for the remainder of the request
+ * @param int|null $routerId Specific router to connect to
  */
 function getMikrotikConnection($routerId = null)
 {
     static $sockets = [];
     static $lastHosts = [];
 
+    // Resolve actual routerId
     $mikrotik = getMikrotikSettings($routerId);
     $rId = (int)($mikrotik['id'] ?? 0);
     $currentHost = $mikrotik['host'] . ':' . $mikrotik['port'];
@@ -113,9 +115,9 @@ function getMikrotikConnection($routerId = null)
             @fclose($sockets[$rId]);
         }
 
-        $sockets[$rId] = mikrotikConnect($routerId);
+        $sockets[$rId] = mikrotikConnect($rId);
         if ($sockets[$rId]) {
-            if (!mikrotikLogin($sockets[$rId], $routerId)) {
+            if (!mikrotikLogin($sockets[$rId], $rId)) {
                 @fclose($sockets[$rId]);
                 $sockets[$rId] = null;
             } else {
@@ -528,9 +530,9 @@ function mikrotikParseUsers($response)
 }
 
 // Add PPPoE Secret
-function mikrotikAddSecret($name, $password, $profile = 'default', $service = 'pppoe')
+function mikrotikAddSecret($name, $password, $profile = 'default', $routerId = null, $service = 'pppoe')
 {
-    $socket = getMikrotikConnection();
+    $socket = getMikrotikConnection($routerId);
     if (!$socket) {
         return ['success' => false, 'message' => 'Cannot connect to MikroTik'];
     }
@@ -564,12 +566,26 @@ function mikrotikAddSecret($name, $password, $profile = 'default', $service = 'p
 }
 
 // Update PPPoE Secret
-function mikrotikUpdateSecret($id, $data)
+function mikrotikUpdateSecret($username, $data, $routerId = null)
 {
-    $socket = getMikrotikConnection();
+    $socket = getMikrotikConnection($routerId);
     if (!$socket) {
         return ['success' => false, 'message' => 'Cannot connect to MikroTik'];
     }
+
+    // First find the .id for this username
+    mikrotikWrite($socket, '/ppp/secret/print');
+    mikrotikWrite($socket, '?name=' . $username);
+    mikrotikWrite($socket, ''); 
+
+    $response = mikrotikReadSentence($socket);
+    $parsed = mikrotikParseUsers($response);
+
+    if (empty($parsed)) {
+        return ['success' => false, 'message' => 'User not found in MikroTik'];
+    }
+
+    $id = $parsed[0]['.id'];
 
     mikrotikWrite($socket, '/ppp/secret/set');
     mikrotikWrite($socket, '=.id=' . $id);
@@ -609,12 +625,26 @@ function mikrotikUpdateSecret($id, $data)
 }
 
 // Delete PPPoE Secret
-function mikrotikDeleteSecret($id)
+function mikrotikDeleteSecret($username, $routerId = null)
 {
-    $socket = getMikrotikConnection();
+    $socket = getMikrotikConnection($routerId);
     if (!$socket) {
         return ['success' => false, 'message' => 'Cannot connect to MikroTik'];
     }
+
+    // First find the .id for this username
+    mikrotikWrite($socket, '/ppp/secret/print');
+    mikrotikWrite($socket, '?name=' . $username);
+    mikrotikWrite($socket, '');
+
+    $response = mikrotikReadSentence($socket);
+    $parsed = mikrotikParseUsers($response);
+
+    if (empty($parsed)) {
+        return ['success' => false, 'message' => 'User not found in MikroTik'];
+    }
+
+    $id = $parsed[0]['.id'];
 
     mikrotikWrite($socket, '/ppp/secret/remove');
     mikrotikWrite($socket, '=.id=' . $id);

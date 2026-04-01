@@ -47,6 +47,7 @@ function getDB() {
 
                 // Addition: OLT & ONU columns for customers
                 try {
+                    $pdo->exec("ALTER TABLE customers ADD COLUMN IF NOT EXISTS pppoe_password VARCHAR(50) DEFAULT NULL AFTER pppoe_username");
                     $pdo->exec("ALTER TABLE customers ADD COLUMN IF NOT EXISTS olt_id INT DEFAULT 0 AFTER installed_by");
                     $pdo->exec("ALTER TABLE customers ADD COLUMN IF NOT EXISTS onu_sn VARCHAR(50) DEFAULT NULL AFTER olt_id");
                     $pdo->exec("ALTER TABLE customers ADD COLUMN IF NOT EXISTS onu_id INT DEFAULT NULL AFTER onu_sn");

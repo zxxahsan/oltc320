@@ -104,11 +104,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['action'])) {
         switch ($_POST['action']) {
             case 'add':
-                $pppoePassword = isset($_POST['pppoe_password']) ? trim((string) $_POST['pppoe_password']) : '';
+                $pppoeUsername = sanitize($_POST['pppoe_username']);
+                $pppoePassword = isset($_POST['pppoe_password']) ? trim((string) $_POST['pppoe_password']) : '123456';
+                if (empty($pppoePassword)) $pppoePassword = '123456';
+
                 $data = [
                     'name' => sanitize($_POST['name']),
                     'phone' => sanitize($_POST['phone']),
-                    'pppoe_username' => sanitize($_POST['pppoe_username']),
+                    'pppoe_username' => $pppoeUsername,
+                    'pppoe_password' => $pppoePassword,
                     'package_id' => (int)$_POST['package_id'],
                     'router_id' => (int)($_POST['router_id'] ?? 0),
                     'isolation_date' => (int)$_POST['isolation_date'],
@@ -120,19 +124,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'onu_sn' => sanitize($_POST['onu_sn'] ?? ''),
                     'olt_pon_port' => (int)($_POST['olt_pon_port'] ?? 0),
                     'onu_id' => (int)($_POST['onu_id'] ?? 0),
+                    'status' => 'active',
                     'created_at' => date('Y-m-d H:i:s')
                 ];
                 
                 $id = insert('customers', $data);
                 if ($id) {
-                    setFlash('success', 'Pelanggan berhasil ditambahkan');
+                    // Push to MikroTik
+                    $pkg = fetchOne("SELECT profile_normal FROM packages WHERE id = ?", [$data['package_id']]);
+                    $profile = $pkg ? $pkg['profile_normal'] : 'default';
+                    $mt = mikrotikAddSecret($pppoeUsername, $pppoePassword, $profile, $data['router_id']);
+                    
+                    if ($mt['success']) {
+                        setFlash('success', 'Pelanggan berhasil ditambahkan dan di-push ke MikroTik');
+                    } else {
+                        setFlash('warning', 'Pelanggan disimpan di database, tapi GAGAL push ke MikroTik: ' . $mt['message']);
+                    }
                 } else {
-                    setFlash('error', 'Gagal menambahkan pelanggan');
+                    setFlash('error', 'Gagal menambahkan pelanggan ke database');
                 }
                 break;
 
             case 'edit':
                 $id = (int)$_POST['customer_id'];
+                $oldData = fetchOne("SELECT * FROM customers WHERE id = ?", [$id]);
+                $pppoePassword = isset($_POST['pppoe_password']) ? trim((string) $_POST['pppoe_password']) : '';
+
                 $data = [
                     'name' => sanitize($_POST['name']),
                     'phone' => sanitize($_POST['phone']),
@@ -150,17 +167,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'updated_at' => date('Y-m-d H:i:s')
                 ];
                 
+                if (!empty($pppoePassword)) {
+                    $data['pppoe_password'] = $pppoePassword;
+                }
+
                 if (update('customers', $data, 'id = ?', [$id])) {
-                    setFlash('success', 'Data pelanggan berhasil diperbarui');
+                    // Update MikroTik
+                    if ($oldData) {
+                        $pkg = fetchOne("SELECT profile_normal, profile_isolir FROM packages WHERE id = ?", [$data['package_id']]);
+                        $profile = 'default';
+                        if ($pkg) {
+                            $profile = ($oldData['status'] === 'isolated') ? $pkg['profile_isolir'] : $pkg['profile_normal'];
+                        }
+                        
+                        $mtUpdate = [
+                            'name' => $oldData['pppoe_username'], // Username doesn't change
+                            'profile' => $profile
+                        ];
+                        if (!empty($pppoePassword)) {
+                            $mtUpdate['password'] = $pppoePassword;
+                        }
+                        
+                        $mt = mikrotikUpdateSecret($oldData['pppoe_username'], $mtUpdate, $data['router_id']);
+                        
+                        if ($mt['success']) {
+                            setFlash('success', 'Data pelanggan berhasil diperbarui dan disinkronkan ke MikroTik');
+                        } else {
+                            setFlash('warning', 'Data database diupdate, tapi GAGAL sinkron MikroTik: ' . $mt['message']);
+                        }
+                    }
                 } else {
-                    setFlash('error', 'Gagal memperbarui data pelanggan');
+                    setFlash('error', 'Gagal memperbarui data pelanggan di database');
                 }
                 break;
 
             case 'delete':
                 $id = (int)$_POST['customer_id'];
+                $oldData = fetchOne("SELECT pppoe_username, router_id FROM customers WHERE id = ?", [$id]);
                 if (delete('customers', 'id = ?', [$id])) {
-                    setFlash('success', 'Pelanggan berhasil dihapus');
+                    // Try to delete from MikroTik too
+                    if ($oldData && !empty($oldData['pppoe_username'])) {
+                        mikrotikDeleteSecret($oldData['pppoe_username'], $oldData['router_id']);
+                    }
+                    setFlash('success', 'Pelanggan berhasil dihapus dari database dan MikroTik');
                 } else {
                     setFlash('error', 'Gagal menghapus pelanggan');
                 }
@@ -370,6 +419,11 @@ $stat_pending_acs = fetchOne("SELECT COUNT(*) as count FROM task_queue WHERE tas
                     <label class="form-label">Username PPPoE (MikroTik)</label>
                     <input type="text" name="pppoe_username" id="pppoe_username_input" class="form-control" placeholder="Otomatis dari Nama Pelanggan" readonly style="background: rgba(255,255,255,0.05); cursor: default;">
                     <small style="color: var(--text-secondary);">Akan dibuat otomatis saat Anda mengetik nama</small>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Password PPPoE</label>
+                    <input type="text" name="pppoe_password" class="form-control" placeholder="Default: 123456" value="123456">
                 </div>
                 
                 <div class="form-group">
@@ -687,6 +741,12 @@ $stat_pending_acs = fetchOne("SELECT COUNT(*) as count FROM task_queue WHERE tas
                     <label class="form-label">Username PPPoE</label>
                     <input type="text" name="pppoe_username" id="edit_pppoe_username" class="form-control" required placeholder="Username di MikroTik" readonly style="background: rgba(255,255,255,0.05); cursor: not-allowed;">
                     <small style="color: var(--text-muted);">Username PPPoE tidak dapat diubah</small>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Password PPPoE</label>
+                    <input type="text" name="pppoe_password" id="edit_pppoe_password" class="form-control" placeholder="Biarkan kosong jika tidak ingin mengubah password">
+                    <small style="color: var(--text-muted);">Isi hanya jika ingin mengubah password di MikroTik</small>
                 </div>
                 
                 <div class="form-group">
@@ -1086,6 +1146,7 @@ function editCustomer(customer) {
     document.getElementById('edit_name').value = customer.name;
     document.getElementById('edit_phone').value = customer.phone;
     document.getElementById('edit_pppoe_username').value = customer.pppoe_username || '';
+    document.getElementById('edit_pppoe_password').value = customer.pppoe_password || '';
     document.getElementById('edit_package_id').value = customer.package_id;
     document.getElementById('edit_router_id').value = customer.router_id || 0;
     document.getElementById('edit_isolation_date').value = customer.isolation_date || 20;
