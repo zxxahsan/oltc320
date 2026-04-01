@@ -115,6 +115,30 @@ function getDB() {
                     $pdo->exec("ALTER TABLE olt_configs ADD COLUMN IF NOT EXISTS enable_password VARCHAR(255) DEFAULT NULL AFTER password");
                 } catch (\Exception $e) {}
 
+                // Task Queue Table (GenieACS / Background Sync)
+                try {
+                    $pdo->exec("CREATE TABLE IF NOT EXISTS task_queue (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        task_type VARCHAR(50) NOT NULL,
+                        payload TEXT NOT NULL,
+                        status ENUM('pending', 'processing', 'completed', 'failed') DEFAULT 'pending',
+                        execute_after DATETIME DEFAULT NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+                } catch (\Exception $e) {}
+
+                // OLT Monitoring Alerts Table
+                try {
+                    $pdo->exec("CREATE TABLE IF NOT EXISTS olt_alerts (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        olt_id INT NOT NULL,
+                        severity ENUM('info', 'warning', 'critical') DEFAULT 'info',
+                        message TEXT NOT NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+                } catch (\Exception $e) {}
+
                 // Default Payment Settings
                 $defaultSettings = [
                     'ENABLE_TRIPAY_CUSTOMER' => '1',
