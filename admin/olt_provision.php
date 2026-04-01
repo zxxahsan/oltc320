@@ -28,7 +28,7 @@ if (isset($_GET['ajax_action']) && $_GET['ajax_action'] === 'provision') {
         exit;
     }
 
-    $result = vsolProvisionOnu($olt_id, $port, $onu_id, $pppoe_user, $pppoe_pass, $services, $acs_url, $pppoe_bind, $hotspot_bind);
+    $result = oltProvisionOnu($olt_id, $port, $onu_id, $pppoe_user, $pppoe_pass, $services, $acs_url, $pppoe_bind, $hotspot_bind);
     echo json_encode($result);
     exit;
 }
@@ -45,7 +45,7 @@ if (isset($_GET['ajax_action']) && $_GET['ajax_action'] === 'delete_wan') {
         exit;
     }
     
-    $result = vsolDeleteOnuWanConfigs($olt_id, $port, $onu_id);
+    $result = oltDeleteOnuWanConfigs($olt_id, $port, $onu_id);
     echo json_encode($result);
     exit;
 }
@@ -61,7 +61,7 @@ if (isset($_GET['ajax_action']) && $_GET['ajax_action'] === 'find_sn') {
         exit;
     }
     
-    $result = vsolFindOnuBySn($olt_id, $sn);
+    $result = oltFindOnuBySn($olt_id, $sn);
     echo json_encode($result);
     exit;
 }

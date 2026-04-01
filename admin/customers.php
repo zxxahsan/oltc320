@@ -6,6 +6,7 @@
 require_once '../includes/auth.php';
 requireAdminLogin();
 require_once '../includes/olt_api.php';
+require_once '../includes/mikrotik_api.php';
 
 ob_start();
 
@@ -43,11 +44,11 @@ if (isset($_GET['ajax_action']) && $_GET['ajax_action'] === 'provision') {
         exit;
     }
 
-    $result = vsolProvisionOnu($olt_id, $port, $onu_id, $pppoe_user, $pppoe_pass, $services, $acs_url, $pppoe_bind, $hotspot_bind);
+    $result = oltProvisionOnu($olt_id, $port, $onu_id, $pppoe_user, $pppoe_pass, $services, $acs_url, $pppoe_bind, $hotspot_bind);
     
     if ($result['success']) {
         // Find SN for this ONU to queue ACS tagging
-        $onu = vsolSyncAllMetadata($olt_id);
+        $onu = oltSyncMetadata($olt_id);
         $sn = '';
         foreach ($onu as $o) {
             if ($o['port'] == $port && $o['id'] == $onu_id) {
@@ -88,7 +89,7 @@ if (isset($_GET['ajax_action']) && $_GET['ajax_action'] === 'find_sn') {
         exit;
     }
     
-    $result = vsolFindOnuBySn($olt_id, $sn);
+    $result = oltFindOnuBySn($olt_id, $sn);
     echo json_encode($result);
     exit;
 }
@@ -130,6 +131,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 $id = insert('customers', $data);
                 if ($id) {
+                    // Sync to Map (onu_locations) if coordinates present
+                    if (!empty($data['lat']) && !empty($data['lng'])) {
+                        $existingOnu = fetchOne("SELECT id FROM onu_locations WHERE serial_number = ?", [$data['phone']]);
+                        $onuDataSave = [
+                            'name' => $data['name'],
+                            'lat' => $data['lat'],
+                            'lng' => $data['lng'],
+                            'updated_at' => date('Y-m-d H:i:s')
+                        ];
+                        if ($existingOnu) {
+                            update('onu_locations', $onuDataSave, 'id = ?', [$existingOnu['id']]);
+                        } else {
+                            $onuDataSave['serial_number'] = $data['phone'];
+                            $onuDataSave['created_at'] = date('Y-m-d H:i:s');
+                            insert('onu_locations', $onuDataSave);
+                        }
+                    }
+
                     // Push to MikroTik
                     $pkg = fetchOne("SELECT profile_normal FROM packages WHERE id = ?", [$data['package_id']]);
                     $profile = $pkg ? $pkg['profile_normal'] : 'default';
@@ -172,6 +191,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 if (update('customers', $data, 'id = ?', [$id])) {
+                    // Sync to Map (onu_locations) if coordinates present
+                    if (!empty($data['lat']) && !empty($data['lng'])) {
+                        $existingOnu = fetchOne("SELECT id FROM onu_locations WHERE serial_number = ?", [$data['phone']]);
+                        $onuDataSave = [
+                            'name' => $data['name'],
+                            'lat' => $data['lat'],
+                            'lng' => $data['lng'],
+                            'updated_at' => date('Y-m-d H:i:s')
+                        ];
+                        if ($existingOnu) {
+                            update('onu_locations', $onuDataSave, 'id = ?', [$existingOnu['id']]);
+                        } else {
+                            $onuDataSave['serial_number'] = $data['phone'];
+                            $onuDataSave['created_at'] = date('Y-m-d H:i:s');
+                            insert('onu_locations', $onuDataSave);
+                        }
+                    }
+
                     // Update MikroTik
                     if ($oldData) {
                         $pkg = fetchOne("SELECT profile_normal, profile_isolir FROM packages WHERE id = ?", [$data['package_id']]);
@@ -447,7 +484,11 @@ $stat_pending_acs = fetchOne("SELECT COUNT(*) as count FROM task_queue WHERE tas
                 
                 <div class="form-group">
                     <label class="form-label">Username PPPoE (MikroTik)</label>
-                    <input type="text" name="pppoe_username" id="pppoe_username_input" class="form-control" placeholder="Otomatis dari Nama Pelanggan" readonly style="background: rgba(255,255,255,0.05); cursor: default;">
+                    <div style="position:relative;">
+                        <input type="text" name="pppoe_username" id="pppoe_username_input" class="form-control" placeholder="Otomatis dari Nama Pelanggan" readonly style="background: rgba(255,255,255,0.05); cursor: default; padding-right: 40px;">
+                        <div id="username_spinner" style="display:none; position:absolute; right:12px; top:12px; color:var(--neon-cyan);"><i class="fas fa-spinner fa-spin"></i></div>
+                        <div id="username_ok" style="display:none; position:absolute; right:12px; top:12px; color:var(--neon-green);"><i class="fas fa-check-circle"></i></div>
+                    </div>
                     <small style="color: var(--text-secondary);">Akan dibuat otomatis saat Anda mengetik nama</small>
                 </div>
 
@@ -590,8 +631,8 @@ $stat_pending_acs = fetchOne("SELECT COUNT(*) as count FROM task_queue WHERE tas
             <div class="form-group">
                 <label class="form-label">Lokasi (Latitude, Longitude)</label>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                    <input type="text" name="lat" class="form-control" placeholder="Latitude" readonly>
-                    <input type="text" name="lng" class="form-control" placeholder="Longitude" readonly>
+                    <input type="text" name="lat" id="add_lat" class="form-control" placeholder="Latitude" readonly>
+                    <input type="text" name="lng" id="add_lng" class="form-control" placeholder="Longitude" readonly>
                 </div>
                 <small style="color: var(--text-secondary); margin-top: 5px; display: block;">Klik pada peta untuk menentukan lokasi rumah pelanggan</small>
             </div>
@@ -952,8 +993,8 @@ function initMap() {
     map.on('click', function(e) {
         if (marker) map.removeLayer(marker);
         marker = L.marker(e.latlng).addTo(map);
-        document.querySelector('input[name="lat"]').value = e.latlng.lat.toFixed(6);
-        document.querySelector('input[name="lng"]').value = e.latlng.lng.toFixed(6);
+        document.getElementById('add_lat').value = e.latlng.lat.toFixed(6);
+        document.getElementById('add_lng').value = e.latlng.lng.toFixed(6);
     });
     setTimeout(() => { map.invalidateSize(); }, 300);
 }
@@ -1254,28 +1295,48 @@ function toggleAddForm() {
 }
 
 const addNameInput = document.getElementById('add_customer_name');
+let usernameTimeout;
 if (addNameInput) {
     addNameInput.addEventListener('input', function(e) {
+        clearTimeout(usernameTimeout);
         const name = e.target.value;
-        if (!name) return;
-        let username = name.toLowerCase().replace(/\s+/g, '');
-        checkAndSetUsername(username);
+        if (!name) {
+            document.getElementById('pppoe_username_input').value = '';
+            document.getElementById('username_ok').style.display = 'none';
+            return;
+        }
+        
+        usernameTimeout = setTimeout(() => {
+            let username = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (username) checkAndSetUsername(username, 0);
+        }, 500); // 500ms debounce
     });
 }
 
-function checkAndSetUsername(username) {
-    fetch('../api/mikrotik.php?action=check_user&username=' + username)
+function checkAndSetUsername(baseUsername, counter) {
+    const spinner = document.getElementById('username_spinner');
+    const okIcon = document.getElementById('username_ok');
+    const input = document.getElementById('pppoe_username_input');
+    
+    spinner.style.display = 'block';
+    okIcon.style.display = 'none';
+    
+    const targetUsername = counter > 0 ? baseUsername + counter : baseUsername;
+
+    fetch('../api/mikrotik.php?action=check_user&username=' + targetUsername)
         .then(response => response.json())
         .then(data => {
             if (data.exists) {
-                const lastChar = username.slice(-1);
-                checkAndSetUsername(username + lastChar);
+                checkAndSetUsername(baseUsername, counter + 1);
             } else {
-                const input = document.getElementById('pppoe_username_input');
-                if (input) input.value = username;
+                if (input) input.value = targetUsername;
+                spinner.style.display = 'none';
+                okIcon.style.display = 'block';
             }
         })
-        .catch(console.error);
+        .catch(() => {
+            spinner.style.display = 'none';
+        });
 }
 
 function startScanner(targetId) {

@@ -23,7 +23,7 @@ foreach ($olts as $olt) {
     echo "--- Monitoring OLT: {$olt['name']} ---\n";
     
     // 1. Fetch current status from OLT
-    $statusResult = vsolFetchAllOnuStates($olt['id']);
+    $statusResult = oltFetchAllOnuStates($olt['id']);
     if (!$statusResult['success']) {
         echo "   ✗ Error: {$statusResult['message']}\n";
         continue;

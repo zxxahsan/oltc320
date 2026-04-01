@@ -11,7 +11,7 @@ require_once __DIR__ . '/olt_api.php';
  * Fetch All ONU Statuses from OLT via Telnet (v2.1)
  * Scans all PON ports to find online/offline/los states.
  */
-function vsolFetchAllOnuStates($olt_id) {
+function oltFetchAllOnuStates($olt_id) {
     $olt = fetchOne("SELECT * FROM olt_configs WHERE id = ?", [$olt_id]);
     if (!$olt) return ['success' => false, 'message' => 'OLT not found'];
 
@@ -73,7 +73,7 @@ function vsolFetchAllOnuStates($olt_id) {
  * @param int $olt_id ID from olt_configs
  * @return array Status results [success => bool, metrics => array, message => string]
  */
-function getOltSnmpStatus($olt_id) {
+function oltGetSnmpStatus($olt_id) {
     if (!function_exists('snmpget')) {
         return [
             'success' => false, 
@@ -100,7 +100,9 @@ function getOltSnmpStatus($olt_id) {
     ];
 
     $metrics = [];
-    snmp_set_quick_print(1);
+    if (function_exists('snmp_set_quick_print')) {
+        snmp_set_quick_print(1);
+    }
     
     // Set SNMP version
     if ($version == '1') {

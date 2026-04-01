@@ -26,7 +26,7 @@ if (isset($_GET['ajax_action']) && $_GET['ajax_action'] === 'provision') {
         exit;
     }
 
-    $result = vsolProvisionOnu($olt_id, $port, $onu_id, $pppoe_user, $pppoe_pass, $services, $acs_url);
+    $result = oltProvisionOnu($olt_id, $port, $onu_id, $pppoe_user, $pppoe_pass, $services, $acs_url);
     echo json_encode($result);
     exit;
 }

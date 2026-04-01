@@ -1,7 +1,7 @@
 <?php
 /**
- * OLT API & Communication Module (V8.17)
- * Metadata Scraper & Parser for V-SOL V1.3.9R
+ * OLT API & Communication Module (V8.18)
+ * Standardized OLT Interface for V-SOL & Generic Telnet/SSH
  */
 
 require_once __DIR__ . '/db.php';
@@ -99,7 +99,7 @@ class OltTelnetClient {
 /**
  * Parses running-config to extract ONU metadata
  */
-function vsolParseRunningConfig($config_text) {
+function oltParseRunningConfig($config_text) {
     $onus = [];
     $current_gpon = null;
     $lines = explode("\n", $config_text);
@@ -141,7 +141,7 @@ function vsolParseRunningConfig($config_text) {
 /**
  * Automates the discovery of unauthenticated ONUs for V-SOL V1.3.9R
  */
-function vsolFindUnauthOnu($olt_id) {
+function oltFindUnauthOnu($olt_id) {
     $olt = fetchOne("SELECT * FROM olt_configs WHERE id = ?", [$olt_id]);
     if (!$olt) return [];
 
@@ -169,7 +169,7 @@ function vsolFindUnauthOnu($olt_id) {
 /**
  * Full Sync: Fetch running-config and parse all ONUs
  */
-function vsolSyncAllMetadata($olt_id) {
+function oltSyncMetadata($olt_id) {
     $olt = fetchOne("SELECT * FROM olt_configs WHERE id = ?", [$olt_id]);
     if (!$olt) return ['error' => 'OLT not found'];
 
@@ -179,7 +179,7 @@ function vsolSyncAllMetadata($olt_id) {
         if (!empty($olt['enable_password'])) $client->enable($olt['enable_password']);
         
         $config = $client->execute("show running-config");
-        $results = vsolParseRunningConfig($config);
+        $results = oltParseRunningConfig($config);
         
         $client->disconnect();
         return $results;
@@ -196,7 +196,7 @@ function vsolSyncAllMetadata($olt_id) {
  * @param array  $pppoe_bind   LANS/WIFIS for PPPoE (v1.17)
  * @param array  $hotspot_bind LANS/WIFIS for Bridge (v1.17)
  */
-function vsolProvisionOnu($olt_id, $port, $onu_id, $pppoe_user, $pppoe_pass, $services = [], $acs_url = 'http://172.16.200.3:7547', $pppoe_bind = [], $hotspot_bind = []) {
+function oltProvisionOnu($olt_id, $port, $onu_id, $pppoe_user, $pppoe_pass, $services = [], $acs_url = 'http://172.16.200.3:7547', $pppoe_bind = [], $hotspot_bind = []) {
     $olt = fetchOne("SELECT * FROM olt_configs WHERE id = ?", [$olt_id]);
     if (!$olt) return ['success' => false, 'log' => 'OLT tidak ditemukan'];
 
@@ -374,7 +374,7 @@ function vsolProvisionOnu($olt_id, $port, $onu_id, $pppoe_user, $pppoe_pass, $se
 /**
  * Find ONU Port and ID by Serial Number on VSOL OLT
  */
-function vsolFindOnuBySn($olt_id, $sn) {
+function oltFindOnuBySn($olt_id, $sn) {
     if (empty($sn)) return ['success' => false, 'message' => 'SN is empty'];
 
     $olt = fetchOne("SELECT * FROM olt_configs WHERE id = ?", [$olt_id]);
@@ -452,7 +452,7 @@ function vsolFindOnuBySn($olt_id, $sn) {
 /**
  * Delete all WAN configurations (Index 1-8) for a specific ONU
  */
-function vsolDeleteOnuWanConfigs($olt_id, $port, $onu_id) {
+function oltDeleteOnuWanConfigs($olt_id, $port, $onu_id) {
     if (!$olt_id || !$port || !$onu_id) return ['success' => false, 'log' => 'ID tidak lengkap'];
 
     $olt = fetchOne("SELECT * FROM olt_configs WHERE id = ?", [$olt_id]);

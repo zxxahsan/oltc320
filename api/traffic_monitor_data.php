@@ -62,6 +62,7 @@ function mikrotikReadAllAndParse($socket) {
 }
 
 $allActiveSessions = [];
+try {
 $routers = getAllRouters();
 if (empty($routers)) {
     // Legacy fallback bridging Single Router installations without `routers` table records natively
@@ -181,6 +182,8 @@ usort($data, function($a, $b) {
     return $b['raw_total'] <=> $a['raw_total'];
 });
 
-// Clear implicit network timeouts masking clean responses
-if (ob_get_length()) ob_clean();
 echo json_encode(['data' => $data]);
+} catch (Throwable $e) {
+    error_log("Traffic Monitor API Fatal Error: " . $e->getMessage());
+    echo json_encode(['data' => $data ?? [], 'error' => $e->getMessage()]);
+}
