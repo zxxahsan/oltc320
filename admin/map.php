@@ -892,10 +892,12 @@ function loadMarkers() {
 }
 
 function showOnuDetails(onu) {
-    currentOnuSerial = onu.serial_number || onu.serial;
+    // Rely on Phone tags for primary telemetry tracing
+    currentOnuSerial = onu.phone || onu.serial_number || onu.serial;
     
     document.getElementById('modalName').textContent = onu.name || '-';
-    document.getElementById('modalSerial').textContent = currentOnuSerial;
+    // Keep raw SN display for the UI text regardless
+    document.getElementById('modalSerial').textContent = onu.serial_number || onu.serial;
     
     // Status badge
     const statusEl = document.getElementById('modalStatus');
