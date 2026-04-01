@@ -190,6 +190,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         
                         $mt = mikrotikUpdateSecret($oldData['pppoe_username'], $mtUpdate, $data['router_id']);
                         
+                        if (!$mt['success']) {
+                            // If update fails (e.g. secret missing on router), try to Add it
+                            $mt = mikrotikAddSecret($oldData['pppoe_username'], $mtUpdate['password'] ?? $oldData['pppoe_password'] ?: '12345678', $profile, $data['router_id']);
+                        }
+                        
                         if ($mt['success']) {
                             setFlash('success', 'Data pelanggan berhasil diperbarui dan disinkronkan ke MikroTik');
                         } else {
@@ -224,13 +229,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($pkg) {
                         $profile = ($c['status'] === 'isolated') ? $pkg['profile_isolir'] : $pkg['profile_normal'];
                         $res = mikrotikUpdateSecret($c['pppoe_username'], [
-                            'password' => $c['pppoe_password'] ?: '123456',
+                            'password' => $c['pppoe_password'] ?: '12345678',
                             'profile' => $profile
                         ], $c['router_id']);
                         
                         if (!$res['success']) {
                             // If doesn't exist, try to Add
-                            $res = mikrotikAddSecret($c['pppoe_username'], $c['pppoe_password'] ?: '123456', $profile, $c['router_id']);
+                            $res = mikrotikAddSecret($c['pppoe_username'], $c['pppoe_password'] ?: '12345678', $profile, $c['router_id']);
                         }
                         
                         if ($res['success']) $successCount++;
