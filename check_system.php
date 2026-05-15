@@ -1,25 +1,31 @@
 <?php
-echo "<h1>System Capability Check</h1>";
+require_once 'includes/auth.php';
+echo "<h1>SSH Direct Command Test</h1>";
 
-echo "<h2>Network Test (PING)</h2>";
-$host = "100.69.9.2";
-$output = shell_exec("ping -c 4 $host 2>&1");
-echo "<pre style='background:#000; color:#fff; padding:10px;'>$output</pre>";
-
-echo "<h2>Network Test (PORT SCAN)</h2>";
-$ports = [22, 23, 80, 443];
-foreach ($ports as $port) {
-    $fp = @fsockopen($host, $port, $errno, $errstr, 2);
-    if ($fp) {
-        echo "Port $port: <b style='color:green'>OPEN</b><br>";
-        fclose($fp);
-    } else {
-        echo "Port $port: <b style='color:red'>CLOSED</b> ($errstr)<br>";
-    }
+$olt = fetchOne("SELECT * FROM olts LIMIT 1");
+if (!$olt) {
+    die("Tidak ada data OLT di database.");
 }
 
-echo "<h2>PHP Extensions</h2>";
-$extensions = ['ssh2', 'sockets', 'openssl', 'curl'];
-foreach ($extensions as $ext) {
-    echo "$ext: " . (extension_loaded($ext) ? "OK" : "MISSING") . "<br>";
+$host = $olt['host'];
+$user = $olt['username'];
+$pass = $olt['password'];
+$port = $olt['port'] == 23 ? 22 : $olt['port']; // Paksa pakai port 22 untuk tes SSH
+
+echo "Testing SSH Direct Command to $user@$host:$port...<br>";
+
+// Gunakan -T (disable TTY) dan langsung kirim perintah
+$cmd = "sshpass -p " . escapeshellarg($pass) . " ssh -T -o StrictHostKeyChecking=no -o ConnectTimeout=5 -p $port $user@$host \"show version\" 2>&1";
+
+$output = shell_exec($cmd);
+
+echo "<h2>Output:</h2>";
+echo "<pre style='background:#000; color:#0f0; padding:10px;'>" . htmlspecialchars($output) . "</pre>";
+
+if (strpos($output, 'pseudo-terminal') !== false) {
+    echo "<b style='color:red'>Masih gagal TTY.</b>";
+} elseif (empty($output)) {
+    echo "<b style='color:orange'>Output Kosong.</b>";
+} else {
+    echo "<b style='color:green'>BERHASIL! OLT merespon tanpa butuh TTY.</b>";
 }
