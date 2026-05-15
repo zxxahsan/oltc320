@@ -133,18 +133,31 @@ class ZTE_OLT {
             if ($this->protocol === 'ssh') {
                 $read = fread($this->pipes[1], 4096);
             } else {
-                $read = fread($this->socket, 4096);
+                $read = @fread($this->socket, 4096);
             }
 
             if ($read) {
-                $buffer .= $read;
+                // Filter Telnet IAC codes (0xff ...) and non-printable chars
+                $clean = "";
+                for ($i = 0; $i < strlen($read); $i++) {
+                    $ord = ord($read[$i]);
+                    if ($ord >= 32 && $ord <= 126) {
+                        $clean .= $read[$i];
+                    } elseif ($ord == 10 || $ord == 13 || $ord == 58) { // LF, CR, Colon
+                        $clean .= $read[$i];
+                    }
+                }
+                
+                $buffer .= $clean;
+                $this->last_output .= $clean;
+                
                 foreach ($prompts as $p) {
-                    if (strpos($buffer, $p) !== false) return $buffer;
+                    if (stripos($buffer, $p) !== false) return $buffer;
                 }
             }
             usleep(100000); // 100ms
         }
-        return $buffer;
+        return false;
     }
 
     public function getUnconfiguredOnu() {
