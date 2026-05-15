@@ -20,7 +20,7 @@ if ($action === 'test_connection') {
         exit;
     }
 
-    $client = new ZTE_OLT($olt['host'], $olt['username'], $olt['password'], $olt['telnet_port']);
+    $client = new ZTE_OLT($olt['host'], $olt['username'], $olt['password'], $olt['port'], $olt['protocol'] ?? 'ssh');
     if ($client->connect()) {
         echo json_encode(['success' => true, 'message' => 'Koneksi ke OLT Berhasil!']);
     } else {
@@ -37,7 +37,7 @@ if ($action === 'test_connection') {
         exit;
     }
 
-    $client = new ZTE_OLT($olt['host'], $olt['username'], $olt['password'], $olt['telnet_port']);
+    $client = new ZTE_OLT($olt['host'], $olt['username'], $olt['password'], $olt['port'], $olt['protocol'] ?? 'ssh');
     if ($client->connect()) {
         $unconfigured = $client->getUnconfiguredOnus();
         $found = null;
@@ -81,7 +81,7 @@ if ($action === 'test_connection') {
         exit;
     }
 
-    $client = new ZTE_OLT($olt['host'], $olt['username'], $olt['password'], $olt['telnet_port']);
+    $client = new ZTE_OLT($olt['host'], $olt['username'], $olt['password'], $olt['port'], $olt['protocol'] ?? 'ssh');
     if ($client->connect()) {
         $vlans = $client->getProfiles('vlan');
         $tconts = $client->getProfiles('tcont');
@@ -120,7 +120,7 @@ if ($action === 'test_connection') {
         exit;
     }
 
-    $client = new ZTE_OLT($olt['host'], $olt['username'], $olt['password'], $olt['telnet_port']);
+    $client = new ZTE_OLT($olt['host'], $olt['username'], $olt['password'], $olt['port'], $olt['protocol'] ?? 'ssh');
     if ($client->connect()) {
         $logs = $client->provision($data);
         
@@ -156,7 +156,7 @@ if ($action === 'test_connection') {
         exit;
     }
 
-    $client = new ZTE_OLT($olt['host'], $olt['username'], $olt['password'], $olt['telnet_port']);
+    $client = new ZTE_OLT($olt['host'], $olt['username'], $olt['password'], $olt['port'], $olt['protocol'] ?? 'ssh');
     if ($client->connect()) {
         $logs = $client->deleteOnu($port, $onu_id);
         

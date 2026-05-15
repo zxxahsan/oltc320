@@ -1527,3 +1527,18 @@ function genieacsAddTag($serial, $tag) {
     
     return ($httpCode === 200 || $httpCode === 201 || $httpCode === 202);
 }
+function getOlt($id) {
+    return fetchOne("SELECT * FROM olts WHERE id = ?", [$id]);
+}
+
+function getOltProfiles($olt_id, $type) {
+    return fetchAll("SELECT * FROM olt_profiles WHERE olt_id = ? AND profile_type = ?", [$olt_id, $type]);
+}
+
+function logOltProvisioning($data) {
+    return insert('olt_provisioning_logs', $data);
+}
+
+function getOltLogs($limit = 100) {
+    return fetchAll("SELECT l.*, o.name as olt_name FROM olt_provisioning_logs l JOIN olts o ON l.olt_id = o.id ORDER BY l.created_at DESC LIMIT ?", [$limit]);
+}
