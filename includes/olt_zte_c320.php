@@ -79,9 +79,15 @@ class ZTE_OLT {
 
         stream_set_timeout($this->socket, 3);
         
+        // Pancing dengan Enter agar muncul prompt
+        fwrite($this->socket, "\r\n");
+        
         // Wait for Username or Login prompt
-        if (!$this->waitPrompt(['Username:', 'login:', 'User Name:'], 10)) {
+        $out = $this->waitPrompt(['Username:', 'login:', 'User Name:', 'Login:'], 10);
+        if (!$out) {
             $this->lastError = "Telnet Login Timeout: Did not see Username prompt.";
+            // Simpan log untuk debug
+            @file_put_contents('logs/telnet_debug.log', "DEBUG: Received before timeout: " . bin2hex($this->last_output) . "\n", FILE_APPEND);
             return false;
         }
         fwrite($this->socket, $this->user . "\r\n");
