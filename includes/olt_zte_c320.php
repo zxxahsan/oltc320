@@ -51,36 +51,173 @@ class ZTE_OLT {
                 $this->send($this->password); // Usually same as login
                 $this->readUntil('#');
             }
+        if ($this->protocol === 'ssh') {
+            return $this->connectSSH();
+        } else {
+            return $this->connectTelnet();
         }
-
-        // Disable paging
-        $this->send('terminal length 0');
-        $this->readUntil('#');
-
-        return true;
     }
 
-    public function exec($command, $waitPrompt = '#') {
-        $this->send($command);
-        return $this->readUntil($waitPrompt);
+    private function connectSSH() {
+        // Menggunakan sshpass jika tersedia, atau ssh biasa
+        // Pastikan sshpass terinstall: sudo apt-get install sshpass
+        $cmd = "sshpass -p '{$this->pass}' ssh -o StrictHostKeyChecking=no -o ConnectTimeout={$this->timeout} -p {$this->port} {$this->user}@{$this->host}";
+        
+        $descriptorspec = array(
+            0 => array("pipe", "r"), // stdin
+            1 => array("pipe", "w"), // stdout
+            2 => array("pipe", "w")  // stderr
+        );
+
+        $this->process = proc_open($cmd, $descriptorspec, $this->pipes);
+
+        if (is_resource($this->process)) {
+            stream_set_blocking($this->pipes[1], 0);
+            stream_set_blocking($this->pipes[2], 0);
+            
+            // Tunggu prompt awal
+            $output = $this->waitPrompt(['>', '#'], 5);
+            if ($output) {
+                $this->last_output .= $output;
+                return true;
+            }
+        }
+        return false;
     }
 
-    public function getUnconfiguredOnus() {
-        $output = $this->exec('show gpon onu unconfigured');
-        $lines = explode("\n", $output);
+    private function connectTelnet() {
+        $this->conn = fsockopen($this->host, $this->port, $errno, $errstr, $this->timeout);
+        if (!$this->conn) return false;
+
+        stream_set_timeout($this->conn, 2);
+        
+        $this->waitPrompt("Username:");
+        fwrite($this->conn, $this->user . "\r\n");
+        $this->waitPrompt("Password:");
+        fwrite($this->conn, $this->pass . "\r\n");
+        
+        $out = $this->waitPrompt(['>', '#']);
+        if ($out) {
+            $this->last_output .= $out;
+            return true;
+        }
+        return false;
+    }
+
+    public function exec($cmd) {
+        $this->last_output = "";
+        if ($this->protocol === 'ssh') {
+            fwrite($this->pipes[0], $cmd . "\r\n");
+            $out = $this->waitPrompt(['#', '>', '(config)'], 5);
+            $this->last_output = $out;
+            return $out;
+        } else {
+            fwrite($this->conn, $cmd . "\r\n");
+            $out = $this->waitPrompt(['#', '>', '(config)']);
+            $this->last_output = $out;
+            return $out;
+        }
+    }
+
+    private function waitPrompt($prompts, $timeout = 5) {
+        if (!is_array($prompts)) $prompts = [$prompts];
+        $buffer = "";
+        $start = time();
+        
+        while (time() - $start < $timeout) {
+            if ($this->protocol === 'ssh') {
+                $read = fread($this->pipes[1], 4096);
+                $err = fread($this->pipes[2], 4096);
+                if ($read) $buffer .= $read;
+            } else {
+                $read = fread($this->conn, 4096);
+                if ($read) $buffer .= $read;
+            }
+
+            foreach ($prompts as $p) {
+                if (strpos($buffer, $p) !== false) return $buffer;
+            }
+            usleep(100000); // 100ms
+        }
+        return $buffer;
+    }
+
+    public function getUnconfiguredOnu() {
+        $this->exec("show gpon onu uncfg");
+        $lines = explode("\n", $this->last_output);
         $onus = [];
-
-        // Parsing logic based on typical ZTE output
-        // Example output line: gpon-olt_1/1/10 1  ZTEG12345678  ...
         foreach ($lines as $line) {
-            if (preg_match('/gpon-olt_(\d+\/\d+\/\d+)\s+(\d+)\s+([A-Z0-9]{12})/i', $line, $matches)) {
+            // Logic parsing SN, Port, dll tetap sama
+            if (preg_match('/gpon-onu_(\d+\/\d+\/\d+):(\d+)\s+([A-Z0-9]+)/', $line, $matches)) {
                 $onus[] = [
                     'port' => $matches[1],
-                    'sn' => $matches[3]
+                    'sn' => $matches[3],
+                    'id' => $matches[2]
                 ];
             }
         }
         return $onus;
+    }
+
+    public function provisionOnu($data) {
+        $this->exec("conf t");
+        $this->exec("interface gpon-olt_{$data['port']}");
+        $this->exec("onu {$data['onu_index']} type {$data['type']} sn {$data['sn']}");
+        $this->exec("exit");
+
+        if ($data['mode'] == 'omci') {
+            $this->provisionOmci($data);
+        } else {
+            $this->provisionStandard($data);
+        }
+        
+        return ["status" => "success", "log" => $this->last_output];
+    }
+
+    private function provisionStandard($data) {
+        $this->exec("conf t");
+        $this->exec("interface gpon-onu_{$data['port']}:{$data['onu_index']}");
+        $this->exec("tcont 1 profile {$data['tcont']}");
+        $this->exec("gemport 1 tcont 1");
+        $this->exec("exit");
+        
+        $this->exec("pon-onu-mng gpon-onu_{$data['port']}:{$data['onu_index']}");
+        $this->exec("service pppoe gemport 1 vlan {$data['vlan']}");
+        $this->exec("exit");
+    }
+
+    private function provisionOmci($data) {
+        $this->exec("conf t");
+        $this->exec("pon-onu-mng gpon-onu_{$data['port']}:{$data['onu_index']}");
+        $this->exec("service pppoe gemport 1 vlan {$data['vlan']}");
+        $this->exec("wan-config mode pppoe username {$data['username']} password {$data['password']} vlan {$data['vlan']}");
+        $this->exec("security-mgmt 1 state enable mode forward protocol web");
+        $this->exec("exit");
+    }
+
+    public function deleteOnu($port, $onu_index) {
+        $this->exec("conf t");
+        $this->exec("interface gpon-olt_{$port}");
+        $this->exec("no onu {$onu_index}");
+        $this->exec("exit");
+        return true;
+    }
+
+    public function disconnect() {
+        if ($this->protocol === 'ssh') {
+            if (is_resource($this->process)) {
+                fwrite($this->pipes[0], "exit\r\n");
+                fclose($this->pipes[0]);
+                fclose($this->pipes[1]);
+                fclose($this->pipes[2]);
+                proc_close($this->process);
+            }
+        } else {
+            if ($this->conn) {
+                fwrite($this->conn, "exit\r\n");
+                fclose($this->conn);
+            }
+        }
     }
 
     public function getProfiles($type = 'vlan') {
