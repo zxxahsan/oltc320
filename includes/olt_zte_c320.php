@@ -71,9 +71,11 @@ class ZTE_OLT {
     }
 
     private function connectTelnet() {
+        $logFile = __DIR__ . '/../logs/telnet_debug.log';
         $this->socket = @fsockopen($this->host, $this->port, $errno, $errstr, $this->timeout);
         if (!$this->socket) {
             $this->lastError = "Telnet Failed: $errstr ($errno)";
+            @file_put_contents($logFile, "[" . date('Y-m-d H:i:s') . "] Connection Failed: $errstr ($errno)\n", FILE_APPEND);
             return false;
         }
 
@@ -87,7 +89,7 @@ class ZTE_OLT {
         if (!$out) {
             $this->lastError = "Telnet Login Timeout: Did not see Username prompt.";
             // Simpan log untuk debug
-            @file_put_contents('logs/telnet_debug.log', "DEBUG: Received before timeout: " . bin2hex($this->last_output) . "\n", FILE_APPEND);
+            @file_put_contents($logFile, "[" . date('Y-m-d H:i:s') . "] DEBUG: Received before timeout: " . bin2hex($this->last_output) . " | Plain: " . $this->last_output . "\n", FILE_APPEND);
             return false;
         }
         fwrite($this->socket, $this->user . "\r\n");
