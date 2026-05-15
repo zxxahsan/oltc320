@@ -72,35 +72,44 @@ class ZTE_OLT {
 
     private function connectTelnet() {
         $logFile = __DIR__ . '/../logs/telnet_debug.log';
-        $this->socket = @fsockopen($this->host, $this->port, $errno, $errstr, $this->timeout);
+        $this->socket = @socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
         if (!$this->socket) {
-            $this->lastError = "Telnet Failed: $errstr ($errno)";
-            @file_put_contents($logFile, "[" . date('Y-m-d H:i:s') . "] Connection Failed: $errstr ($errno)\n", FILE_APPEND);
+            $this->lastError = "Socket Create Failed";
             return false;
         }
 
-        stream_set_blocking($this->socket, 0);
+        socket_set_option($this->socket, SOL_SOCKET, SO_RCVTIMEO, array('sec' => 3, 'usec' => 0));
         
-        // Kirim Negosiasi Telnet (IAC WILL ECHO, IAC WILL SUPPRESS GO AHEAD)
-        // Beberapa ZTE butuh ini agar mau bicara
-        fwrite($this->socket, "\xFF\xFB\x01\xFF\xFB\x03\xFF\xFD\x01\xFF\xFD\x03");
+        if (!@socket_connect($this->socket, $this->host, $this->port)) {
+            $err = socket_strerror(socket_last_error($this->socket));
+            $this->lastError = "Socket Connect Failed: $err";
+            return false;
+        }
+
+        // Wait a bit for OLT to send initial bytes
         usleep(500000);
-        fwrite($this->socket, "\r\n");
         
-        // Wait for Username or Login prompt
+        // Kirim Negosiasi Telnet
+        $neg = "\xFF\xFB\x01\xFF\xFB\x03\xFF\xFD\x01\xFF\xFD\x03";
+        socket_write($this->socket, $neg, strlen($neg));
+        usleep(500000);
+        socket_write($this->socket, "\r\n", 2);
+        
+        // Wait for Username
         $out = $this->waitPrompt(['Username:', 'login:', 'User Name:', 'Login:'], 15);
         if (!$out) {
             $this->lastError = "Telnet Login Timeout: Did not see Username prompt.";
-            @file_put_contents($logFile, "[" . date('Y-m-d H:i:s') . "] DEBUG: Received Hex: " . bin2hex($this->last_output) . "\n", FILE_APPEND);
+            @file_put_contents($logFile, "[" . date('Y-m-d H:i:s') . "] DEBUG: Received: " . bin2hex($this->last_output) . "\n", FILE_APPEND);
             return false;
         }
-        fwrite($this->socket, $this->user . "\r\n");
+        
+        socket_write($this->socket, $this->user . "\r\n", strlen($this->user) + 2);
         
         if (!$this->waitPrompt(['Password:', 'password:'], 5)) {
             $this->lastError = "Telnet Login Timeout: Did not see Password prompt.";
             return false;
         }
-        fwrite($this->socket, $this->pass . "\r\n");
+        socket_write($this->socket, $this->pass . "\r\n", strlen($this->pass) + 2);
         
         $out = $this->waitPrompt(['>', '#'], 5);
         if ($out) {
@@ -108,7 +117,7 @@ class ZTE_OLT {
             return true;
         }
         
-        $this->lastError = "Telnet Login Timeout: Login failed or prompt not found.";
+        $this->lastError = "Telnet Login Timeout: Login failed.";
         return false;
     }
 
@@ -120,7 +129,7 @@ class ZTE_OLT {
             $this->last_output = $out;
             return $out;
         } else {
-            fwrite($this->socket, $cmd . "\r\n");
+            @socket_write($this->socket, $cmd . "\r\n", strlen($cmd) + 2);
             $out = $this->waitPrompt(['#', '>', '(config)']);
             $this->last_output = $out;
             return $out;
@@ -135,9 +144,9 @@ class ZTE_OLT {
         while (time() - $start < $timeout) {
             $read = "";
             if ($this->protocol === 'ssh') {
-                $read = fread($this->pipes[1], 4096);
+                $read = @fread($this->pipes[1], 4096);
             } else {
-                $read = @fread($this->socket, 4096);
+                $read = @socket_read($this->socket, 4096, PHP_BINARY_READ);
             }
 
             if ($read) {
@@ -159,7 +168,7 @@ class ZTE_OLT {
                     if (stripos($buffer, $p) !== false) return $buffer;
                 }
             }
-            usleep(100000); // 100ms
+            usleep(50000); // 50ms
         }
         return false;
     }
