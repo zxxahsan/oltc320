@@ -5,7 +5,7 @@
 
 require_once '../includes/auth.php';
 requireAdminLogin();
-require_once '../includes/olt_api.php';
+require_once '../includes/olt_zte_c320.php';
 require_once '../includes/mikrotik_api.php';
 
 ob_start();
@@ -29,52 +29,34 @@ $pageTitle = 'Pelanggan';
 // === AJAX: Provision ONU ===
 if (isset($_GET['ajax_action']) && $_GET['ajax_action'] === 'provision') {
     header('Content-Type: application/json');
-    $olt_id    = (int)($_POST['olt_id'] ?? 0);
-    $port      = (int)($_POST['port'] ?? 0);
-    $onu_id    = (int)($_POST['onu_id'] ?? 0);
-    $pppoe_user = trim($_POST['pppoe_user'] ?? '');
-    $pppoe_pass = trim($_POST['pppoe_pass'] ?? '');
-    $services  = $_POST['services'] ?? [];
-    $acs_url   = trim($_POST['acs_url'] ?? 'http://172.16.200.3:7547');
-    $pppoe_bind = $_POST['pppoe_bind'] ?? [];
-    $hotspot_bind = $_POST['hotspot_bind'] ?? [];
-
-    if (!$olt_id || !$port || !$onu_id) {
-        echo json_encode(['success' => false, 'log' => 'Data OLT/Port/ONU ID tidak lengkap']);
+    $olt_id = (int)($_POST['olt_id'] ?? 0);
+    $olt = getOlt($olt_id);
+    
+    if (!$olt) {
+        echo json_encode(['success' => false, 'message' => 'OLT tidak ditemukan.']);
         exit;
     }
 
-    $result = oltProvisionOnu($olt_id, $port, $onu_id, $pppoe_user, $pppoe_pass, $services, $acs_url, $pppoe_bind, $hotspot_bind);
-    
-    if ($result['success']) {
-        // Find SN for this ONU to queue ACS tagging
-        $onu = oltSyncMetadata($olt_id);
-        $sn = '';
-        foreach ($onu as $o) {
-            if ($o['port'] == $port && $o['id'] == $onu_id) {
-                $sn = $o['sn'];
-                break;
-            }
-        }
+    $client = new ZTE_OLT($olt['host'], $olt['username'], $olt['password'], $olt['port'], $olt['protocol'] ?? 'ssh');
+    if ($client->connect()) {
+        $data = [
+            'port' => $_POST['port'],
+            'onu_index' => $_POST['onu_id'],
+            'sn' => $_POST['sn'],
+            'type' => $_POST['onu_type'] ?? 'ALL',
+            'mode' => in_array('omci', $_POST['services'] ?? []) ? 'omci' : 'standard',
+            'vlan' => $_POST['vlan'] ?? 100,
+            'username' => $_POST['pppoe_user'] ?? '',
+            'password' => $_POST['pppoe_pass'] ?? '',
+            'tcont' => 'default'
+        ];
         
-        if ($sn) {
-            $cust = fetchOne("SELECT id, phone FROM customers WHERE pppoe_username = ?", [$pppoe_user]);
-            $tagValue = $cust ? $cust['phone'] : $pppoe_user;
-            
-            $payload = json_encode(['sn' => $sn, 'tag' => $tagValue]);
-            $executeAfter = date('Y-m-d H:i:s', strtotime('+5 minutes'));
-            
-            insert('task_queue', [
-                'task_type' => 'acs_tag',
-                'payload' => $payload,
-                'execute_after' => $executeAfter,
-                'status' => 'pending'
-            ]);
-            $result['log'] .= "\n[QUEUE] Tagging ACS ditunda 5 menit untuk SN: $sn (Tag: $tagValue)";
-        }
+        $result = $client->provisionOnu($data);
+        $client->disconnect();
+        echo json_encode(['success' => true, 'log' => $result['log']]);
+    } else {
+        echo json_encode(['success' => false, 'message' => 'Gagal konek ke OLT via SSH.']);
     }
-    
-    echo json_encode($result);
     exit;
 }
 
@@ -82,15 +64,34 @@ if (isset($_GET['ajax_action']) && $_GET['ajax_action'] === 'provision') {
 if (isset($_GET['ajax_action']) && $_GET['ajax_action'] === 'find_sn') {
     header('Content-Type: application/json');
     $olt_id = (int)($_GET['olt_id'] ?? 0);
-    $sn     = strtoupper(trim($_GET['sn'] ?? ''));
+    $sn = strtoupper(trim($_GET['sn'] ?? ''));
+    $olt = getOlt($olt_id);
     
-    if (!$olt_id || !$sn) {
-        echo json_encode(['success' => false, 'message' => 'OLT ID and SN are required']);
+    if (!$olt) {
+        echo json_encode(['success' => false, 'message' => 'OLT tidak ditemukan.']);
         exit;
     }
-    
-    $result = oltFindOnuBySn($olt_id, $sn);
-    echo json_encode($result);
+
+    $client = new ZTE_OLT($olt['host'], $olt['username'], $olt['password'], $olt['port'], $olt['protocol'] ?? 'ssh');
+    if ($client->connect()) {
+        $uncfg = $client->getUnconfiguredOnu();
+        $found = null;
+        foreach ($uncfg as $o) {
+            if (strcasecmp($o['sn'], $sn) === 0) {
+                $found = $o;
+                break;
+            }
+        }
+        $client->disconnect();
+        
+        if ($found) {
+            echo json_encode(['success' => true, 'port' => $found['port'], 'onu_id' => $found['id']]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'SN tidak ditemukan di daftar unconfigured OLT.']);
+        }
+    } else {
+        echo json_encode(['success' => false, 'message' => 'Gagal konek ke OLT via SSH.']);
+    }
     exit;
 }
 
@@ -339,7 +340,7 @@ $packages = fetchAll("SELECT id, name, price FROM packages ORDER BY price ASC");
 $routers = fetchAll("SELECT id, name, host FROM routers ORDER BY name ASC");
 
 // Fetch OLTs
-$olts = fetchAll("SELECT id, name FROM olt_configs ORDER BY name ASC");
+$olts = fetchAll("SELECT id, name FROM olts ORDER BY name ASC");
 
 // Fetch Technicians
 $technicians = fetchAll("SELECT id, name, username FROM technician_users WHERE status = 'active' ORDER BY name ASC");
