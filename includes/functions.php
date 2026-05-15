@@ -13,10 +13,14 @@ function getSetting($key, $default = '') {
     
     if ($global_settings_cache === null) {
         $global_settings_cache = [];
-        $data = fetchAll("SELECT setting_key, setting_value FROM settings");
-        foreach ($data as $row) {
-            $global_settings_cache[$row['setting_key']] = $row['setting_value'];
-        }
+        try {
+            $data = fetchAll("SELECT setting_key, setting_value FROM settings");
+            if (is_array($data)) {
+                foreach ($data as $row) {
+                    $global_settings_cache[$row['setting_key']] = $row['setting_value'];
+                }
+            }
+        } catch (Exception $e) {}
     }
     
     if (isset($global_settings_cache[$key]) && $global_settings_cache[$key] !== '') {
@@ -28,6 +32,39 @@ function getSetting($key, $default = '') {
     }
     
     return $default;
+}
+
+// OLT Helpers
+function getAllOlts() {
+    try {
+        return fetchAll("SELECT * FROM olts ORDER BY name ASC");
+    } catch (Exception $e) { return []; }
+}
+
+function getOlt($id) {
+    return fetchOne("SELECT * FROM olts WHERE id = ?", [$id]);
+}
+
+function getOltProfiles($olt_id, $type) {
+    try {
+        return fetchAll("SELECT profile_name FROM olt_profiles WHERE olt_id = ? AND profile_type = ? ORDER BY profile_name ASC", [$olt_id, $type]);
+    } catch (Exception $e) { return []; }
+}
+
+function logOltProvisioning($data) {
+    return insert('olt_provisioning_logs', $data);
+}
+
+function getOltProvisioningLogs($limit = 50) {
+    try {
+        return fetchAll("
+            SELECT l.*, o.name as olt_name 
+            FROM olt_provisioning_logs l
+            LEFT JOIN olts o ON l.olt_id = o.id
+            ORDER BY l.created_at DESC 
+            LIMIT ?
+        ", [$limit]);
+    } catch (Exception $e) { return []; }
 }
 
 // Get site setting from site_settings table

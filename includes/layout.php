@@ -1144,6 +1144,26 @@ if (isset($_GET['switch_router'])) {
                     </a>
                 </div>
 
+                <div class="menu-item <?php echo (strpos(basename($_SERVER['PHP_SELF']), 'olt') !== false) ? 'active' : ''; ?>"
+                    onclick="toggleSubmenu(this)">
+                    <i class="fas fa-network-wired"></i>
+                    <span>Menu OLT</span>
+                    <i class="fas fa-chevron-down" style="margin-left: auto; font-size: 0.7rem;"></i>
+                </div>
+                <div class="submenu"
+                    style="<?php echo (strpos(basename($_SERVER['PHP_SELF']), 'olt') !== false) ? 'display: block;' : 'display: none;'; ?> background: var(--bg-submenu);">
+                    <a href="<?php echo APP_URL; ?>/admin/olts.php"
+                        class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'olts.php' ? 'active' : ''; ?>"
+                        style="padding-left: 45px; font-size: 0.9rem;">
+                        <i class="fas fa-server"></i> <span>Data OLT</span>
+                    </a>
+                    <a href="<?php echo APP_URL; ?>/admin/olt-provisioning.php"
+                        class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'olt-provisioning.php' ? 'active' : ''; ?>"
+                        style="padding-left: 45px; font-size: 0.9rem;">
+                        <i class="fas fa-plug"></i> <span>Provisioning</span>
+                    </a>
+                </div>
+
                 <a href="<?php echo APP_URL; ?>/admin/genieacs.php"
                     class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'genieacs.php' ? 'active' : ''; ?>">
                     <i class="fas fa-satellite-dish"></i>

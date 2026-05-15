@@ -1,4 +1,0 @@
-function wa(paket){
-    let msg = `Halo, saya ingin daftar paket ${paket} di NET`;
-    window.open("https://wa.me/628xxxxxxxxxx?text="+encodeURIComponent(msg));
-}
