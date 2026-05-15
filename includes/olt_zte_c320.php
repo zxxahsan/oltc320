@@ -35,7 +35,7 @@ class ZTE_OLT {
     private function connectSSH() {
         // Ensure we have correct escape for password if needed
         $password = escapeshellarg($this->pass);
-        $cmd = "sshpass -p $password ssh -T -o StrictHostKeyChecking=no -o ConnectTimeout={$this->timeout} -p {$this->port} {$this->user}@{$this->host}";
+        $cmd = "sshpass -p $password ssh -q -T -o RequestTTY=no -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout={$this->timeout} -p {$this->port} {$this->user}@{$this->host}";
         
         $descriptorspec = array(
             0 => array("pipe", "r"), // stdin
