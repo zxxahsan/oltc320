@@ -3,6 +3,16 @@
  * ZTE C320 OLT SSH/Telnet Helper
  */
 
+// Autoloader untuk phpseclib (tanpa composer)
+spl_autoload_register(function ($class) {
+    if (strpos($class, 'phpseclib\\') === 0) {
+        $file = __DIR__ . '/phpseclib/' . str_replace('\\', '/', $class) . '.php';
+        if (file_exists($file)) require_once $file;
+    }
+});
+
+use phpseclib\Net\SSH2;
+
 class ZTE_OLT {
     private $host;
     private $port;
@@ -33,41 +43,29 @@ class ZTE_OLT {
     }
 
     private function connectSSH() {
-        // Ensure we have correct escape for password if needed
-        $password = escapeshellarg($this->pass);
-        $cmd = "sshpass -p $password ssh -tt -o StrictHostKeyChecking=no -o ConnectTimeout={$this->timeout} -p {$this->port} {$this->user}@{$this->host}";
-        
-        $descriptorspec = array(
-            0 => array("pipe", "r"), // stdin
-            1 => array("pipe", "w"), // stdout
-            2 => array("pipe", "w")  // stderr
-        );
-
-        $this->process = proc_open($cmd, $descriptorspec, $this->pipes);
-
-        if (is_resource($this->process)) {
-            stream_set_blocking($this->pipes[1], 0);
-            stream_set_blocking($this->pipes[2], 0);
-            
-            // Wait for initial prompt
-            $output = $this->waitPrompt(['>', '#'], 8);
-            if ($output && (strpos($output, '>') !== false || strpos($output, '#') !== false)) {
-                $this->last_output .= $output;
-                
-                // If in user mode, try enable
-                if (strpos($output, '>') !== false) {
-                    $this->exec("enable");
-                }
-                return true;
-            } else {
-                // Check stderr for clues
-                $error = stream_get_contents($this->pipes[2]);
-                $this->lastError = "SSH Failed: " . ($error ?: "Timeout or unknown error.");
-            }
-        } else {
-            $this->lastError = "Could not start sshpass process. Is sshpass installed?";
+        if (!class_exists('\phpseclib\Net\SSH2')) {
+            $this->lastError = "phpseclib tidak terinstall atau autoloader gagal.";
+            return false;
         }
-        return false;
+
+        $this->process = new SSH2($this->host, $this->port, $this->timeout);
+        
+        if (!$this->process->login($this->user, $this->pass)) {
+            $this->lastError = "SSH Login Failed: Kredensial salah atau OLT menolak.";
+            return false;
+        }
+
+        // TTY Request biasanya tidak diwajibkan oleh phpseclib, 
+        // tapi jika ZTE butuh PTY, kita bisa memintanya (sebagian besar jalan tanpa ini).
+        // $this->process->enablePTY(); 
+        
+        $output = $this->process->read('/[>#]/', SSH2::READ_REGEX);
+        $this->last_output .= $output;
+
+        if ($output && strpos($output, '>') !== false) {
+            $this->exec("enable");
+        }
+        return true;
     }
 
     private function connectTelnet() {
@@ -124,8 +122,8 @@ class ZTE_OLT {
     public function exec($cmd) {
         $this->last_output = "";
         if ($this->protocol === 'ssh') {
-            fwrite($this->pipes[0], $cmd . "\r\n");
-            $out = $this->waitPrompt(['#', '>', '(config)'], 5);
+            $this->process->write($cmd . "\n");
+            $out = $this->process->read('/[>#]|\(config\)/', SSH2::READ_REGEX);
             $this->last_output = $out;
             return $out;
         } else {
