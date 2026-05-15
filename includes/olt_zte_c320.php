@@ -79,17 +79,19 @@ class ZTE_OLT {
             return false;
         }
 
-        stream_set_timeout($this->socket, 3);
+        stream_set_blocking($this->socket, 0);
         
-        // Pancing dengan Enter agar muncul prompt
+        // Kirim Negosiasi Telnet (IAC WILL ECHO, IAC WILL SUPPRESS GO AHEAD)
+        // Beberapa ZTE butuh ini agar mau bicara
+        fwrite($this->socket, "\xFF\xFB\x01\xFF\xFB\x03\xFF\xFD\x01\xFF\xFD\x03");
+        usleep(500000);
         fwrite($this->socket, "\r\n");
         
         // Wait for Username or Login prompt
-        $out = $this->waitPrompt(['Username:', 'login:', 'User Name:', 'Login:'], 10);
+        $out = $this->waitPrompt(['Username:', 'login:', 'User Name:', 'Login:'], 15);
         if (!$out) {
             $this->lastError = "Telnet Login Timeout: Did not see Username prompt.";
-            // Simpan log untuk debug
-            @file_put_contents($logFile, "[" . date('Y-m-d H:i:s') . "] DEBUG: Received before timeout: " . bin2hex($this->last_output) . " | Plain: " . $this->last_output . "\n", FILE_APPEND);
+            @file_put_contents($logFile, "[" . date('Y-m-d H:i:s') . "] DEBUG: Received Hex: " . bin2hex($this->last_output) . "\n", FILE_APPEND);
             return false;
         }
         fwrite($this->socket, $this->user . "\r\n");
