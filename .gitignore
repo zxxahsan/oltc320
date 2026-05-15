@@ -1,5 +1,21 @@
-
+# Gembok System Git Ignore
+# Sensitive configurations
 includes/config.php
-logs/*.log
-/tmp/
+includes/installed.lock
 
+# Logs
+logs/*.log
+logs/*.htaccess
+api/debug_traffic_log.txt
+
+# Uploads
+uploads/
+assets/img/customers/
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Temporary migration files
+migrate_olt_tables.php
+migrate_olt.php
