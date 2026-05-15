@@ -39,7 +39,7 @@ if ($action === 'test_connection') {
 
     $client = new ZTE_OLT($olt['host'], $olt['username'], $olt['password'], $olt['port'], $olt['protocol'] ?? 'ssh');
     if ($client->connect()) {
-        $unconfigured = $client->getUnconfiguredOnus();
+        $unconfigured = $client->getUnconfiguredOnu();
         $found = null;
         
         foreach ($unconfigured as $onu) {
@@ -50,26 +50,13 @@ if ($action === 'test_connection') {
         }
 
         if ($found) {
-            // Also suggest next available ONU ID for this port
-            $output = $client->exec("show gpon onu state gpon-olt_{$found['port']}");
-            $lines = explode("\n", $output);
-            $used_ids = [];
-            foreach ($lines as $line) {
-                if (preg_match('/^(\d+)\s+/', trim($line), $m)) {
-                    $used_ids[] = (int)$m[1];
-                }
-            }
-            
-            $next_id = 1;
-            while (in_array($next_id, $used_ids)) $next_id++;
-            
-            $found['next_id'] = $next_id;
+            $found['next_id'] = 1; // Default
             echo json_encode(['success' => true, 'data' => $found]);
         } else {
             echo json_encode(['success' => false, 'message' => 'ONU dengan SN tersebut tidak ditemukan di daftar Unconfigured.']);
         }
     } else {
-        echo json_encode(['success' => false, 'message' => 'Gagal konek ke OLT.']);
+        echo json_encode(['success' => false, 'message' => $client->getLastError()]);
     }
 } elseif ($action === 'sync_profiles') {
     require_once '../includes/olt_zte_c320.php';
@@ -97,7 +84,7 @@ if ($action === 'test_connection') {
         
         echo json_encode(['success' => true, 'message' => 'Profil berhasil disinkronisasi.', 'vlans' => $vlans, 'tconts' => $tconts]);
     } else {
-        echo json_encode(['success' => false, 'message' => 'Gagal konek ke OLT.']);
+        echo json_encode(['success' => false, 'message' => $client->getLastError()]);
     }
 } elseif ($action === 'get_cached_profiles') {
     $olt_id = $_GET['olt_id'];
