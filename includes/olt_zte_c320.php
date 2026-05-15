@@ -71,26 +71,34 @@ class ZTE_OLT {
     }
 
     private function connectTelnet() {
-        $this->socket = fsockopen($this->host, $this->port, $errno, $errstr, $this->timeout);
+        $this->socket = @fsockopen($this->host, $this->port, $errno, $errstr, $this->timeout);
         if (!$this->socket) {
             $this->lastError = "Telnet Failed: $errstr ($errno)";
             return false;
         }
 
-        stream_set_timeout($this->socket, 2);
+        stream_set_timeout($this->socket, 3);
         
-        $this->waitPrompt("Username:");
+        // Wait for Username or Login prompt
+        if (!$this->waitPrompt(['Username:', 'login:', 'User Name:'], 10)) {
+            $this->lastError = "Telnet Login Timeout: Did not see Username prompt.";
+            return false;
+        }
         fwrite($this->socket, $this->user . "\r\n");
-        $this->waitPrompt("Password:");
+        
+        if (!$this->waitPrompt(['Password:', 'password:'], 5)) {
+            $this->lastError = "Telnet Login Timeout: Did not see Password prompt.";
+            return false;
+        }
         fwrite($this->socket, $this->pass . "\r\n");
         
-        $out = $this->waitPrompt(['>', '#']);
+        $out = $this->waitPrompt(['>', '#'], 5);
         if ($out) {
             if (strpos($out, '>') !== false) $this->exec("enable");
             return true;
         }
         
-        $this->lastError = "Telnet Login Timeout";
+        $this->lastError = "Telnet Login Timeout: Login failed or prompt not found.";
         return false;
     }
 
