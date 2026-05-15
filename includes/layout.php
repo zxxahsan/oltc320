@@ -1079,7 +1079,7 @@ if (isset($_GET['switch_router'])) {
                     </a>
                 </div>
 
-                <a href="<?php echo APP_URL; ?>/admin/olt_provision.php"
+                <a href="<?php echo APP_URL; ?>/admin/olt-provisioning.php"
                     class="menu-item <?php echo (strpos(basename($_SERVER['PHP_SELF']), 'olt') !== false) ? 'active' : ''; ?>">
                     <i class="fas fa-microchip"></i>
                     <span>Management OLT</span>
