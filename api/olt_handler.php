@@ -144,4 +144,27 @@ if ($action === 'test_connection') {
     } else {
         echo json_encode(['success' => false, 'message' => 'Gagal konek ke OLT.']);
     }
+} elseif ($action === 'delete_onu') {
+    require_once '../includes/olt_zte_c320.php';
+    $olt_id = $_GET['olt_id'];
+    $port = $_GET['port'];
+    $onu_id = $_GET['onu_id'];
+    $olt = getOlt($olt_id);
+    
+    if (!$olt) {
+        echo json_encode(['success' => false, 'message' => 'OLT tidak ditemukan.']);
+        exit;
+    }
+
+    $client = new ZTE_OLT($olt['host'], $olt['username'], $olt['password'], $olt['telnet_port']);
+    if ($client->connect()) {
+        $logs = $client->deleteOnu($port, $onu_id);
+        
+        // Update log status in DB if exists
+        query("UPDATE olt_provisioning_logs SET status = 'failed', output = JSON_ARRAY_APPEND(output, '$', 'CLEANED UP') WHERE olt_id = ? AND gpon_port = ? AND onu_index = ? ORDER BY created_at DESC LIMIT 1", [$olt_id, $port, $onu_id]);
+
+        echo json_encode(['success' => true, 'message' => 'ONU berhasil dihapus/dibersihkan.', 'logs' => $logs]);
+    } else {
+        echo json_encode(['success' => false, 'message' => 'Gagal konek ke OLT.']);
+    }
 }

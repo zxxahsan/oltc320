@@ -228,9 +228,16 @@ ob_start();
                         <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 10px; border-left: 3px solid <?php echo $l['status'] === 'success' ? 'var(--neon-green)' : 'var(--neon-red)'; ?>;">
                             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 5px;">
                                 <span style="font-weight: bold; font-size: 0.9rem;"><?php echo htmlspecialchars($l['onu_sn']); ?></span>
-                                <span class="status-badge" style="background: <?php echo $l['status'] === 'success' ? 'rgba(0, 255, 136, 0.1)' : 'rgba(255, 71, 87, 0.1)'; ?>; color: <?php echo $l['status'] === 'success' ? 'var(--neon-green)' : 'var(--neon-red)'; ?>;">
-                                    <?php echo strtoupper($l['status']); ?>
-                                </span>
+                                <div style="display: flex; gap: 5px; align-items: center;">
+                                    <span class="status-badge" style="background: <?php echo $l['status'] === 'success' ? 'rgba(0, 255, 136, 0.1)' : 'rgba(255, 71, 87, 0.1)'; ?>; color: <?php echo $l['status'] === 'success' ? 'var(--neon-green)' : 'var(--neon-red)'; ?>;">
+                                        <?php echo strtoupper($l['status']); ?>
+                                    </span>
+                                    <?php if ($l['status'] === 'success'): ?>
+                                        <button onclick="deleteOnuFromHistory(<?php echo htmlspecialchars(json_encode($l)); ?>)" class="btn btn-danger btn-sm" style="padding: 2px 6px; font-size: 0.7rem;" title="Hapus Config dari OLT">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    <?php endif; ?>
+                                </div>
                             </div>
                             <div style="font-size: 0.75rem; color: var(--text-muted);">
                                 <?php echo htmlspecialchars($l['olt_name']); ?> | Port <?php echo htmlspecialchars($l['gpon_port']); ?>:<?php echo $l['onu_index']; ?>
@@ -411,6 +418,35 @@ ob_start();
             alert('Terjadi kesalahan koneksi.');
         });
     };
+
+    function deleteOnuFromHistory(log) {
+        if (!confirm(`Apakah Anda yakin ingin MENGHAPUS konfigurasi ONU ${log.onu_sn} dari OLT? Tindakan ini tidak bisa dibatalkan.`)) return;
+
+        const terminal = document.getElementById('terminal');
+        const container = document.getElementById('terminalContainer');
+        container.style.display = 'block';
+        terminal.innerHTML = `<div class="terminal-line" style="color:var(--neon-red)">Initiating Clean Up for ONU ${log.onu_id} on Port ${log.gpon_port}...</div>`;
+
+        fetch(`../api/olt_handler.php?action=delete_onu&olt_id=${log.olt_id}&port=${log.gpon_port}&onu_id=${log.onu_index}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    terminal.innerHTML = '';
+                    data.logs.forEach(l => {
+                        terminal.innerHTML += `<div class="terminal-line"><span class="terminal-cmd">> ${l.command}</span></div>`;
+                        terminal.innerHTML += `<div class="terminal-line"><span class="terminal-res">${l.response.replace(/\n/g, '<br>')}</span></div>`;
+                    });
+                    terminal.innerHTML += '<div class="terminal-line" style="color:var(--neon-green); font-weight:bold; margin-top:10px;">>>> SUCCESS: ONU Berhasil dihapus dari OLT.</div>';
+                    alert('ONU Berhasil dihapus!');
+                    location.reload();
+                } else {
+                    alert('Gagal menghapus: ' + data.message);
+                }
+            })
+            .catch(err => {
+                alert('Terjadi kesalahan koneksi.');
+            });
+    }
 
     function clearTerminal() {
         document.getElementById('terminal').innerHTML = '<div class="terminal-line">Waiting for commands...</div>';

@@ -175,6 +175,26 @@ class ZTE_OLT {
         return $logs;
     }
 
+    public function deleteOnu($port, $id) {
+        $cmds = [
+            "conf t",
+            "interface gpon-olt_$port",
+            "no onu $id",
+            "exit",
+            "end",
+            "write"
+        ];
+        
+        $logs = [];
+        foreach ($cmds as $cmd) {
+            $logs[] = [
+                'command' => $cmd,
+                'response' => $this->exec($cmd)
+            ];
+        }
+        return $logs;
+    }
+
     private function send($data) {
         fputs($this->socket, $data . "\r\n");
     }
