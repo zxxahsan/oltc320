@@ -1079,30 +1079,11 @@ if (isset($_GET['switch_router'])) {
                     </a>
                 </div>
 
-                <div class="menu-item <?php echo (strpos(basename($_SERVER['PHP_SELF']), 'olt') !== false) ? 'active' : ''; ?>"
-                    onclick="toggleSubmenu(this)">
+                <a href="<?php echo APP_URL; ?>/admin/olt_provision.php"
+                    class="menu-item <?php echo (strpos(basename($_SERVER['PHP_SELF']), 'olt') !== false) ? 'active' : ''; ?>">
                     <i class="fas fa-microchip"></i>
                     <span>Management OLT</span>
-                    <i class="fas fa-chevron-down" style="margin-left: auto; font-size: 0.7rem;"></i>
-                </div>
-                <div class="submenu"
-                    style="<?php echo (strpos(basename($_SERVER['PHP_SELF']), 'olt') !== false) ? 'display: block;' : 'display: none;'; ?> background: var(--bg-submenu);">
-                    <a href="<?php echo APP_URL; ?>/admin/olt_settings.php"
-                        class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'olt_settings.php' ? 'active' : ''; ?>"
-                        style="padding-left: 45px; font-size: 0.9rem;">
-                        <i class="fas fa-cog"></i> <span>OLT Settings</span>
-                    </a>
-                    <a href="<?php echo APP_URL; ?>/admin/olt_provision.php"
-                        class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'olt_provision.php' ? 'active' : ''; ?>"
-                        style="padding-left: 45px; font-size: 0.9rem;">
-                        <i class="fas fa-rocket"></i> <span>ONU Provisioning</span>
-                    </a>
-                    <a href="<?php echo APP_URL; ?>/admin/olt_dashboard.php"
-                        class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'olt_dashboard.php' ? 'active' : ''; ?>"
-                        style="padding-left: 45px; font-size: 0.9rem;">
-                        <i class="fas fa-chart-bar"></i> <span>Monitoring Dashboard</span>
-                    </a>
-                </div>
+                </a>
 
                 <div class="menu-item <?php echo strpos(basename($_SERVER['PHP_SELF']), 'hotspot') !== false ? 'active' : ''; ?>"
                     onclick="toggleSubmenu(this)">
