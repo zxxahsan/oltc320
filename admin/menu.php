@@ -120,7 +120,7 @@ ob_start();
                     
                     <h5 style="width: 100%; color: var(--text-secondary); margin: 10px 0; font-size: 0.9rem;">OLT Management</h5>
 
-                    <a href="olt_provision.php" class="menu-grid-item" style="border-color: #00ff41;">
+                    <a href="olt-provisioning.php" class="menu-grid-item" style="border-color: #00ff41;">
                         <i class="fas fa-rocket" style="color: #00ff41;"></i>
                         <span>Provisioning ONU</span>
                     </a>

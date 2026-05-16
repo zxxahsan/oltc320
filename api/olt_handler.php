@@ -109,27 +109,31 @@ if ($action === 'test_connection') {
 
     $client = new ZTE_OLT($olt['host'], $olt['username'], $olt['password'], $olt['port'], $olt['protocol'] ?? 'ssh');
     if ($client->connect()) {
-        $logs = $client->provision($data);
-        
-        // Log to database
-        logOltProvisioning([
-            'olt_id' => $olt_id,
-            'customer_id' => $data['customer_id'] ?? null,
-            'onu_sn' => $data['sn'],
-            'onu_type' => $data['onu_type'] ?? 'ALL',
-            'gpon_port' => $data['port'],
-            'onu_index' => $data['onu_id'],
-            'onu_name' => $data['name'],
-            'provisioning_mode' => $data['mode'],
-            'vlan_id' => $data['vlan'],
-            'pppoe_username' => $data['pppoe_user'] ?? null,
-            'status' => 'success',
-            'output' => json_encode($logs)
-        ]);
+        try {
+            $logs = $client->provision($data);
+            
+            // Log to database
+            logOltProvisioning([
+                'olt_id' => $olt_id,
+                'customer_id' => $data['customer_id'] ?? null,
+                'onu_sn' => $data['sn'],
+                'onu_type' => $data['onu_type'] ?? 'ALL',
+                'gpon_port' => $data['port'],
+                'onu_index' => $data['onu_id'],
+                'onu_name' => $data['name'],
+                'provisioning_mode' => $data['mode'],
+                'vlan_id' => $data['vlan'],
+                'pppoe_username' => $data['pppoe_user'] ?? null,
+                'status' => 'success',
+                'output' => json_encode($logs)
+            ]);
 
-        echo json_encode(['success' => true, 'message' => 'Provisioning selesai.', 'logs' => $logs]);
+            echo json_encode(['success' => true, 'message' => 'Provisioning selesai.', 'logs' => $logs]);
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => 'Gagal saat provisioning: ' . $e->getMessage()]);
+        }
     } else {
-        echo json_encode(['success' => false, 'message' => 'Gagal konek ke OLT.']);
+        echo json_encode(['success' => false, 'message' => 'Gagal konek ke OLT: ' . $client->getLastError()]);
     }
 } elseif ($action === 'delete_onu') {
     require_once '../includes/olt_zte_c320.php';

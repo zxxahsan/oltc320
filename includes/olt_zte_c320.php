@@ -55,12 +55,12 @@ class ZTE_OLT {
             return false;
         }
 
-        // TTY Request biasanya tidak diwajibkan oleh phpseclib, 
-        // tapi jika ZTE butuh PTY, kita bisa memintanya (sebagian besar jalan tanpa ini).
-        // $this->process->enablePTY(); 
+        // Enable PTY for better terminal response from ZTE OLT
+        $this->process->enablePTY();
         
         $output = $this->process->read('/[>#]/', SSH2::READ_REGEX);
         $this->last_output .= $output;
+        @file_put_contents(__DIR__ . '/../logs/telnet_debug.log', "[" . date('Y-m-d H:i:s') . "] SSH_INIT: " . $output . "\n", FILE_APPEND);
 
         if ($output && strpos($output, '>') !== false) {
             $this->exec("enable");
@@ -130,6 +130,7 @@ class ZTE_OLT {
             @socket_write($this->socket, $cmd . "\r\n", strlen($cmd) + 2);
             $out = $this->waitPrompt(['#', '>', '(config)']);
             $this->last_output = $out;
+            @file_put_contents(__DIR__ . '/../logs/telnet_debug.log', "[" . date('Y-m-d H:i:s') . "] TELNET_EXEC: $cmd\nRESP: $out\n", FILE_APPEND);
             return $out;
         }
     }
@@ -192,7 +193,8 @@ class ZTE_OLT {
         $port = $data['port'];
         $sn = $data['sn'];
         $id = $data['onu_id'];
-        $name = escapeshellarg($data['name']);
+        // Remove escapeshellarg, just sanitize spaces for ZTE CLI compatibility
+        $name = str_replace(' ', '_', $data['name']); 
         $vlan = $data['vlan'];
         
         $cmds = [
@@ -218,10 +220,13 @@ class ZTE_OLT {
         $cmds[] = "write";
 
         foreach ($cmds as $cmd) {
+            $res = $this->exec($cmd);
             $logs[] = [
                 'command' => $cmd,
-                'response' => $this->exec($cmd)
+                'response' => $res
             ];
+            // Tiny delay for OLT processing
+            usleep(200000); 
         }
 
         return $logs;
