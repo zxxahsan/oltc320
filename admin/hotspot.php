@@ -521,7 +521,11 @@ document.getElementById('searchHotspotUser').addEventListener('input', function(
     
     rows.forEach(row => {
         const text = row.textContent.toLowerCase();
-        row.style.display = text.includes(search) ? '' : 'none';
+        if (text.includes(search)) {
+            row.style.setProperty('display', '', '');
+        } else {
+            row.style.setProperty('display', 'none', 'important');
+        }
     });
 });
 
@@ -531,7 +535,11 @@ document.getElementById('searchHotspotProfile').addEventListener('input', functi
     
     rows.forEach(row => {
         const text = row.textContent.toLowerCase();
-        row.style.display = text.includes(search) ? '' : 'none';
+        if (text.includes(search)) {
+            row.style.setProperty('display', '', '');
+        } else {
+            row.style.setProperty('display', 'none', 'important');
+        }
     });
 });
 

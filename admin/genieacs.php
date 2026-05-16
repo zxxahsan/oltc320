@@ -611,7 +611,11 @@ document.getElementById('searchDevice').addEventListener('input', function(e) {
 
     rows.forEach(row => {
         const text = row.innerText.toLowerCase();
-        row.style.display = text.includes(search) ? '' : 'none';
+        if (text.includes(search)) {
+            row.style.setProperty('display', '', '');
+        } else {
+            row.style.setProperty('display', 'none', 'important');
+        }
     });
 });
 </script>
