@@ -351,19 +351,40 @@ $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $offset = ($page - 1) * $limit;
 
 // Filter and Search
-$search = isset($_GET['search']) ? sanitize($_GET['search']) : '';
+$search = isset($_GET['search']) ? trim(sanitize($_GET['search'])) : '';
 $whereClause = "1=1";
 $params = [];
 
 if (!empty($search)) {
-    $whereClause .= " AND (name LIKE ? OR phone LIKE ? OR pppoe_username LIKE ?)";
-    $params[] = "%$search%";
-    $params[] = "%$search%";
-    $params[] = "%$search%";
+    // Pisahkan kata-kata untuk pencarian nama parsial
+    $searchWords = preg_split('/\s+/', $search);
+    $nameClauses = [];
+    foreach ($searchWords as $word) {
+        $nameClauses[] = "c.name LIKE ?";
+        $params[] = "%$word%";
+    }
+    $nameCondition = implode(' AND ', $nameClauses);
+
+    $whereClause .= " AND (
+        c.name LIKE ?
+        OR ($nameCondition)
+        OR c.phone LIKE ?
+        OR REPLACE(c.phone, '-', '') LIKE ?
+        OR REPLACE(c.phone, ' ', '') LIKE ?
+        OR c.pppoe_username LIKE ?
+        OR c.address LIKE ?
+    )";
+    $params[] = "%$search%";        // full match name
+    // (nameClauses params already pushed above)
+    $params[] = "%$search%";        // phone
+    $params[] = "%" . preg_replace('/[\s\-]/', '', $search) . "%"; // phone tanpa strip/spasi
+    $params[] = "%" . preg_replace('/[\s\-]/', '', $search) . "%"; // phone tanpa spasi
+    $params[] = "%$search%";        // pppoe_username
+    $params[] = "%$search%";        // address
 }
 
 // Total records for pagination
-$totalRecords = fetchOne("SELECT COUNT(*) as count FROM customers WHERE $whereClause", $params)['count'];
+$totalRecords = fetchOne("SELECT COUNT(*) as count FROM customers c WHERE $whereClause", $params)['count'];
 $totalPages = ceil($totalRecords / $limit);
 
 // Fetch customers with tagging status
@@ -732,8 +753,11 @@ $stat_pending_acs = fetchOne("SELECT COUNT(*) as count FROM task_queue WHERE tas
                 </button>
             </form>
             <form method="GET" style="margin:0; display:flex;">
-                <input type="text" name="search" class="form-control" placeholder="Cari pelanggan..." value="<?php echo htmlspecialchars($search); ?>" style="width: 250px;">
-                <button type="submit" class="btn btn-primary btn-sm" style="margin-left: 5px; border-radius: 8px;"><i class="fas fa-search"></i></button>
+                <input type="text" name="search" class="form-control" placeholder="Cari nama, telepon, username..." value="<?php echo htmlspecialchars($search); ?>" style="width: 280px;">
+                <button type="submit" class="btn btn-primary btn-sm" style="margin-left: 5px; border-radius: 8px;"><i class="fas fa-search"></i> Cari</button>
+                <?php if (!empty($search)): ?>
+                <a href="?" class="btn btn-secondary btn-sm" style="margin-left: 5px; border-radius: 8px;"><i class="fas fa-times"></i></a>
+                <?php endif; ?>
             </form>
         </div>
     </div>
