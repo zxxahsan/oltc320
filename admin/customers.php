@@ -731,7 +731,10 @@ $stat_pending_acs = fetchOne("SELECT COUNT(*) as count FROM task_queue WHERE tas
                     <i class="fas fa-sync"></i> Sync MikroTik
                 </button>
             </form>
-            <input type="text" id="searchCustomer" class="form-control" placeholder="Cari pelanggan..." style="width: 250px;">
+            <form method="GET" style="margin:0; display:flex;">
+                <input type="text" name="search" class="form-control" placeholder="Cari pelanggan..." value="<?php echo htmlspecialchars($search); ?>" style="width: 250px;">
+                <button type="submit" class="btn btn-primary btn-sm" style="margin-left: 5px; border-radius: 8px;"><i class="fas fa-search"></i></button>
+            </form>
         </div>
     </div>
     
